@@ -33,6 +33,7 @@ Scoped workspaces with their own CLAUDE.md — work from these directories for f
 - `analysis/slow_wave/` — slow wave sleep detection from CAP
 - `analysis/staging/` — sleep phase classification via projections + ML
 - `analysis/projections/` — PCA, UMAP, t-SNE, DMD, delay embedding
+- `analysis/thorax/` — CAP→thorax effort prediction (concluded: no direct coupling)
 
 ## Workflow rules
 - **Log everything as it happens:** code changes → `CHANGELOG.md`, analysis findings → `notebooks/ANALYSIS_LOG.md`. See `LOGGING_POLICY.md` for format.
