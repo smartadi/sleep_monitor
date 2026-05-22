@@ -4,6 +4,70 @@ Each entry records the question asked, code written, parameters used, plots gene
 
 ---
 
+## 2026-05-22 — Cross-session harmonic characterization (Stage 2)
+
+**Question:** Does the N3-elevated harmonic energy ratio (observed in S1N1) generalise across all 12 sessions and 6 subjects?
+
+**Script:** `analysis/slow_wave/run_harmonic_allsessions.py`
+
+### Parameters (same as Stage 1)
+- Window: 30s, step: 30s, f0 range: [0.1, 0.8] Hz, max harmonics: 6
+- Welch segment: 8s, harmonic tolerance: ±0.05 Hz, min prominence: 0.1×max
+- Motion gating: 3 MAD
+
+### Dataset
+- 9319 total windows across 12 sessions, 8156 valid (non-motion-masked)
+- Saved to `artifacts/harmonics/allsessions.parquet`
+
+### Pooled harmonic_energy_ratio by stage
+
+| Stage | n | Mean | Median |
+|-------|---|------|--------|
+| Wake | 1065 | 0.518 | 0.519 |
+| N1 | 1300 | 0.427 | 0.377 |
+| N2 | 4907 | 0.502 | 0.509 |
+| N3 | 682 | 0.494 | 0.446 |
+| REM | 202 | 0.423 | 0.414 |
+
+### Statistical tests
+
+**Kruskal-Wallis (5-stage):** All four features significant (p < 1e-4), confirming stage-dependent variation exists. harmonic_energy_ratio H=113.5 (p=1.3e-23), hps_score H=95.0 (p=1.1e-19).
+
+**Mann-Whitney U (N3 vs others, Bonferroni-corrected):** N3 is significantly *lower* than N1 for HER (r_rb = −0.14, p < 1e-6) and significantly lower than REM (p = 0.008). N3 vs Wake and N3 vs N2 are non-significant. This **reverses** the Stage 1 single-session finding.
+
+### Per-session breakdown (median HER)
+
+The heatmap reveals strong **subject dependence**:
+- **Subjects 1-2 (S1N1–S2N2):** N3 is the HIGHEST stage (0.70–0.83). Replicates Stage 1 finding.
+- **Subjects 3-4 (S3N1–S4N2):** N3 is the LOWEST stage (0.13–0.40). Complete reversal.
+- **Subjects 5-6 (S5N1–S6N2):** N3 is moderate (0.31–0.66), no clear pattern.
+
+N3 median > N2 median in 7/12 sessions, but not consistently across subjects.
+
+### Dominant channel
+CH dominates in all 12 sessions (48–89% of windows, 70% overall). Consistent finding.
+
+### Plots generated
+- `notebooks/plots/harmonics/fullnight_grid_allsessions.png` — 4×3 grid of HER traces with stage shading
+- `notebooks/plots/harmonics/stage_boxplots_allsessions.png` — pooled feature boxplots by stage
+- `notebooks/plots/harmonics/heatmap_her_session_stage.png` — session × stage median HER heatmap
+- `notebooks/plots/harmonics/dominant_channel_allsessions.png` — CH/CLE/CRE % by session
+- `notebooks/plots/harmonics/n3_effectsize_allsessions.png` — per-session N3-vs-rest rank-biserial effect size
+
+### Key findings
+1. **Harmonic energy ratio does NOT universally mark N3.** The S1N1 finding was subject-specific (Subjects 1-2), not a general biomarker. Subjects 3-4 show the opposite pattern.
+2. **Subject-level coupling dominates stage-level variation.** The absolute HER level varies more between subjects (0.13–0.83) than between stages within a subject.
+3. **Stage differences ARE statistically significant** (Kruskal-Wallis p < 1e-23) but the *direction* is inconsistent — some subjects have N3-high, others N3-low harmonic structure.
+4. **CH remains the dominant channel** across all subjects (70% overall), confirming Stage 1.
+5. **HPS score and cepstral prominence** show similar subject-dependent patterns — no single harmonic feature is a universal N3 marker in raw form.
+
+### Implications for Stage 3-4
+- Raw harmonic features cannot be used as a universal N3 detector without per-subject normalisation.
+- **Next approach:** per-subject z-scoring or rank-normalisation of harmonic features before stage classification. The *relative* change within a night may still discriminate, even if the absolute level is subject-dependent.
+- Alternatively, combine harmonic features with band power ratios (which may have complementary subject dependencies) in a multivariate classifier.
+
+---
+
 ## 2026-05-22 — Harmonic structure detection module (Stage 1)
 
 **Question:** Can harmonic ladders (fundamental + integer multiples) in CAP spectrograms discriminate sleep stages, particularly N3/SWS?

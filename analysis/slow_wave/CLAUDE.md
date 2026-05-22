@@ -8,6 +8,7 @@ Detect slow wave sleep (N3/SWS) signatures in CAP temple sensors without EEG.
 - SWS events detectable from CAP alone via band power ratios
 - Harmonics in spectrogram mark SWS epochs
 - **Harmonic ladder observation:** windows with a dominant fundamental (~0.5 Hz) plus integer harmonics (1, 2, 3 Hz) appear intermittently — likely non-sinusoidal respiratory waveform. Harmonic count and strength may encode sleep stage or respiratory effort.
+- **Stage 2 update (cross-session):** Harmonic energy ratio does NOT universally mark N3. Direction is subject-dependent (S1/S2: N3-high, S3/S4: N3-low). Raw HER is not a universal N3 biomarker — needs per-subject normalisation or multivariate combination.
 
 ## Frequency bands
 - **Infra-slow:** <0.5 Hz (slow oscillations, if detectable through skull)
