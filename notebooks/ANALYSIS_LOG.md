@@ -4,6 +4,44 @@ Each entry records the question asked, code written, parameters used, plots gene
 
 ---
 
+## 2026-05-22 — Spectral peak tracker with auto-detection and ridge tracking
+
+**Question:** What persistent spectral peaks exist in CAP signals across the night, without assuming integer-harmonic structure?
+
+**Script:** `analysis/slow_wave/run_peak_tracker.py`
+
+### Approach
+Unlike the harmonic detector (Stages 1-2) which assumed integer multiples of f0, this finds ALL significant spectral peaks per window via `scipy.signal.find_peaks` on the Welch PSD, then links them across time into "ridges" (persistent frequency tracks) using nearest-neighbor matching within a tolerance.
+
+### Parameters
+- Window: 30s, step: 30s, frequency range: 0-5 Hz
+- Welch segment: 10s, peak prominence threshold: 15% of window-max PSD
+- Minimum peak distance: 0.08 Hz
+- Ridge linking tolerance: 0.08 Hz, minimum ridge length: 4 windows
+
+### Output per session (12 figures)
+Each figure has 5 rows:
+1. Hypnogram (PSG ground truth)
+2. CH spectrogram + auto-detected peaks (cyan dots) + ridge lines
+3. CLE spectrogram + peaks + ridges
+4. CRE spectrogram + peaks + ridges
+5. All persistent ridges overlaid on stage-shaded background, colour-coded by channel
+
+### Typical ridge counts per session
+- CH: 33-74 ridges, CLE: 24-84 ridges, CRE: 13-62 ridges
+- Most ridges cluster in 0-1.5 Hz (respiratory fundamental + first harmonic)
+
+### Plots generated
+- `notebooks/plots/harmonics/spectrogram_peaks_s{X}n{Y}.png` (12 files)
+
+### Observations
+- S1N1, S2N1, S6N2: clear harmonic ladder visible in CH spectrogram (bright bands at 0.5, 1.0, 1.5, 2.0 Hz) that appears/disappears — auto-detected ridges track these well
+- S3, S4, S5: more diffuse spectral energy, fewer persistent ridges — consistent with Stage 2 finding that harmonic structure is subject-dependent
+- Ridge persistence correlates visually with stable sleep epochs (N2/N3) rather than transitions
+- CH consistently shows cleanest spectral structure across subjects
+
+---
+
 ## 2026-05-22 — Cross-session harmonic characterization (Stage 2)
 
 **Question:** Does the N3-elevated harmonic energy ratio (observed in S1N1) generalise across all 12 sessions and 6 subjects?
