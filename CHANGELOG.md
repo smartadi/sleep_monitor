@@ -14,6 +14,7 @@ Records all code changes to library modules, scripts, and notebooks.
   - `analysis/staging/CLAUDE.md` — sleep phase classification plan and feature spec
   - `analysis/projections/CLAUDE.md` — PCA, UMAP, t-SNE, DMD, delay embedding inventory
 - **Added** `analysis/README.md` — index of analysis workspaces
+- **Updated** `analysis/slow_wave/CLAUDE.md` — harmonic structure detection plan (HPS, cepstral, explicit f0+harmonics), 4-stage implementation, running trace spec
 
 ## 2026-05-14
 
