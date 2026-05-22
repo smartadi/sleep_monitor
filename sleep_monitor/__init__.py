@@ -73,6 +73,7 @@ from .rates_ml import (
     FUSION_FEATURE_COLS,
 )
 from .spectral import compute_band_power_ratios
+from .harmonics import detect_harmonics, detect_harmonics_multichannel
 from .staging import extract_epoch_psd, extract_epoch_features, get_feature_columns
 from .ground_truth import (
     GTResult, gt_heart_rate, gt_resp_rate, gt_sliding_rates,
@@ -159,6 +160,8 @@ __all__ = [
     'METHOD_COLS', 'QUALITY_COLS',
     # spectral
     'compute_band_power_ratios',
+    # harmonics
+    'detect_harmonics', 'detect_harmonics_multichannel',
     # staging
     'extract_epoch_psd', 'extract_epoch_features', 'get_feature_columns',
     # ground truth

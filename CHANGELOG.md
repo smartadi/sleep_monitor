@@ -6,6 +6,8 @@ Records all code changes to library modules, scripts, and notebooks.
 
 ## 2026-05-22
 
+- **Added** `sleep_monitor/harmonics.py` — harmonic structure detection module (3 methods: HPS, cepstral, explicit f0+harmonics). Sliding-window `detect_harmonics()` and `detect_harmonics_multichannel()` returning per-window DataFrame with f0, n_harmonics, harmonic_energy_ratio, cepstral_prominence, harmonic_decay_rate, dominant_channel
+- **Updated** `sleep_monitor/__init__.py` — registered `detect_harmonics`, `detect_harmonics_multichannel` in package exports
 - **Added** `CLAUDE.md` — lean root context file (project identity, data paths, package API, workflow rules)
 - **Added** `.claudeignore` — excludes artifacts, plots, notebooks, venv from context window
 - **Added** `analysis/` workspace structure with scoped CLAUDE.md per analysis area:

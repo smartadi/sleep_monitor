@@ -4,6 +4,52 @@ Each entry records the question asked, code written, parameters used, plots gene
 
 ---
 
+## 2026-05-22 — Harmonic structure detection module (Stage 1)
+
+**Question:** Can harmonic ladders (fundamental + integer multiples) in CAP spectrograms discriminate sleep stages, particularly N3/SWS?
+
+**Module:** `sleep_monitor/harmonics.py`
+**Methods implemented:** HPS (log-domain), Cepstral analysis, Explicit f0 + harmonic counting
+
+### Parameters
+- Window: 30s, step: 30s, f0 range: [0.1, 0.8] Hz, max harmonics: 6
+- Welch segment: 8s, harmonic tolerance: ±0.05 Hz, min prominence: 0.1×max
+- Motion gating: 3 MAD above median accelerometer RMS
+
+### Smoke test (synthetic signals)
+| Signal | energy_ratio | hps_score | cep_prominence | n_harmonics |
+|--------|-------------|-----------|----------------|-------------|
+| f0=0.4 + 2 harmonics | 0.601 | 41.5 | 18.6 | 2-3 |
+| Pure sinusoid f0=0.3 | 0.552 | 38.5 | 11.9 | 1 |
+| White noise | 0.008 | 0.5 | 6.6 | 0-1 |
+
+All three methods correctly discriminate harmonic from non-harmonic signals.
+
+### S1N1 real data results (954 windows, 143 motion-masked)
+
+**Dominant channel:** CH wins 88% of windows (713/811) — top-of-head cap sensor picks up strongest harmonics, likely due to stronger BCG coupling.
+
+**harmonic_energy_ratio by sleep stage (key finding):**
+
+| Stage | n | Mean | Median |
+|-------|---|------|--------|
+| N3 | 43 | 0.649 | 0.753 |
+| Wake | 171 | 0.604 | 0.663 |
+| N2 | 382 | 0.590 | 0.649 |
+| REM | 9 | 0.629 | 0.597 |
+| N1 | 205 | 0.483 | 0.414 |
+
+N3 has the highest harmonic energy ratio (median 0.753), well separated from N1 (0.414). This supports the hypothesis that non-sinusoidal respiratory waveform structure increases during deep sleep.
+
+**n_harmonics:** modest discrimination (N3 mean 1.81 vs N1 1.42).
+
+### Next steps (Stage 2)
+- Run across all 12 sessions to confirm N3 discrimination generalizes
+- Statistical testing (Kruskal-Wallis) for stage differences
+- Overlay harmonic traces on hypnograms
+
+---
+
 ## 2026-05-14 — CAP-only thorax respiratory effort prediction
 
 **Question:** Can CAP temple sensors predict thorax respiratory effort (thorax_resp_rms) without a thorax belt? Which features drive prediction — CAP signal coupling or motion/position?
