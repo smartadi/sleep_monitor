@@ -4,6 +4,17 @@ Records all code changes to library modules, scripts, and notebooks.
 
 ---
 
+## 2026-05-22
+
+- **Added** `CLAUDE.md` — lean root context file (project identity, data paths, package API, workflow rules)
+- **Added** `.claudeignore` — excludes artifacts, plots, notebooks, venv from context window
+- **Added** `analysis/` workspace structure with scoped CLAUDE.md per analysis area:
+  - `analysis/rates/CLAUDE.md` — rate estimation, k-biomarker, validation context
+  - `analysis/slow_wave/CLAUDE.md` — SWS detection hypotheses and approach
+  - `analysis/staging/CLAUDE.md` — sleep phase classification plan and feature spec
+  - `analysis/projections/CLAUDE.md` — PCA, UMAP, t-SNE, DMD, delay embedding inventory
+- **Added** `analysis/README.md` — index of analysis workspaces
+
 ## 2026-05-14
 
 - **Added** `scripts/thorax_residual_analysis.py` — motion-residualized thorax prediction (tests direct CAP→thorax coupling)
