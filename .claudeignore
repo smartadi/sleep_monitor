@@ -1,0 +1,24 @@
+# Large binary/data artifacts — never load into context
+artifacts/**/*.parquet
+artifacts/**/*.csv
+artifacts/**/*.npz
+artifacts/**/*.pkl
+artifacts/**/*.joblib
+artifacts/**/*.docx
+
+# Plot images
+notebooks/plots/**
+artifacts/plots/**
+
+# Jupyter notebook outputs (huge when serialized)
+*.ipynb
+
+# Worktrees (stale clone)
+.claude/worktrees/**
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+# Virtual environment
+.venv/
