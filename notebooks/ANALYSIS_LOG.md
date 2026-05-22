@@ -1,0 +1,1216 @@
+# Analysis Log
+
+Each entry records the question asked, code written, parameters used, plots generated, and key findings.
+
+---
+
+## 2026-05-14 — CAP-only thorax respiratory effort prediction
+
+**Question:** Can CAP temple sensors predict thorax respiratory effort (thorax_resp_rms) without a thorax belt? Which features drive prediction — CAP signal coupling or motion/position?
+
+**Scripts:** `scripts/thorax_predictor_caponly.py`, `scripts/_ablation_quick.py`
+**Artifacts:** `artifacts/thorax_caponly_epochs.parquet`, `artifacts/thorax_caponly_results.csv`
+**Plots:** `notebooks/plots/thorax_analysis/caponly_*.png` (17 files)
+
+### Feature engineering
+Enhanced epoch extraction: 52 per-epoch features (base CAP stats + spectral entropy/power ratios + resp/cardiac rates + CLE-CRE coherence/phase + position/time context) + 25 temporal (lags, rolling, deltas) = 77 total.
+
+### Model results (median R2 across 12 sessions)
+
+| Tier | Features | Within-session R2 | LOSO R2 |
+|------|----------|--------------------|---------|
+| T0-Ridge | 24 base | -0.543 | 0.189 |
+| T1-XGB-Base | 42 base+lags | 0.271 | 0.190 |
+| T2-XGB-Enh | 77 all | 0.281 | 0.368 |
+| T3-XGB-Rec | 77 + pseudo-lags | 0.201 | 0.254 |
+| Ref (w/ thorax lags) | 44 | 0.511 | 0.690 |
+
+### Feature group ablation
+
+| Group | N | LOSO R2 |
+|-------|---|---------|
+| CAP signal only | 92 | 0.118 |
+| Accel only | 4 | 0.279 |
+| Context only | 4 | 0.148 |
+| Accel+Context | 8 | 0.362 |
+
+### Key findings
+1. CAP-only best (Tier 2): LOSO R2=0.368, recovering ~53% of reference with thorax lags
+2. Feature importance dominated by epoch_frac (13%), cos_t (7%), roll_deg (6%), movement_rms (5%)
+3. **92 CAP signal features (LOSO R2=0.118) are outperformed by 4 accelerometer features (R2=0.279)**
+4. Prediction is driven by motion/position/time-of-night, not direct CAP→thorax signal coupling
+5. Recursive pseudo-lags hurt due to error accumulation
+6. Next: residualize motion to test motion-independent CAP→thorax coupling
+
+---
+
+## 2026-05-14 — Motion-residualized thorax prediction (direct coupling test)
+
+**Question:** After removing the shared motion confound, do CAP temple sensors have any direct predictive power on thorax respiratory effort?
+
+**Script:** `scripts/thorax_residual_analysis.py`
+**Artifacts:** `artifacts/thorax_residual_results.csv`
+**Plots:** `notebooks/plots/thorax_analysis/residual_*.png` (16 files)
+
+### Method
+Per-session Ridge regression: accel (4 features) → thorax_resp_rms. Replace thorax_resp_rms with residual. Same for all 44 CAP features. Then predict residual thorax from residual CAP using XGBoost.
+
+### Motion → thorax R2 per session
+Mean R2 = 0.333 (range 0.170–0.557). Motion/position explains ~33% of thorax variance.
+
+### Results on residualized data (median R2)
+
+| Model | Within-session | LOSO |
+|-------|----------------|------|
+| Ridge-Resid-Base | -0.601 | -0.053 |
+| XGB-Resid-Base | 0.045 | -0.029 |
+| XGB-Resid-All | 0.040 | 0.002 |
+| XGB-Orig-CAP-Only (ref) | 0.192 | 0.169 |
+
+### Key findings
+1. **After residualizing motion, CAP features have zero cross-subject predictive power on thorax effort (LOSO R2 ≈ 0)**
+2. The CAP→thorax R2=0.118 found in the ablation study was entirely motion-mediated
+3. Within-session R2 ~0.04 suggests minimal session-specific overfitting, not real signal
+4. Feature importance on residuals dominated by raw_mean (DC level / electrode coupling), not respiratory RMS or spectral features
+5. **Conclusion: temple capacitive sensors do not directly measure thorax respiratory effort. The apparent correlation was a confound from body motion/position affecting both signals.**
+
+---
+
+## 2026-04-30 — 3D Projection analysis: 12 CAP-only features, UMAP + t-SNE (S1N1)
+
+**Question:** Can 12 features derived solely from the CAP sensor (CLE-CRE differential) separate PSG sleep stages and apnea events in a 3D UMAP / t-SNE embedding?
+
+**Notebook:** `notebooks/10_projection_cap12.ipynb`
+**Plan:** `notebooks/PROJECTION_PLAN.md`
+**Previous:** `notebooks/09_projection_3d.ipynb` (40-feature + PCA baseline, kept as reference)
+
+### Feature set (12 CAP-only features from CLE-CRE, 60s window / 30s step)
+
+| # | Feature | Source |
+|---|---------|--------|
+| 1-4 | delta, theta, alpha, beta band power ratios | Welch PSD on CLE-CRE |
+| 5 | spectral_entropy | PSD Shannon entropy |
+| 6 | rms | RMS of CLE-CRE signal |
+| 7 | resp_rate | `rate_peaks_scaled_resp` / k |
+| 8 | resp_rate_std | std of resp rate in sub-windows |
+| 9 | card_rate | `rate_hilbert_scaled_cardiac` / k |
+| 10 | card_rate_std | std of cardiac rate in sub-windows |
+| 11 | acc_rms | accelerometer magnitude RMS |
+| 12-13 | resp_amp_cv, breath_interval_cv | amplitude and timing regularity |
+
+Labels: PSG sleep stages (5-class: Wake/N1/N2/N3/REM; 3-class: Wake/Light/Deep+REM), PSG Flow apnea events (Normal/Apnea/Hypopnea).
+
+### Apnea source change (project-wide)
+Switched from Effort files to **Flow files** for apnea event parsing:
+- `sleep_monitor/config.py`: expanded `APNEA_CODES` with Flow event types (obstructive/mixed/central apnea)
+- `sleep_monitor/loader.py`: `_parse_flow_file` replaces `_parse_effort_file`, glob pattern `Flow*.txt`, regex `.+` for multi-word event types, skip non-respiratory events
+- S1N1 Flow labels: 828 Normal, 112 Hypopnea, 13 Apnea (fewer than Effort-based: was 731/183/39)
+
+### Results — Baseline (StandardScaler only, no weighting)
+
+**Silhouette scores (UMAP n_neighbors=30):**
+
+| Classes | Score |
+|---------|------:|
+| 5-class | -0.137 |
+| 3-class | -0.112 |
+
+**UMAP sweep (n_neighbors):**
+| nn | 5-class sil |
+|----|----------:|
+| 10 | -0.148 |
+| 30 | -0.137 |
+| 50 | -0.126 |
+
+**t-SNE sweep (perplexity):**
+| perp | 5-class sil |
+|------|----------:|
+| 15 | -0.145 |
+| 30 | -0.127 |
+| 50 | -0.117 |
+
+Improvement over 40-feature+PCA baseline: +0.025 to +0.057 across all settings.
+
+### Results — KW-weighted variant (multiply StandardScaled features by normalized Kruskal-Wallis H-stat)
+
+**Silhouette scores (UMAP nn=30):**
+
+| Classes | Unweighted | KW-weighted |
+|---------|----------:|----------:|
+| 5-class | -0.137 | -0.150 |
+| 3-class | -0.112 | -0.111 |
+
+**Per-stage silhouette (UMAP nn=30, 5-class):**
+
+| Stage | Unweighted | KW-weighted | Δ |
+|-------|----------:|----------:|---:|
+| REM | — | — | +0.018 |
+| N3 | — | — | +0.020 |
+| N2 | — | — | -0.007 |
+
+KW weighting helped REM and N3 but hurt overall 5-class score. The weighting over-emphasizes motion/breathing irregularity features at the expense of spectral features needed for N2 separation.
+
+### Progression summary
+
+| Setup | UMAP 5-class sil | UMAP 3-class sil |
+|-------|------------------:|------------------:|
+| 40-feat + PCA (nb 09) | -0.173 | — |
+| 12-feat unweighted | -0.137 | -0.112 |
+| 12-feat KW-weighted | -0.150 | -0.111 |
+
+### Plots
+- `notebooks/plots/projections/cap12_S1N1_feature_boxplots.png` — feature distributions by stage
+- `cap12_S1N1_umap3d_nn{10,30,50}_{stage,time}.html` — interactive 3D UMAP colored by stage/time
+- `cap12_S1N1_umap3d_nn30_apnea.html` — UMAP colored by apnea events
+- `cap12_S1N1_umap3d_nn30_3class.html` — UMAP 3-class coloring
+- `cap12_S1N1_tsne3d_p{15,30,50}_stage.html` — interactive 3D t-SNE
+- `cap12_S1N1_umap3d_nn30_static.png` / `tsne3d_p30_static.png` — static panels
+- `*_kw_*` variants — KW-weighted versions of above
+
+### Key observations
+1. Negative silhouette scores across all settings indicate no clean stage clusters in CAP-only feature space — stages overlap substantially.
+2. 12 CAP-only features outperform 40 features + PCA by ~0.03-0.06 silhouette, confirming that fewer, more targeted features avoid redundancy-dominated PCs.
+3. KW weighting is not beneficial for overall stage separation — it trades N2 quality for marginal REM/N3 improvement.
+4. Time-colored UMAP shows overnight trajectory structure, but it does not separate into discrete stage clusters.
+5. Apnea events (Hypopnea + Apnea) scatter across the embedding rather than forming a distinct cluster.
+
+### Status
+Phase 1-2 complete for S1N1. Phase 3 (cluster analysis) and Phase 4 (cross-session pooled) not started.
+
+---
+
+## 2026-04-30 -- k(t) biomarker analysis (Phases 1-4)
+
+**Question:** Is the scaling factor k, computed as a time series k(t) = raw_CAP_rate / GT_rate per window, a physiological biomarker or just calibration noise?
+
+**Scripts:**
+- `notebooks/analysis_k_biomarker.py` (Phase 1+2)
+- `notebooks/analysis_k_biomarker_phase3.py` (Phase 3)
+
+**Writeup:** `notebooks/k_biomarker_writeup.md`
+
+**Plots:** `notebooks/plots/k_biomarker/` (15+ files)
+**CSV:** `artifacts/k_biomarker_summary.csv`, `artifacts/k_biomarker_correlations.csv`
+
+### Setup
+- 60s window, 10s step, all 12 sessions
+- k_resp(t) = rate_peaks_loose(pf=0.05, md=0.4s) / GT_Flow_rate
+- k_cardiac(t) = rate_hilbert(CARD band) / GT_ECG_rate
+- Quality filter: k outside [0.5, 4.0] -> NaN
+
+### Phase 1-2: Temporal characteristics
+- k_cardiac: autocorrelation halflife median 1.4 min (slow, physiological)
+- k_resp: autocorrelation halflife median 0.5 min (fast, noisy)
+- k_cardiac visually tracks sleep architecture on per-session detail panels
+
+### Phase 3: Correlations
+
+**k by sleep stage (pooled, all 12 sessions):**
+
+| Stage | k_resp median | k_cardiac median |
+|-------|--------------|-----------------|
+| N1    | 1.41         | 1.71            |
+| N2    | 1.37         | 1.65            |
+| N3    | 1.35         | 1.65            |
+| Wake  | 1.30         | 1.61            |
+| REM   | 1.31         | 1.58            |
+
+Kruskal-Wallis: resp H=246 p=5.7e-52, cardiac H=609 p=1.6e-130.
+
+**Spearman correlations:**
+
+| k | Biomarker | r | p |
+|---|-----------|---|---|
+| k_card | SDNN | -0.251 | ~0 |
+| k_card | EEG delta | -0.158 | 10^-155 |
+| k_card | Acc RMS | +0.159 | 10^-157 |
+| k_resp | Acc RMS | +0.290 | ~0 |
+| k_resp | Resp CV | +0.131 | 10^-102 |
+
+### Phase 4: Interpretation
+- **k_cardiac IS a physiological biomarker.** BCG waveform complexity (number of
+  sub-peaks per heartbeat) changes with autonomic tone across sleep stages.
+  N1 (autonomic instability) produces the most complex waveform; REM (muscle
+  atonia, different hemodynamics) produces the simplest.
+- **k_resp is primarily a noise/quality indicator.** Strongest correlation with
+  movement. Useful for quality gating but not a standalone biomarker.
+- **S6N2 anomaly:** k_cardiac = 0.79 (only session with Hilbert undercounting).
+  Likely sensor contact issue or unique vascular anatomy for OS006-N2.
+- **Practical:** add k_cardiac to sleep staging feature set; use stage-aware k
+  for improved rate calibration.
+
+---
+
+## 2026-04-22 — Ground truth upgrade: ECG R-peaks + Flow peak detection
+
+**Change:** Replaced the old GT pipeline (ACF on bandpassed Thorax/Pleth) with
+clinically standard methods:
+
+| Band | Old GT | New GT |
+|---|---|---|
+| Respiratory | ACF on Thorax bandpass | **Peak detection on Flow (nasal airflow)** via neurokit2 |
+| Cardiac | ACF on Pleth bandpass | **Pan-Tompkins R-peak detection on ECG** via neurokit2 |
+
+**New module:** `sleep_monitor/ground_truth.py`
+- `gt_resp_rate(session)` → GTResult with breath-level peaks from Flow
+- `gt_heart_rate(session)` → GTResult with beat-level R-peaks from ECG
+- `gt_sliding_rates(session, win_sec, step_sec)` → sliding-window GT rates
+- Automatic fallback to Thorax/Pleth if Flow/ECG fails
+- Quality filtering: rejects physiologically impossible intervals
+
+**Validation on S1N1 (win=30s, step=10s):**
+
+| Band | GT signal | Method | Peaks detected | Mean rate |
+|---|---|---|---|---|
+| Resp | Flow | neurokit2 | 6,939 | 15.7 br/min |
+| Cardiac | ECG | Pan-Tompkins | 27,418 | 57.5 BPM |
+
+MAE comparison (CLE-CRE, best CAP channel):
+| Band | Method | MAE (old GT) | MAE (new GT) |
+|---|---|---|---|
+| Resp | spectral | — | 2.04 br/min |
+| Resp | peaks | 2.78 | 2.76 br/min |
+| Resp | hilbert | — | 2.36 br/min |
+| Cardiac | acf | 15.81 | 15.90 BPM |
+| Cardiac | hilbert (raw) | 40.42 | 39.76 BPM |
+
+**Why this matters:**
+- Flow is the AASM gold standard for respiratory events; Thorax belt is more
+  prone to postural artifact.
+- ECG R-peaks give true heart rate (beat-level precision); Pleth gives pulse
+  rate which diverges during arrhythmias and is delayed by pulse transit time.
+- Beat/breath-level GT enables future work on HRV and breath-by-breath analysis.
+
+**Updated scripts:** `scripts/compute_rates.py` now uses `gt_sliding_rates()`
+and records which GT signal was used in the metrics parquet.
+
+---
+
+## 2026-04-22 — Methodology update: remove hardcoded ÷2, use per-session k + lenient detection
+
+---
+
+## 2026-04-16 — Cross-session validation of scaled Hilbert for cardiac (all 12 sessions)
+
+**Question:** Validate whether `rate_hilbert / k` (the best single estimator
+from the S1N1 tuning analysis) generalises across all 12 sessions. Learn
+per-session `k_diag` (50 × 1-min windows) and `k_whole` (whole night) and
+compare to baseline `acf` and raw `hilbert`.
+
+**Script:** `notebooks/analysis_hilbert_scaled_all_sessions.py`
+**CSV:** `artifacts/hilbert_scaled_per_session.csv`
+**Plots:**
+- `notebooks/plots/all_sessions_card_hilbert_mae.png`
+- `notebooks/plots/all_sessions_card_hilbert_k.png`
+- `notebooks/plots/all_sessions_card_hilbert_grid.png`
+- per-session traces in `notebooks/plots/per_session_card_hilbert/`
+
+### Setup
+- CLE-CRE channel with OLS acc-removal, bp [0.5–3.0] Hz
+- GT = ACF on PSG Pleth bandpass (prominence = 0.05)
+- Whole-night sliding 1-min window, 5 s step
+- k_diag: median of `rate_hilbert(cap) / rate_acf(gt)` across 50 random 1-min windows
+- k_whole: same ratio over the full-night sliding grid
+
+### Per-session results
+
+| session | subject | dur (hr) | k_diag | k_whole | IQR | MAE_acf | MAE_hilb | MAE_scaled | bias_scaled | r_scaled |
+|---------|---------|---------:|-------:|--------:|----:|--------:|---------:|-----------:|------------:|---------:|
+| S1N1 | OS001 | 7.95 | 1.738 | 1.728 | 0.19 | 15.81 | 40.42 | **4.34** | −0.64 | −0.227 |
+| S1N2 | OS001 | 7.63 | 1.814 | 1.832 | 0.33 | 10.35 | 41.07 | **4.38** | −1.14 | −0.353 |
+| S2N1 | OS002 | 7.73 | 1.925 | 1.885 | 0.18 | 14.40 | 43.12 | **4.07** | −1.51 | −0.159 |
+| S2N2 | OS002 | 6.77 | 1.740 | 1.695 | 0.33 | 13.97 | 36.12 | 6.55 | −1.21 | −0.507 |
+| S3N1 | OS003 | 6.93 | 1.647 | 1.656 | 0.13 | 18.44 | 38.96 | **3.94** | −0.48 | −0.050 |
+| S3N2 | OS003 | 8.66 | 1.652 | 1.669 | 0.14 | 19.99 | 39.46 | **3.59** | −0.55 | −0.371 |
+| S4N1 | OS004 | 6.18 | 1.695 | 1.701 | 0.12 | 18.23 | 40.57 | **3.45** | −1.08 | +0.096 |
+| S4N2 | OS004 | 6.02 | 1.583 | 1.583 | 0.11 | 20.12 | 36.86 | **3.12** | −0.21 | −0.007 |
+| S5N1 | OS005 | 4.11 | 1.680 | 1.662 | 0.15 | 19.30 | 39.87 | **4.25** | −0.00 | +0.082 |
+| S5N2 | OS005 | 4.74 | 1.667 | 1.654 | 0.12 | 20.26 | 39.39 | **2.93** | −0.45 | −0.094 |
+| S6N1 | OS006 | 5.16 | 1.521 | 1.513 | 0.12 | 23.54 | 31.72 | **4.87** | −1.66 | −0.317 |
+| S6N2 | OS006 | 5.78 | 1.495 | 1.484 | 0.18 | 25.11 | 30.96 | **4.79** | −1.47 | −0.061 |
+| **median** |  |  | **1.674** | **1.666** | 0.15 | **18.34** | 39.42 | **4.16** | −0.84 | −0.126 |
+| **mean ± std** |  |  | **1.680 ± 0.119** | **1.672 ± 0.115** | 0.18 | 18.29 | 38.21 | **4.19 ± 1.02** | −0.87 | — |
+| **range** |  |  | [1.50, 1.93] | [1.48, 1.89] | [0.11, 0.33] | [10.4, 25.1] | [31.0, 43.1] | [2.93, 6.55] | — | — |
+
+### Aggregate improvement
+- **MAE acf → hilbert/k_whole: 18.29 → 4.19 BPM (−14.10, ~77% reduction)** across all 12 sessions.
+- MAE raw hilbert → scaled: 38.21 → 4.19 BPM (−89%).
+- Every session improves. Largest wins on S6N1/N2 (Δ ≈ 19–20 BPM) and S3/S4/S5 (Δ ≈ 14–17 BPM).
+- Worst residual: S2N2 at 6.55 BPM (still less than half of baseline acf 13.97).
+
+### Per-subject k stability (key for deployment)
+
+| subject | N1 k | N2 k | Δ |
+|---------|-----:|-----:|--:|
+| OS001   | 1.73 | 1.83 | 0.10 |
+| OS002   | 1.89 | 1.70 | 0.19 |
+| OS003   | 1.66 | 1.67 | **0.01** |
+| OS004   | 1.70 | 1.58 | 0.12 |
+| OS005   | 1.66 | 1.65 | **0.01** |
+| OS006   | 1.51 | 1.48 | **0.03** |
+
+- 3 / 6 subjects have night-to-night Δk ≤ 0.03.
+- 2 / 6 subjects (OS001, OS004) have Δk ≈ 0.10–0.12.
+- 1 / 6 subjects (OS002) has Δk = 0.19 — likely body-position or coupling change.
+- Overall: **per-subject k is roughly stable but not as clean as resp's bipartite split.** A 50-minute calibration per subject per night is safer than a once-per-subject calibration.
+
+### k_diag vs k_whole
+Essentially identical per session (|Δ| ≤ 0.04 on every session). **50 random 1-min windows are fully sufficient to calibrate k** — no need to process the whole night. This matches the resp finding.
+
+### Key observations
+1. **Scaled hilbert robustly delivers MAE ~3–5 BPM** (median 4.2) across every
+   subject and night — 77% better than the current baseline. The one outlier
+   (S2N2 at 6.5 BPM) is still sub-baseline.
+2. **k is NEVER at the "÷2" value** (range 1.48–1.93). The naive "halve the
+   peak count" would over-correct everywhere.
+3. **Subject-stable overcount factor.** k clusters by subject (OS003, OS005
+   around 1.66; OS006 at 1.50; OS002 near 1.90), mirroring the resp finding
+   that coupling/geometry drives the ratio.
+4. **Pearson r remains weak-to-negative on many sessions** (worst: S2N2
+   r=−0.51, S3N2 r=−0.37). Scaling corrects the mean, not the window-level
+   variation. GT itself varies only σ≈4 BPM across the night, so r is hard
+   to raise even with a perfect estimator.
+5. **ACF baseline still fails across the board** — all 12 sessions have
+   acf MAE > 10 BPM with near-zero r. The sub-harmonic lock-in issue is
+   not a one-session fluke.
+
+### Recommendation
+- Add `rate_hilbert_scaled_cardiac(x, k)` to `sleep_monitor/rates.py`.
+- Default k = **1.67** (the cross-session median) when no calibration is
+  available.
+- Provide a `calibrate_k_hilbert_cardiac(session, n=50)` helper that returns
+  per-session k; run it once per night before evaluation.
+- Register in `_ESTIMATOR_CHOICES` and treat as the default cardiac estimator
+  (replacing raw ACF).
+- Caveat: correlation-heavy applications (apnea detection, HR variability)
+  need a different method — this is a whole-night-average estimator.
+
+---
+
+## 2026-04-16 — Tuned cardiac pipeline + learned scaling factors on S1N1
+
+**Question:** Apply the tuning suggestions from the earlier cardiac default run
+(ACF prom 0.10→0.05, win 30→60 s, spectral nperseg=fs·8, fix envelope) and,
+instead of a hard-coded ÷2, learn a per-method scaling factor `k` from data
+(as done for resp). Evaluate on 5 windows and on the full night.
+
+**Script:** `notebooks/analysis_card_tuned_s1n1.py`
+**Plot:** `notebooks/plots/card_tuned_s1n1.png`
+
+### Tuning applied
+| Parameter | Baseline | Tuned | Reason |
+|---|---|---|---|
+| ACF prominence (window & envelope) | 0.10 | 0.05 | Recover NaN windows |
+| Sliding window | 30 s | 60 s | More cycles → cleaner ACF |
+| Welch nperseg | `fs·4` | `fs·8` | Freq res 0.125 Hz (cf. 15 BPM snap) |
+| Envelope input band | [0.5, 3.0] Hz (cardiac-bp, then TK) | **[3, 20] Hz (HF-bp, then TK)** | Already-bp signal has no amplitude modulation; HF band isolates BCG pulse energy so the TK envelope oscillates at HR |
+| Envelope smoothing | `fs/f_hi` samples | `0.3 s` | Tuned for HR envelope |
+
+### Scaling factors learned on N=50 random 1-min windows
+`k = median(rate_method / rate_gt_acf)` — applied only to over-counting methods.
+
+| method    | k_median | IQR             | range           | N valid |
+|-----------|---------:|-----------------|-----------------|--------:|
+| spectral  | 1.127    | [0.79, 1.80]    | [0.49, 2.57]    | 50 |
+| acf       | 0.849    | [0.72, 0.99]    | [0.58, 2.65]    | 49 |
+| **hilbert** | **1.738** | **[1.65, 1.83]** | [0.97, 2.01] | 50 |
+| **zerocross** | **1.920** | **[1.76, 1.99]** | [1.06, 2.19] | 50 |
+| **peaks** | **1.930** | **[1.77, 2.08]** | [1.12, 2.19] | 50 |
+| envelope  | 0.971    | [0.75, 1.19]    | [0.60, 1.78]   | 38 |
+
+- `peaks / zerocross / hilbert` cluster at k ≈ 1.74–1.93 with **tight IQR**
+  (≤0.22) — a stable, near-2× overcount that maps cleanly onto a scalar.
+  Unlike resp (k≈1.3) the BCG signal really does produce ~2 detectable
+  peaks per cardiac cycle (systolic + dicrotic-like bump).
+- `spectral` and `envelope` have wide IQR — the rate they return is not
+  always the same multiple of GT, so a single scalar won't help them.
+- `acf` is close to 1.0 but with heavy tail (IQR lower bound 0.72 → half-rate
+  lock-ins). Median-based k doesn't help; the failure mode is bimodal.
+
+### 5-window aggregate MAE (BPM) with tuned + scaling
+| method         | variant            | MAE   | RMSE  | bias   |
+|----------------|--------------------|------:|------:|-------:|
+| spectral       | tuned              |  7.98 | 12.48 |  +6.40 |
+| acf            | tuned              | 20.27 | 33.13 |  +8.73 |
+| hilbert        | tuned              | 43.49 | 43.71 | +43.49 |
+| zerocross      | tuned              | 53.74 | 53.98 | +53.74 |
+| peaks          | tuned              | 55.37 | 55.64 | +55.37 |
+| envelope       | tuned (HF-band)    | 17.54 | 19.54 |  −3.07 |
+| **peaks**      | **tuned / k=1.93** | **3.87** | **4.50** | **+0.68** |
+| **zerocross**  | **tuned / k=1.92** | **3.76** | **4.10** | **+0.14** |
+| **hilbert**    | **tuned / k=1.74** | **3.38** | **3.94** | **+0.36** |
+
+### Whole-night sliding (win=60 s, step=5 s, N=5713 windows)
+| estimator              | MAE    | RMSE   | bias    | r      | cov   |
+|------------------------|-------:|-------:|--------:|-------:|------:|
+| spectral (tuned)       | 23.31  | 31.74  | +12.92  | −0.056 | 100%  |
+| acf (tuned)            | 15.81  | 23.98  |  −2.04  | −0.008 |  99%  |
+| hilbert (tuned)        | 40.42  | 41.21  | +40.34  | −0.227 | 100%  |
+| zerocross (tuned)      | 48.72  | 49.49  | +48.67  | −0.191 | 100%  |
+| peaks (tuned)          | 48.82  | 50.60  | +48.33  | −0.121 | 100%  |
+| **envelope (tuned-HF)**| **16.84** | 21.23 | +0.79 | −0.014 |  **75%** |
+| **peaks / k=1.93**     | 5.76   |  9.03  |  −2.40  | −0.121 | 100%  |
+| **zerocross / k=1.92** | **4.48** |  6.35 | −1.93 | −0.191 | 100%  |
+| **hilbert / k=1.74**   | **4.33** |  6.18 | −0.96 | −0.227 | 100%  |
+
+### Key findings
+
+1. **Scaling factor works spectacularly for the overcounting trio.** Whole-night
+   MAE drops **40 → 4 BPM** (`hilbert`, `zerocross`, `peaks`), bias collapses
+   to within ±2 BPM, coverage stays 100%. Applied per-method k from just 50
+   random 1-min windows held up across 5700+ windows.
+2. **Best single estimator is now `hilbert / k=1.74`** at MAE = 4.33 BPM —
+   a ~73% reduction vs the 15.73 BPM baseline-ACF default.
+3. **Envelope fix worked.** Switching input from already-bp cardiac [0.5–3 Hz]
+   to HF [3–20 Hz] changed it from 0% valid → 75% coverage and MAE 16.84 BPM
+   with bias near zero. The old version ran TK on a near-sinusoid, which
+   produces a ~constant envelope (no ACF period); the HF version runs TK on
+   the impulsive BCG content and the resulting envelope modulates at HR.
+4. **Lowering ACF prominence (0.10 → 0.05) did NOT help ACF meaningfully**:
+   15.73 → 15.81 BPM. ACF's failure mode is half-period / sub-harmonic
+   lock-in, not missing peaks. Needs a different fix (e.g. restrict ACF lag
+   range or pick the first-peak rather than most-prominent peak).
+5. **Longer window for spectral HURT whole-night** (went from no prior
+   number directly to MAE 23.31 with bias +12.9 BPM). Finer frequency
+   resolution lets spectral lock more precisely onto the 2× harmonic when
+   it's stronger than the fundamental. On the 5-window view (MAE 8.0) it
+   looked fine, so the per-window dependence matters a lot.
+6. **Pearson r is still ~0 for every method** — scaling shifts bias toward
+   zero but does not improve per-window responsiveness (the point-wise
+   error is dominated by sub-harmonic flips, not a constant offset). Same
+   bias-vs-correlation trade-off seen for resp.
+7. **Per-method `k` is wildly different across methods but tight within a
+   method** (IQR ≤ 0.22 for the three overcounting methods). Matches resp
+   observation that the ratio is a subject/coupling-stable quantity.
+
+### Remaining issues to address next
+- **ACF sub-harmonic lock-in is the core failure mode.** Both tighter
+  prominence and longer window left MAE unchanged. Options: constrain the
+  ACF lag search to `[0.9/r_prior, 1.1/r_prior]` using a rolling prior,
+  or detect bi-modality of ratios and flip-correct.
+- **Cross-session validation of k.** The resp writeup showed `k` is
+  subject-stable. Confirm the same for cardiac on the other 11 sessions
+  before baking these constants into the pipeline.
+- **Cardiac `peaks_scaled` estimator.** If validation holds, add
+  `rate_peaks_scaled_cardiac(x, k)` to `rates.py` and register in the grid.
+
+---
+
+## 2026-04-16 — Per-method cardiac-rate sanity check on 5 random 1-min windows of S1N1
+
+**Question:** Run cardiac rate detection with defaults across the whole S1N1
+night and also surface results for 5 random 1-min windows to guide parameter
+tuning.
+
+**Script:** `notebooks/analysis_card_window_methods_s1n1.py`
+**Plot:** `notebooks/plots/card_window_methods_s1n1.png`
+
+### Setup
+- S1N1, CLE-CRE channel with OLS acc-removal, bp [0.5–3.0] Hz
+- Whole-night default pipeline: `cardiac_CLE-CRE_ols_acf_w30` (30 s / 5 s)
+- 5 random 1-min windows (seed=42), starts at 0.71, 3.44, 3.48, 5.19, 6.14 hr
+- GT = ACF on PSG Pleth bandpass, same window
+- 6 estimators (spectral, acf, hilbert, zerocross, peaks, envelope)
+
+### Whole-night metrics (default pipeline)
+| Metric | Value |
+|---|---|
+| windows valid / total | 5569 / 5719 (cov 97.4%) |
+| MAE  | 15.73 BPM |
+| RMSE | 23.22 BPM |
+| bias | −1.46 BPM |
+| r    | −0.008 |
+| p50/p90 \|err\| | 11.68 / 25.53 BPM |
+| pred μ±σ | 55.46 ± 22.76 BPM |
+| ref  μ±σ | 56.92 ±  4.15 BPM |
+| quality mean / median | 0.650 / 0.640 |
+
+### Per-window rates (BPM)
+| win | t (hr) | GT   | spectral | acf   | hilbert | zerocross | peaks | envelope |
+|-----|--------|------|----------|-------|---------|-----------|-------|----------|
+| 1   | 0.71   | 64.3 | 120.0    | 56.4  | 96.5    | 106.0     | 107.4 | **NaN**  |
+| 2   | 3.44   | 58.8 |  45.0    | 41.7  | 100.3   | 111.3     | 110.9 | **NaN**  |
+| 3   | 3.48   | 58.4 | 105.0    | 55.1  | 102.2   | 114.5     | 111.5 | **NaN**  |
+| 4   | 5.19   | 54.0 |  90.0    | 46.7  | 102.6   | 110.1     | 112.2 | **NaN**  |
+| 5   | 6.14   | 51.0 |  75.0    | NaN   | 100.8   | 110.9     | 110.0 | **NaN**  |
+
+### Per-method aggregate across 5 windows (BPM)
+| method    | MAE   | RMSE  | bias   | valid |
+|-----------|-------|-------|--------|-------|
+| spectral  | 35.23 | 38.31 | +29.72 | 5 / 5 |
+| **acf**   | **8.89** | **10.23** | **−8.89** | 4 / 5 |
+| hilbert   | 43.19 | 43.64 | +43.19 | 5 / 5 |
+| zerocross | 53.29 | 53.65 | +53.29 | 5 / 5 |
+| peaks     | 53.13 | 53.44 | +53.13 | 5 / 5 |
+| envelope  | NaN   | NaN   | NaN    | 0 / 5 |
+
+### Key findings
+1. **Double-counting dominates.** Hilbert / zerocross / peaks all land at
+   ~100–115 BPM, roughly **2×** the ~55 BPM GT. The plots show the CLE-CRE
+   bandpass has strong dicrotic / secondary bumps per cardiac cycle, so any
+   time-domain peak- or crossing-based method over-counts by a factor of two,
+   exactly like the double-peak issue documented for the resp band.
+2. **ACF wins** (MAE ≈ 9 BPM, all negative bias ≈ −9 BPM → mild under-estimate).
+   This is the only method that locks onto the fundamental period instead of
+   individual peaks. However 1 / 5 windows returned NaN (prominence=0.10
+   likely too high for a noisy 60 s window).
+3. **Spectral is unreliable at 1-min windows.** Welch with `nperseg=min(N, 4 s)`
+   gives ~0.25 Hz frequency resolution = 15 BPM steps, so the output snaps to
+   45/75/90/105/120 BPM — the coarse grid shows up directly in the errors.
+4. **Envelope returned NaN on every window** — `rate_envelope` is defaulting
+   to `env_lo=0.5, env_hi=3.0` and running ACF with prominence=0.10 on the
+   Teager-Kaiser envelope. Appears to be broken / too strict for 60 s at this
+   channel — needs investigation.
+5. **Whole-night pred σ (22.8) vs GT σ (4.2)** confirms the pipeline is
+   frequently flipping between fundamental and half-period / noise, which
+   erases correlation entirely (r ≈ 0). This is fixable.
+
+### Tuning suggestions
+- **Default to `acf` for cardiac** (already the default) but address the
+  NaN-rate: lower `rate_acf` prominence from 0.10 → ~0.05, or add a fallback
+  that widens the lag search when no peak clears the threshold.
+- **Halve-correction layer:** for hilbert/zerocross/peaks, if pred > ~1.8× a
+  robust prior (e.g. ACF or rolling median of recent windows), divide by 2.
+  This would instantly bring three methods into ballpark range.
+- **Longer windows for cardiac spectral.** With `win_s=30` and nperseg capped
+  at 4 s, the resolution is too coarse. Either raise `win_s` to 60 s and
+  `nperseg` to `fs*8`, or drop spectral from the cardiac estimator set.
+- **Investigate `rate_envelope`.** Produces NaN on every tested window; needs
+  a quick debug — likely the prominence on the TK envelope's ACF. This is
+  specifically the cardiac-targeted estimator, so fixing it is high leverage.
+- **Longer window for ACF too:** moving win_s from 30 s → 45–60 s should help
+  ACF lock onto the fundamental more reliably given the noisy CLE-CRE signal.
+- **Fusion with double-peak-aware weights:** since hilbert/zerocross/peaks
+  reliably overcount by 2×, a ÷2 pre-correction before fusion would let them
+  vote sensibly with ACF instead of being thrown out by the band-clamp.
+
+---
+
+## 2026-04-15 — Default rate detection on S1N1 (full night)
+
+**Question:** Run the default rate-estimation pipeline on one full session and report statistics.
+
+**Script:** `notebooks/analysis_default_rates_s1n1.py`
+**Plot:** `notebooks/plots/default_rates_s1n1.png`
+
+### Parameters (PipelineConfig defaults)
+| Parameter | Value |
+|---|---|
+| Session | S1N1 (OS001-KJK 2024-09-17, 7.95 hr) |
+| Channel | CLE-CRE |
+| Preproc | ols (acc artifact removal) |
+| Estimator | acf |
+| Window / step | 30 s / 5 s |
+| Quality gate | 0.0 (no gating) |
+| GT reference | PSG Thorax (resp), Pleth (cardiac), ACF on same window grid |
+
+### Results
+| Band | n_used / n_total | coverage | MAE | RMSE | bias | r | p50\|err\| | p90\|err\| |
+|---|---|---|---|---|---|---|---|---|
+| resp (br/min)    | 5488 / 5719 | 96.0% | 5.45  |  6.38 | −4.52 |  0.009 |  5.99 |  9.36 |
+| cardiac (BPM)    | 5569 / 5719 | 97.4% | 15.73 | 23.22 | −1.46 | −0.008 | 11.68 | 25.53 |
+
+Pred vs GT distribution:
+- resp: pred μ=11.18 σ=3.82 vs GT μ=15.69 σ=2.43 br/min
+- cardiac: pred μ=55.46 σ=22.76 vs GT μ=56.92 σ=4.15 BPM
+- Mean window quality: resp 0.857, cardiac 0.650
+
+### Key findings
+1. Defaults underperform on this session — both bands have r≈0 against PSG GT.
+2. Resp prediction is biased ~4.5 br/min low and pred-σ is ~1.6× GT-σ, suggesting the
+   ACF picks half-period or sub-harmonic frequently (consistent with the 2026-04-12
+   note that the resp bandpass passes both inhalation and exhalation peaks).
+3. Cardiac is much worse — pred-σ is ~5× GT-σ, indicating ACF is locking onto noise
+   /motion artifacts rather than the BCG fundamental at 30 s window without envelope.
+4. No quality gating was applied; raising the gate (or using `envelope` for cardiac /
+   `÷2` correction for resp) is the obvious next step before declaring failure.
+
+---
+
+## 2026-04-15 — Per-method resp-rate sanity check on 5 random 2-min windows of S1N1
+
+**Question:** Inspect raw per-method outputs on a handful of 2-min resp windows
+to decide where adjustments are needed. Show whether the double-peak (÷2) issue
+documented 2026-04-12 is present at the 2-min scale.
+
+**Script:** `notebooks/analysis_resp_window_methods_s1n1.py`
+**Plot:** `notebooks/plots/resp_window_methods_s1n1.png`
+
+### Setup
+- S1N1, full night, CLE-CRE channel with OLS acc-removal, bp [0.1–0.5] Hz
+- 5 random 2-min windows (seed=42), starts at 0.71, 3.43, 3.47, 5.18, 6.13 hr
+- GT = ACF on PSG Thorax bandpass, same window
+
+### Per-window rates (br/min)
+| win | start_hr | GT | spectral | acf | hilbert | zerocross | peaks |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 0.71 | 16.03 | 15.0 |  NaN  | 12.97 | 14.05 | 14.05 |
+| 2 | 3.43 | 18.36 | 15.0 | 11.08 | 17.30 | 19.13 | 19.98 |
+| 3 | 3.47 | 18.27 | 15.0 |  8.92 | 16.38 | 17.36 | 18.94 |
+| 4 | 5.18 | 14.95 | 15.0 |  7.23 | 16.11 | 16.97 | 16.65 |
+| 5 | 6.13 |  8.16 | 15.0 |  8.57 | 13.40 | 14.29 |  6.75 |
+
+### Per-method aggregate (5-window MAE / RMSE / bias, br/min)
+| method | MAE | RMSE | bias | MAE÷2 | bias÷2 |
+|---|---:|---:|---:|---:|---:|
+| spectral  | 2.91 | 3.74 | −0.15 | 7.65 | −7.65 |
+| acf       | 6.19 | 7.07 | −5.98 | 10.46| −10.46|
+| hilbert   | 2.48 | 2.93 | +0.08 | 7.54 | −7.54 |
+| zerocross | 2.36 | 3.06 | +1.21 | 6.98 | −6.98 |
+| **peaks** | **1.47** | **1.54** | +0.12 | 7.52 | −7.52 |
+
+### Key findings
+1. **Double-peak ÷2 is NOT happening at the 2-min scale.** spectral, hilbert,
+   zerocross, peaks are all near GT (bias ≈ 0). Applying ÷2 *worsens* every
+   method by ~7 br/min. So the 2026-04-12 hypothesis (band passes both halves)
+   does not generalise — it appears to be a window-/state-specific artifact.
+2. **`spectral` is stuck at 15.0 br/min in every window.** With `nperseg = fs·4 = 400`
+   samples, freq resolution = fs/nperseg = 0.25 Hz/2 = 0.0125 Hz → bin spacing
+   ≈ 0.75 br/min. But the dominant bin is identical across very different GTs,
+   suggesting the Welch peak is being snapped to a sub-band edge or the PSD is
+   flat enough that a single bin dominates. Worth instrumenting next.
+3. **`acf` is the worst** (MAE 6.2, bias −6.0). It under-estimates by 30–60% in
+   4/5 windows and produces NaN once. Yet the *ground-truth pipeline uses ACF*
+   on Thorax — Thorax must be cleaner / more sinusoidal than CLE-CRE for ACF
+   to lock cleanly. Using ACF on CLE-CRE is the wrong default estimator for
+   this band on this signal.
+4. **`peaks` is the best per-window** (MAE 1.47, bias 0.12) and matches GT to
+   within 2 br/min on 4/5 windows. Win 5 is the outlier (peaks 6.75 vs GT 8.16,
+   −1.4) but the GT itself is anomalous (8 br/min while every other method
+   says 13–14) — see plot, the segment has a long flat region with low
+   variation that confuses both Thorax-ACF and the cap signal.
+5. **`hilbert` and `zerocross` are competitive** with peaks (MAE ~2.4) and have
+   the advantage of being parameter-free relative to peak-prominence tuning.
+
+### Implications for the default pipeline
+- Switching default `estimator` from `acf` → `peaks` (or `hilbert`/`zerocross`)
+  would likely close the −4.5 br/min bias seen in the full-night run.
+- The Welch `spectral` estimator needs a closer look — it's pinned at one
+  value across very different signals.
+- Whole-night (96 % coverage) ACF result was much worse than these 5 windows
+  suggest, so window state matters: a quality gate or window-length sweep is
+  the next experiment.
+
+---
+
+## 2026-04-15 — Peak-ratio histogram + sensitivity sweep on S1N1 (Phases 1+2+4+5)
+
+**Question:** Test the hypothesis that each true breath produces 2 CAP peaks (in/out),
+so increasing peak-detection sensitivity + dividing by a learned constant `k` should
+recover GT.
+
+**Script:** `notebooks/analysis_peak_ratio_sweep_s1n1.py`
+**Plots:**
+- `notebooks/plots/phase1_ratio_histogram_s1n1.png`
+- `notebooks/plots/phase2_sweep_heatmaps_s1n1.png`
+- `notebooks/plots/phase4_wholenight_s1n1.png`
+- `notebooks/plots/phase5_visual_sanity_s1n1.png`
+
+### Phase 1 — ratio histogram (N=50 random 2-min windows, default sensitivity)
+- ratio (n_cap / n_thorax)  **median = 1.00**, mean 0.90, IQR [0.78, 1.06]
+- 70% of windows in [0.8, 1.2];  **0%** near 2
+- → **CAP produces ~1 peak per Thorax breath, not 2.** The double-peak hypothesis
+  is *not* the dominant regime at this window scale on S1N1.
+
+### Phase 2 — sweep on the same 50 windows (prom_factor × min_dist_s)
+- Best: pf=0.05, md=0.4s, **k=1.21**, MAE=1.69 br/min, ratio IQR=0.15
+- All "looser" settings (pf<=0.20) cluster around k∈[1.06, 1.21], confirming there is
+  no operating point where the count doubles. Tighter sensitivity (pf=0.40, md=1.8s)
+  → k≈1.0 (one peak per breath, the natural regime).
+
+### Phase 4 — whole-night S1N1 (30 s windows / 5 s step, 5719 windows)
+| method | pf | md | k | MAE | RMSE | bias | r | cov |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| baseline-peaks    | 0.40 | 1.80 | 1.00 | 2.78 | 3.83 | −0.26 | +0.345 | 99.9% |
+| peaks-scaled (Phase-2 k) | 0.05 | 0.40 | 1.21 | 2.49 | 3.27 | +1.02 | +0.281 | 99.9% |
+| peaks-scaled-kAll | 0.05 | 0.40 | 1.25 | **2.34** | — | +0.50 | — | 99.9% |
+
+- Whole-night ratio median = 1.25 (vs 1.00 on the 2-min Phase-1 set) — k is window-length
+  sensitive: shorter windows have more noise-driven extra CAP peaks.
+- Modest improvement over baseline (MAE 2.78 → 2.34, ~16%); correlation actually drops
+  slightly (r 0.345 → 0.281), so the scaled method tracks per-window variations *less*
+  well even though its mean error is smaller.
+
+### Phase 5 — visual sanity (5 random 2-min windows)
+- Red CAP-new dots correspond ~1:1 with green Thorax dots in every window.
+- No window shows a clean "two CAP peaks per Thorax peak" pattern.
+
+### Conclusion
+- The hypothesis (each breath → 2 CAP peaks → ÷2) is **empirically wrong on S1N1 at
+  the 2-min and 30 s scales**. CAP produces ~1 peak per breath; tighter sensitivity
+  inflates the count by a modest ~25% which a learned k=1.25 corrects.
+- Net improvement on whole-night MAE is real but small (16%) and S1N1-specific;
+  not yet integrated. Phase 6 awaits decision: validate on a second session before
+  introducing as a new estimator.
+
+---
+
+## 2026-04-15 — Cross-session validation of scaled-peaks estimator (12 sessions)
+
+**Question:** Does the scaled-peaks estimator (loose detection ÷ learned k) generalise
+across all 12 sessions, and is k stable enough to be a useful per-subject constant?
+
+**Script:** `notebooks/analysis_peak_ratio_all_sessions.py`
+**Writeup:** `notebooks/peak_ratio_method_writeup.md` (presentation-ready)
+**Plots:**
+- `notebooks/plots/all_sessions_mae_bars.png`
+- `notebooks/plots/all_sessions_k_consistency.png`
+- `notebooks/plots/all_sessions_grid.png`
+- `notebooks/plots/per_session_rate_plots/S*_resp_rates.png` (12 files)
+- `artifacts/peak_ratio_per_session.csv`
+
+### Setup
+- 1-min windows (both diagnostic and whole-night), 5-s step
+- Diag: 50 random windows → k_diag = median(n_cap_loose / n_thorax)
+- Whole-night: same statistic over all sliding windows → k_whole
+- Loose detector: pf=0.05, md=0.4s; baseline: pf=0.4, md=1.8s
+
+### Results
+- All 12 sessions processed. k clusters in [1.18, 1.61], median 1.31, std 0.15.
+- k_diag and k_whole agree to within 0.07 per session — 50 minutes is enough
+  to calibrate.
+- **Mean MAE: 3.09 → 2.20 br/min (−25.3 %)**, 11/12 sessions improved.
+- Bias collapses toward 0 in every session.
+- Pearson r drops in every session (loose detector → less per-window specificity).
+- Subjects cluster: OS001/OS002/OS005-N1/OS006 → k≈1.2-1.3;
+  OS003/OS004/OS005-N2 → k≈1.4-1.6 (likely body-position / coupling-gain effect).
+
+### Decision
+Result presented in `peak_ratio_method_writeup.md`. Integration deferred until
+team accepts the bias-vs-correlation trade-off. Per-subject k ≈ session-stable;
+default global k = 1.31 if integrated.
+
+## 2026-04-12 — Breathing Rate: ACF-constrained peak detection (window tuning)
+
+**Question:** Replicate the ACF-based peak detection approach from `analysis_rates.ipynb` where every peak
+in the filtered CAP signal is detected and BR = n\_peaks ÷ 2. Show tuning parameters on a short window
+before applying to whole night.
+
+**Script:** `notebooks/analysis_br_acf_peaks.py`
+**Plot:** `notebooks/plots/br_acf_peaks_tuning.png`
+
+### Parameters used
+| Parameter | Value | Description |
+|---|---|---|
+| Subject / Night | OS001 / N1 | S1N1 recording |
+| Window | 2.00–2.050 hr | 3-minute inspection window |
+| Channel | CLE-CRE | OLS regression differential (CLE_bp − β·CRE_bp) |
+| BP_LO / BP_HI | 0.1 / 0.5 Hz | Butterworth bandpass (6–30 br/min) |
+| BP_ORDER | 3 | Filter order |
+| ACF_PROM | 0.10 | Prominence threshold for dominant ACF lag |
+| MIN_SEP_SCALE | 0.45 | min\_distance = T × 0.45 → catches ~2 peaks/cycle |
+| PROM_FACTOR | 0.25 | Peak prominence = 0.25 × std(filtered) |
+| SMOOTH\_WIN\_SEC | 0.3 | Pre-detection smoothing (seconds) |
+| RATE\_DIVISOR | 2 | BR = n\_peaks / 2 per minute |
+| ACC\_REMOVAL | True | OLS regress accelerometer out of each channel |
+
+### Results (3-minute window, S1N1)
+| Metric | Value |
+|---|---|
+| ACF dominant period T | 3.71 s |
+| Implied actual breath period | ~7.42 s (= 2T, since filter captures both inhalation + exhalation peaks) |
+| ACF-implied BR | ~8.1 br/min |
+| CAP detected peaks | 53 in 3 min |
+| CAP rate (÷2) | **8.8 br/min** |
+| PSG Thorax GT peaks | 50 in 3 min |
+| GT rate (÷2) | **8.3 br/min** |
+| Error | 0.5 br/min (~6%) |
+
+### Key findings
+1. **Why ÷2 works:** The [0.1–0.5 Hz] bandpass passes both the inhalation and exhalation
+   half-cycles as separate peaks. The ACF therefore detects T ≈ 3.71 s, which is the
+   *half-period* of the true breathing cycle (~7.4 s). Setting min\_sep = 0.45T ≈ 1.67 s
+   allows both peaks per cycle to be detected, and dividing by 2 recovers the correct rate.
+
+2. **MIN\_SEP\_SCALE sensitivity (from sweep 0.30 → 0.85):**
+   - 0.30: more peaks detected (risk of false positives from noise)
+   - **0.45: optimal — catches both peaks, ÷2 matches GT well**
+   - 0.65: starts missing the smaller (exhalation) peak — rate drops
+   - 0.85: only ~1 peak per cycle → ÷2 gives ~half the true rate (incorrect)
+
+3. **Next step:** Apply approved parameters to whole night. Pending user approval.
+
+---
+
+## 2026-04-12 — Multi-channel BR: CLE + CRE + CLE-CRE, more sensitive detection
+
+**Question:** Add CLE and CRE alongside CLE-CRE. Make detection more sensitive to catch
+small second peak of double-peaked crests. Determine whether additional scaling (changed
+RATE_DIVISOR) is needed.
+
+**Script:** `notebooks/analysis_br_acf_peaks.py` (updated)
+**Plot:** `notebooks/plots/br_acf_peaks_multichannel.png`
+
+### Per-channel tuning parameters
+
+| Channel | MIN_SEP_SCALE | PROM_FACTOR | SMOOTH_WIN_SEC | Reason |
+|---|---|---|---|---|
+| CLE | 0.35 | 0.15 | 0.15 s | Clean signal, slightly lenient |
+| CRE | **0.22** | **0.12** | **0.0** | Double peaks ~1s apart need smaller scale + no smoothing |
+| CLE-CRE | 0.35 | 0.15 | 0.15 s | Regression diff is clean |
+
+### Results (3-minute window, S1N1) — GT rate = 8.3 br/min
+
+| Channel | n\_peaks | emp\_div | rate ÷ 2 | rate ÷ emp\_div | vs GT |
+|---|---|---|---|---|---|
+| CLE | 57 | 2.28 | 9.5 br/min | **8.3 br/min** | +1.2 |
+| CRE | 62 | 2.48 | 10.3 br/min | **8.3 br/min** | +2.0 |
+| CLE-CRE | 55 | 2.20 | 9.2 br/min | **8.3 br/min** | +0.9 |
+| GT Thorax | 50 | 2.00 | 8.3 br/min | 8.3 br/min | ref |
+
+### Key findings
+
+1. **Does detection work?** Yes — with empirical divisor, all three channels recover exactly 8.3 br/min.
+
+2. **Is additional scaling required?** **Yes, specifically for CRE.**
+   - CRE has genuine close double peaks separated by ~1.0–1.1 s on some breath crests.
+   - These are resolved with `MIN_SEP_SCALE=0.22` (min distance ≈ 0.82s at T≈3.71s).
+   - With no smoothing on CRE, the ACF cannot find a clean period (T=n/a); the
+     double peaks make the signal aperiodic to the ACF. Fallback to BP_HI-based
+     min distance applies instead.
+   - emp_div ≈ **2.48** for CRE → RATE_DIVISOR = 2.5 (or ~3 rounded) needed.
+
+3. **Channel comparison (within this window):**
+   - **CLE-CRE** best: cleanest signal, ACF stable (T=3.71s), emp_div closest to 2 (2.20).
+   - **CLE** good: clean, stable ACF (T=3.74s), emp_div = 2.28.
+   - **CRE** noisiest: ACF fails, double-peak structure forces higher divisor.
+
+4. **The red-highlighted zoom panel** shows CRE double-peak pairs (peaks < 1.5s apart)
+   as shaded regions — clearly different from CLE and CLE-CRE.
+
+5. **Next step:** Decide on RATE_DIVISOR per channel, then apply to whole night.
+   Pending user approval.
+
+---
+
+## 2026-04-16 — Library: scaled rate estimators + per-session k calibration
+
+- Added to `sleep_monitor/rates.py` (exported from the package):
+  - `rate_hilbert_scaled_cardiac(x, k, fs, f_lo, f_hi)` — cardiac HR from Hilbert inst. frequency / k.
+  - `rate_peaks_scaled_resp(x, k, fs, prom_factor=0.05, min_dist_s=0.4)` — loose-peak resp rate / k.
+  - `calibrate_k_cardiac(session, n_windows=50, win_s=60, seed=42)` → median ratio vs ACF on Pleth.
+  - `calibrate_k_resp(session, ...)` → same, vs ACF on Thorax.
+- Both estimators return `nan` for non-positive / non-finite k (guard-railed).
+- Sanity run on S1N1 (`notebooks/demo_scaled_estimators.py`):
+  - `k_cardiac = 1.738` (matches tuned analysis; 12-session median 1.67, range [1.48, 1.93])
+  - `k_resp    = 1.244` (matches resp peak-ratio analysis; cross-session median ~1.3)
+  - Mid-night test window: cardiac err +2.6 BPM, resp err +1.2 BPM.
+- Usage pattern: calibrate once per night → reuse k on every window of that night.
+  Per-night recommended (observed |Δk| up to 0.19 night-to-night on some subjects).
+
+---
+
+## 2026-04-22 — Methodology update: remove hardcoded ÷2, use per-session k + lenient detection
+
+**Change:** Removed all hardcoded `÷2` (RATE_DIVISOR=2) assumptions from code
+and analysis scripts. The original hypothesis — each breath produces exactly 2
+CAP peaks — was disproven across 12 sessions (actual k ranges from 1.18 to 1.93
+depending on subject, band, and coupling geometry).
+
+**New standard approach:**
+1. Use **lenient peak detection** (prom_factor=0.05, min_dist_s=0.4 for resp;
+   similar for cardiac) to capture all physiological events including secondary
+   peaks. Tight detection misses real events; it's better to over-detect and
+   correct with k.
+2. Calibrate **k per session** (or per phase within a session) using
+   `calibrate_k_resp()` or `calibrate_k_cardiac()` — 50 random 1-min windows
+   are sufficient.
+3. Apply `rate = raw_rate / k` where k is a continuous value, not rounded to
+   an integer.
+
+**Code changes:**
+- `morphology.py`: `compute_rate_divisor()` now returns a continuous float
+  instead of rounding to int. `band_events_to_rates()` defaults to k=1.0
+  instead of k=2 for resp.
+- `analysis_br_acf_peaks.py`: replaced `RATE_DIVISOR` with `RATE_K`.
+- `analysis_resp_window_methods_s1n1.py`: removed the `÷2` comparison columns.
+
+**Rationale:** The empirical k values cluster by subject/coupling (OS001-OS002
+around 1.2–1.3 for resp, 1.7–1.9 for cardiac; OS003-OS006 around 1.4–1.6 for
+resp, 1.5–1.7 for cardiac). A fixed ÷2 over-corrects on every session tested.
+Per-session k calibration reduced resp MAE by 25% and cardiac MAE by 77%.
+
+---
+
+## (Retroactive) Infrastructure scripts — undated, created pre-2026-04-30
+
+The following scripts and notebooks were created during the project but not logged at the time. Entries are grouped by purpose; exact creation dates are not recoverable.
+
+---
+
+### Utility: `scripts/add_psg.py`
+
+**Purpose:** One-time script to programmatically add PSG data paths, stage labels, and constants to `analysis_raw.ipynb`. Not an analysis — a code-generation helper.
+
+**Status:** Used once; can be deleted or archived.
+
+---
+
+### CLI: `scripts/cap_rates.py`
+
+**Purpose:** Interactive CLI for heart-rate and respiratory-rate inspection. Modes: `inspect` (single window), `rates` (whole-night sliding), `metrics` (accuracy summary). Wraps the core `sleep_monitor` pipeline with argparse.
+
+**Output:** On-screen matplotlib plots; no saved artifacts.
+
+---
+
+### Pipeline: `scripts/run_rate_detection.py`
+
+**Purpose:** Run the default rate-detection pipeline (CLE-CRE + OLS + ACF) across all 12 sessions. Writes per-session metrics CSV + 4 summary plots to `notebooks/plots/` and `artifacts/rate_detection/`.
+
+**Status:** Superseded by `scripts/compute_rates.py` (which uses the upgraded GT pipeline).
+
+---
+
+### Pipeline: `scripts/compute_rates.py`
+
+**Purpose:** Compute sliding-window rate estimates for all sessions using the new GT pipeline (Flow for resp, ECG R-peaks for cardiac via neurokit2). Outputs: `artifacts/rates/metrics.parquet`, `artifacts/rates/windows/` per-session rate time series.
+
+**Status:** Active — uses `gt_sliding_rates()` from the 2026-04-22 GT upgrade.
+
+---
+
+### Pipeline: `scripts/compute_eeg.py`
+
+**Purpose:** Compute EEG band power (delta/theta/alpha/beta) by sleep stage for all sessions. Outputs: `artifacts/eeg/band_power.parquet`, per-session spectrogram arrays.
+
+**Status:** Active; consumed by notebook `03_eeg_analysis.ipynb`.
+
+---
+
+### Pipeline: `scripts/sweep.py`
+
+**Purpose:** Grid search over (channel, preproc, estimator) combinations per band across all 12 sessions. Writes per-window parquets (`artifacts/sweep/windows/`) and leaderboard (`artifacts/sweep/leaderboard.parquet`). Per-window parquets feed the classifier pipeline.
+
+**Status:** Active; consumed by `scripts/train_classifier.py` and `notebooks/05_method_search.ipynb`.
+
+---
+
+### Pipeline: `scripts/train_classifier.py`
+
+**Purpose:** Train and evaluate rate-prediction classifiers (LOSO CV) on the per-window parquets from `sweep.py`. Outputs: `artifacts/classifier/metrics.parquet`, `artifacts/classifier/summary.csv`, per-band out-of-fold predictions.
+
+**Status:** Active; results viewed in `notebooks/06_classifier_results.ipynb`.
+
+---
+
+### Plotting: `scripts/plot_all_sessions_timeseries.py`
+
+**Purpose:** Plot full-night and 30s-window time series for all 12 sessions (cap channels + PSG). Outputs per-session PNGs to `notebooks/plots/session_timeseries/`.
+
+**Status:** Active; useful for visual inspection.
+
+---
+
+### Plotting: `scripts/plot_best_rates.py`
+
+**Purpose:** Plot the two best rate detection methods (resp: peaks_scaled/k, cardiac: hilbert_scaled/k) against GT for all 6 subjects (Night 1), with sleep-stage overlay. Outputs to `artifacts/plots/best_rates/`.
+
+**Status:** Active.
+
+---
+
+### Plotting: `scripts/plot_apnea_timeseries.py`
+
+**Purpose:** Plot apnea/hypopnea event timeseries for all 12 sessions — hypnogram, apnea timeline (colored spans), and event density (15-min bins). Outputs to `notebooks/plots/apnea/`.
+
+**Status:** Active.
+
+---
+
+### Plotting: `scripts/plot_apnea_fullnight.py`
+
+**Purpose:** Full-night apnea overview for all 12 sessions — 6-row time-aligned figures: CLE/CRE/CH means, apnea events by subtype, head movement, spectrogram. Outputs to `notebooks/plots/apnea_analysis/`.
+
+**Status:** Active.
+
+---
+
+### Validation study: `scripts/run_validation.py`
+
+**Purpose:** Compute per-epoch (30s) CAP rate estimates vs PSG GT for all 12 sessions using best estimators (peaks_scaled for resp, hilbert_scaled for cardiac). Outputs: `artifacts/validation_windows.parquet`, `artifacts/validation_session.csv`, `artifacts/validation_stage.csv`.
+
+**Status:** Active; prerequisite for `scripts/plot_validation.py`.
+
+---
+
+### Validation study: `scripts/plot_validation.py`
+
+**Purpose:** Generate validation study figures from precomputed artifacts (Bland-Altman, scatter, stage boxplots, session MAE bars, summary table). Outputs to `notebooks/plots/`.
+
+**Requires:** `scripts/run_validation.py` first.
+
+---
+
+### Validation study: `scripts/generate_validation_docs.py`
+
+**Purpose:** Generate validation study DOCX documents (`notebooks/validation_methods.docx`, `notebooks/validation_results.docx`). Formats results from the rate validation pipeline for external presentation.
+
+---
+
+### Signal validation: `scripts/signal_validation.py`, `scripts/merge_validation.py`, `scripts/plot_validation_report.py`
+
+**Purpose:** Per-epoch spectral peak alignment, coherence, and cross-correlation with surrogates for all 12 sessions. Documented in `PROGRESS_LOG.md`.
+
+**Status:** Written, syntax-verified; awaiting execution.
+
+---
+
+### Signal validation: `scripts/signal_validation_enhanced.py`
+
+**Purpose:** Enhanced signal validation with 5 analyses (spectral peak agreement, peak-freq coherence, frequency tracking correlation, SNR-gated re-analysis, canonical coherence). Compares 5 L/R combination strategies (CLE-CRE, avg, CLE, CRE, PCA-1). Outputs: `artifacts/signal_validation_enhanced.parquet`, `artifacts/canonical_coherence.parquet`, `artifacts/channel_comparison_summary.csv`.
+
+**Status:** Written; run status unknown.
+
+---
+
+### Signal validation: `scripts/signal_validation_delay_pca.py`
+
+**Purpose:** Delay-embedding PCA for channel combination. Standard PCA on 2 z-scored channels degenerates to avg/diff; delay embedding lifts to higher-dimensional space. Sweeps tau and n_delays, evaluates via coherence vs GT. Outputs: `artifacts/delay_pca_validation.parquet`, `artifacts/delay_pca_sweep_summary.csv`.
+
+**Status:** Written; run status unknown.
+
+---
+
+### Signal validation: `scripts/signal_validation_proof.py`
+
+**Purpose:** Comprehensive publication-quality evidence that CAP signals contain respiratory and cardiac information. Best validated settings, canonical coherence, surrogate tests, formatted DOCX output. Outputs: `artifacts/proof_validation.parquet`, `artifacts/Signal_Validation_Proof.docx`.
+
+**Status:** Written; run status unknown.
+
+---
+
+### Signal validation: `scripts/cardiac_coherence_test.py`
+
+**Purpose:** Factorial test (2x2x2x2 = 16 conditions) for cardiac coherence improvements: ECG vs Pleth GT, wide vs narrow band, acc removal on/off, 30s vs 60s epoch. Outputs: `artifacts/cardiac_coherence_test.csv`.
+
+**Status:** Written; run status unknown.
+
+---
+
+### Rate accuracy: `scripts/rate_accuracy_analysis.py`
+
+**Purpose:** Full-night rate accuracy analysis across 4 cap channels (avg, diff, CLE, CRE). 30s non-overlapping epochs tagged with sleep stage, apnea, motion, electrode drift. Outputs: `artifacts/rate_accuracy.parquet`, `artifacts/rate_accuracy_summary.csv`, 8 figures in `notebooks/plots/rate_accuracy/`. This is task 6a from TASKS.md.
+
+**Status:** Written; run status unknown.
+
+---
+
+### Rate accuracy: `scripts/rate_accuracy_docx.py`
+
+**Purpose:** Generate DOCX report for rate accuracy analysis with embedded figures from `notebooks/plots/rate_accuracy/`. Outputs: `artifacts/Rate_Accuracy_Analysis.docx`.
+
+**Status:** Written; depends on `rate_accuracy_analysis.py` outputs.
+
+---
+
+### ICP validation dataset: `scripts/load_validation.py`
+
+**Purpose:** Load the ICP validation dataset (`combinedDataAnalyses_041626`) — subjects laying down in controlled postures/modes. Different cap channels (Cvl, Cvr, Cbl, Cbr) from overnight sessions. Utility loader used by other validation scripts.
+
+**Status:** Active; imported by `validation_breath_rate.py`, `validation_peak_analysis.py`, `validation_laydown_rates.py`.
+
+---
+
+### ICP validation: `scripts/validation_breath_rate.py`
+
+**Purpose:** Validate breath-rate scaling factor k per experiment mode on the ICP validation dataset (subject S0001). Uses z(Cvl)-z(Cvr) vs Thorax GT. Outputs plots + CSV to `notebooks/plots/`.
+
+---
+
+### ICP validation: `scripts/validation_peak_analysis.py`
+
+**Purpose:** Phase-by-phase peak/rate analysis across all ICP validation subjects. Compares lenient CAP peak detection against Thorax GT peaks per subject/phase. Outputs heatmaps, scatter plots, overlays to `notebooks/plots/validation/`.
+
+---
+
+### ICP validation: `scripts/validation_laydown_rates.py`
+
+**Purpose:** LayDown-only validation analysis for respiratory and cardiac rates. Restricted to layDown phases, computes raw/scaled rates and scaling factor k. Outputs to `notebooks/plots/validation/laydown/`.
+
+---
+
+### ICP validation: `scripts/plot_validation_rates.py`
+
+**Purpose:** Plot best rate detection methods on the ICP validation dataset. 6 subjects, controlled posture phases. GT from Pleth (cardiac) and Thorax (resp) — no ECG/Flow available. Outputs to `notebooks/plots/validation/`.
+
+---
+
+### Analysis: `notebooks/analysis_morphology.py`
+
+**Purpose:** Morphological cluster pipeline — ACF-based rate estimation (primary) + event counting with adaptive divisor (secondary). Both compared against PSG GT. Produces `morphology_signal.png` and `morphology_validation.png`.
+
+**Status:** Exploratory; may be superseded by the scaled-peaks approach.
+
+---
+
+### Analysis: `notebooks/analysis_pca_stacked_cle_cre.py`
+
+**Purpose:** PCA on delay-embedded [CLE, CRE] stack — 2 sessions, 5 random 1-min windows. Delay embedding with m=3, tau=0.25s. Produces per-window PC component plots and 3D trajectory visualizations.
+
+**Status:** Exploratory; mentioned in TASKS.md #8 as "not validated."
+
+---
+
+### Analysis: `notebooks/analysis_dmd_rank_sweep.py`
+
+**Purpose:** Hankel-DMD sweep of embedding dimension m for cardiac rate on S1N1. Tests m in {3, 6, 10, 15, 20, 30}. Per-m calibration of k, whole-night evaluation. Summary table + 3-panel plot of (MAE, coverage, k_dmd) vs m.
+
+**Status:** Exploratory; mentioned in TASKS.md #8.
+
+---
+
+### Analysis: `notebooks/analysis_sws_band_ratios.py`
+
+**Purpose:** Moving-window band power ratio analysis for all 12 sessions — EEG-band power ratios (delta, theta, alpha, beta) with motion masking + delta sub-band ratios. Outputs to `notebooks/plots/sws_band_ratios/`.
+
+**Status:** Active; relates to SWS/slow-wave-sleep investigation thread.
+
+---
+
+## (Retroactive) Numbered notebooks — created pre-2026-04-30
+
+These Jupyter notebooks were created as the interactive analysis/viewing layer. Most consume artifacts produced by scripts.
+
+| # | Notebook | Purpose | Depends on |
+|---|----------|---------|------------|
+| 01 | `01_overview.ipynb` | Raw signal inspection, hypnograms, session stats | Raw data only |
+| 02 | `02_rate_estimation.ipynb` | Visualize sliding-window rate estimates | `scripts/compute_rates.py` artifacts |
+| 03 | `03_eeg_analysis.ipynb` | EEG spectrograms and band-power by stage | `scripts/compute_eeg.py` artifacts |
+| 04 | `04_metrics_summary.ipynb` | Cross-subject accuracy tables and method comparison | `scripts/sweep.py` artifacts |
+| 05 | `05_method_search.ipynb` | Best pipeline selection from sweep leaderboard | `scripts/sweep.py` leaderboard |
+| 06 | `06_classifier_results.ipynb` | Rate classifier results, LOSO CV | `scripts/train_classifier.py` artifacts |
+| 07 | `07_validation_loader.ipynb` | Load ICP validation dataset | `scripts/load_validation.py` |
+| 08a | `08_cap_sleep_embedding.ipynb` | PCA/t-SNE/UMAP embedding of CAP features by stage | Feature extraction |
+| 08b | `08_validation_loader.ipynb` | Duplicate of 07 (validation dataset loader) | `scripts/load_validation.py` |
+| 09 | `09_projection_3d.ipynb` | 3D UMAP/t-SNE with 40 features + PCA baseline | Feature extraction |
+| 10 | `10_projection_cap12.ipynb` | 3D projection with 12 CAP-only features | Feature extraction (logged above, 2026-04-30) |
+
+---
+
+## Next Steps
+
+- Validation of cardiac and resp rates with our data
+  - accuracy metric for rate detection methods
+
+- slow wave sleep analysis
+    - how do we identify events that corespond to slow wave sleep
+    - thorax signal correlates to the low freq magnitude events, can we validate that low magnitude thorax corresponds to increase of low freq signal in cap data
+
+    questions:: 
+    - can we detect events like apnea
+    - access sleep anpnia event in data
+    - sleep staging based rates
+
+    hypothesis
+    - slow wave sleep is conected to deep sleep (N2 N3), if that is goin well then REM follows, if its short then REM may not occur
+
+
+    - Compare spectrogram to the SWS analyssis, see if harmonics are observed.
+
+    ** Projection methods
+
+
+    - sleep apnea::
+    Flow: gives types on apnea
+    effort1

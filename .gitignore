@@ -1,9 +1,9 @@
 # Virtual Environments
-.venv
+.venv/
 venv/
 ENV/
 env/
-.virtualenv
+.virtualenv/
 
 # Python
 __pycache__/
@@ -58,10 +58,40 @@ htmlcov/
 
 # Jupyter
 .ipynb_checkpoints/
+*.ipynb
 
 # Local tooling
 .claude/
 
-# Generated analysis outputs
-plots/
+# Data / artifacts (large, reproducible from raw)
+artifacts/
+*.parquet
+*.npz
+*.csv
+*.h5
+*.hdf5
+*.pkl
+*.pickle
 
+# Binary documents (not code)
+*.docx
+*.pptx
+*.xlsx
+*.pdf
+
+# Images (generated plots)
+*.png
+*.jpg
+*.jpeg
+*.svg
+
+# Plots directories
+plots/
+notebooks/plots/
+
+# Cache
+.cache/
+notebooks/.cache/
+
+# Archive (superseded code)
+archive/

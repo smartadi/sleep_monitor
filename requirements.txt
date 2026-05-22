@@ -2,4 +2,8 @@ numpy
 pandas
 matplotlib
 scipy
+neurokit2
 ipykernel
+scikit-learn
+umap-learn
+dash
