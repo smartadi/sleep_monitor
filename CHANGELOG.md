@@ -6,6 +6,12 @@ Records all code changes to library modules, scripts, and notebooks.
 
 ## 2026-05-22
 
+- **Added** `analysis/thorax/CLAUDE.md` — thorax prediction analysis workspace: 6 phases of investigation, scripts/artifacts/plots inventory, conclusions and implications
+- **Added** `analysis/thorax/ANALYSIS_LOG.md` — chronological log of all thorax analysis phases (correlation, prediction, CAP-only, ablation, residualization, slow-trends)
+- **Updated** `CLAUDE.md` — added thorax to analysis areas listing
+
+- **Added** `analysis/slow_wave/plot_harmonics_s1n1.py` — 3 harmonic visualization plots (full-night traces + hypnogram, stage boxplots, dominant channel breakdown)
+- **Added** 3 plots in `notebooks/plots/harmonics/`: `harmonics_fullnight_s1n1.png`, `harmonics_stage_boxplots_s1n1.png`, `harmonics_dominant_channel_s1n1.png`
 - **Added** `sleep_monitor/harmonics.py` — harmonic structure detection module (3 methods: HPS, cepstral, explicit f0+harmonics). Sliding-window `detect_harmonics()` and `detect_harmonics_multichannel()` returning per-window DataFrame with f0, n_harmonics, harmonic_energy_ratio, cepstral_prominence, harmonic_decay_rate, dominant_channel
 - **Updated** `sleep_monitor/__init__.py` — registered `detect_harmonics`, `detect_harmonics_multichannel` in package exports
 - **Added** `CLAUDE.md` — lean root context file (project identity, data paths, package API, workflow rules)

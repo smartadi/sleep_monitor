@@ -43,6 +43,11 @@ N3 has the highest harmonic energy ratio (median 0.753), well separated from N1 
 
 **n_harmonics:** modest discrimination (N3 mean 1.81 vs N1 1.42).
 
+### Plots generated
+- `notebooks/plots/harmonics/harmonics_fullnight_s1n1.png` — full-night harmonic traces (energy ratio, n_harmonics, cepstral prominence) with hypnogram and stage shading
+- `notebooks/plots/harmonics/harmonics_stage_boxplots_s1n1.png` — all 4 harmonic features by sleep stage (boxplots with sample counts)
+- `notebooks/plots/harmonics/harmonics_dominant_channel_s1n1.png` — dominant channel overall + by-stage stacked bar
+
 ### Next steps (Stage 2)
 - Run across all 12 sessions to confirm N3 discrimination generalizes
 - Statistical testing (Kruskal-Wallis) for stage differences
