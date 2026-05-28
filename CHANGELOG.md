@@ -4,6 +4,11 @@ Records all code changes to library modules, scripts, and notebooks.
 
 ---
 
+## 2026-05-28
+
+- **Added** `analysis/slow_wave/run_ridge_stage3.py` — Stage 3: persistent ridge features vs sleep stage for all 12 sessions x 3 channels. Per-epoch feature extraction, KW and MW-U tests, per-subject analysis, 4 plot types.
+- **Added** reports: `stage3_ridge_epochs.parquet`, `stage3_summary.csv`, `stage3_ridge_features_by_stage.png`, `stage3_ridge_features_per_subject.png`, `stage3_n3_vs_rest.png`, 12x `stage3_ridge_timeseries_*.png`
+
 ## 2026-05-22
 
 - **Added** `analysis/thorax/CLAUDE.md` — thorax prediction analysis workspace: 6 phases of investigation, scripts/artifacts/plots inventory, conclusions and implications

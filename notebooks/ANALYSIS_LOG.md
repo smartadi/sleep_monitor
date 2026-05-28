@@ -7,9 +7,64 @@ Each entry records the question asked, code written, parameters used, plots gene
 - **2026-05-28** — Informed unsupervised projections: KW-weighted + NCA-transformed UMAP vs baselines (`scripts/run_projections_informed.py`) — NCA closes ~6% of gap, signal is in nonlinear interactions
 - **2026-05-28** — Pure-CAP projections v2: 36 features, 5 methods (PCA/UMAP/supervised UMAP/t-SNE/PHATE), all 12 sessions (`scripts/run_projections_v2.py`)
 - **2026-05-22** — Spectral peak tracker with auto-detection and ridge tracking (`analysis/slow_wave/run_peak_tracker.py`)
+- **2026-05-28** — Phase 3 clustering: GMM (k=3,4,5) + DBSCAN on supervised UMAP embeddings for all 12 sessions (`scripts/run_clustering_phase3.py`). GMM k=4 is the sweet spot (best ARI in 7/12 sessions). Best: S5N2 ARI=0.943, S2N2 ARI=0.942. S6 confirmed poor (ARI<0.15). DBSCAN over-fragments. Outputs: confusion matrices, 3D HTML, side-by-side panels in `reports/projections/<session>/clustering/`.
+- **2026-05-28** — Stage 3 harmonic ridges vs physiology: persistent ridges on all 12 sessions x 3 channels, per-epoch features aligned with PSG stages (`analysis/slow_wave/run_ridge_stage3.py`). Key: N3 has fewer harmonic groups (p=7.6e-5), lower ridge frequency (0.25 vs 0.88 Hz, p=5.7e-4), less ridge power (p=3.7e-5), less freq spread (p=8.5e-7). Direction is consistent: N3<other in 5/6 subjects for all features. Ridges are a quasi-stationary sleep feature but not a strong N3 discriminator on their own.
 - *(add new entries below this line)*
 
 ---
+
+## 2026-05-28 — Stage 3: Persistent ridge features vs sleep stage
+
+**Question:** Do persistent spectral ridges (tracked with temporal continuity) correlate with sleep stage? Is harmonic structure a marker of N3/deep sleep?
+
+**Script:** `analysis/slow_wave/run_ridge_stage3.py`
+
+### Approach
+- Ran `detect_persistent_ridges()` on all 12 sessions x 3 CAP channels (CH, CLE, CRE)
+- Parameters: 30s windows, 7-window median smoothing, min 300s persistence, max 0.08 Hz jump, 5-window gap tolerance
+- Per-epoch features: n_ridges, n_groups_active, max_group_size, min/mean/max ridge freq, freq spread, mean/max/total ridge amplitude, strongest f0
+- Aligned with PSG sleep stage labels (30s epochs)
+- Statistical tests: Kruskal-Wallis (5 stages), Mann-Whitney U (N3 vs non-N3), per-subject breakdown
+
+### Key findings
+
+**N3 vs non-N3 (CH channel, wake excluded):**
+| Feature | N3 median | Other median | MW-U p | Direction |
+|---------|-----------|-------------|--------|-----------|
+| n_ridges | 0.0 | 0.0 | 0.13 ns | 5/6 subj N3<other |
+| n_groups_active | 0.0 | 0.0 | 7.6e-5 *** | 6/6 subj N3<other |
+| max_group_size | 0.0 | 0.0 | 8.1e-5 *** | 6/6 subj N3<other |
+| min_ridge_freq | 0.25 Hz | 0.88 Hz | 5.7e-4 *** | 6/6 subj N3<other |
+| total_ridge_power | 0.11 | 0.17 | 3.7e-5 *** | 5/6 subj N3<other |
+| freq_spread | 0.0 | 0.0 | 8.5e-7 *** | 6/6 subj N3<other |
+
+**5-stage Kruskal-Wallis (all significant p<0.001):**
+- Active ridges: KW p=7.2e-10
+- Total ridge power: KW p=4.1e-6
+- Ridge freq spread: KW p=4.6e-12
+
+**Per-subject patterns (per-subject plot):**
+- Direction is remarkably consistent: N3 has fewer, lower-frequency, lower-power ridges in 5-6/6 subjects
+- OS002 is the only subject where N3 total ridge power > other (driven by large N3 ridge in one session)
+- OS006 has the most active ridges overall (up to 4 concurrent), concentrated in N2
+
+**Interpretation:**
+- N3 epochs show *reduced* harmonic structure: fewer persistent ridges, lower frequencies when present, less spectral spread
+- This is consistent with deep sleep muscle relaxation reducing non-sinusoidal respiratory waveform complexity
+- Harmonic groups (integer-ratio ridge sets) are rare events even in non-N3 stages -- medians are 0 everywhere, significance comes from the tail
+- The signal is real (consistent direction across subjects) but weak as a standalone N3 classifier -- most epochs have 0-1 ridges regardless of stage
+
+### Outputs
+- `reports/slow_wave/stage3_ridge_epochs.parquet` — 27,957 epoch rows (all sessions x channels)
+- `reports/slow_wave/stage3_ridge_features_by_stage.png` — pooled box plots
+- `reports/slow_wave/stage3_ridge_features_per_subject.png` — per-subject box plots
+- `reports/slow_wave/stage3_n3_vs_rest.png` — N3 vs non-N3 comparison
+- `reports/slow_wave/stage3_ridge_timeseries_<label>.png` — 12 per-session time series
+- `reports/slow_wave/stage3_summary.csv` — N3 vs non-N3 summary table
+
+### Next steps
+- These ridge features are weak standalone classifiers but may add discriminative power when combined with band power ratios and k_cardiac in a multivariate model (Stage 4)
+- The min_ridge_freq feature (0.25 Hz in N3 vs 0.88 Hz in other) is the most promising single feature -- it captures the shift toward slower, simpler respiratory waveforms in deep sleep
 
 ---
 

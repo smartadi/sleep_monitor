@@ -1,5 +1,12 @@
 # Slow Wave Sleep Analysis
 
+## Status
+Stage 3 complete. Persistent ridge tracker run on all 12 sessions x 3 channels.
+Key finding: N3 has *reduced* harmonic structure vs other stages — fewer ridges, lower frequency (0.25 vs 0.88 Hz), less power, less spectral spread. Direction consistent in 5-6/6 subjects. Statistically significant (MW-U p<0.001 for 5/6 features) but weak as standalone classifier (medians near zero for both groups).
+Next (Stage 4): integrate ridge features into multivariate SWS classifier with band power ratios + k_cardiac.
+Artifacts: `artifacts/harmonics/allsessions.parquet`, `reports/slow_wave/stage3_ridge_epochs.parquet`
+Outputs -> `reports/slow_wave/`
+
 Detect slow wave sleep (N3/SWS) signatures in CAP temple sensors without EEG.
 
 ## Hypotheses
