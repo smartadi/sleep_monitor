@@ -2,6 +2,77 @@
 
 Each entry records the question asked, code written, parameters used, plots generated, and key findings.
 
+## Recent (last 3 — scroll down for full history)
+- **2026-05-28** — Thorax effort clusters on unsupervised UMAP (no acc): effort terciles cluster better than stages in 12/12 sessions (`scripts/run_thorax_effort_clusters.py`)
+- **2026-05-28** — Informed unsupervised projections: KW-weighted + NCA-transformed UMAP vs baselines (`scripts/run_projections_informed.py`) — NCA closes ~6% of gap, signal is in nonlinear interactions
+- **2026-05-28** — Pure-CAP projections v2: 36 features, 5 methods (PCA/UMAP/supervised UMAP/t-SNE/PHATE), all 12 sessions (`scripts/run_projections_v2.py`)
+- **2026-05-22** — Spectral peak tracker with auto-detection and ridge tracking (`analysis/slow_wave/run_peak_tracker.py`)
+- *(add new entries below this line)*
+
+---
+
+---
+
+## 2026-05-28 — Informed unsupervised projections (KW-weighted + NCA)
+
+**Question:** Can supervised knowledge (which features discriminate stages) transfer to unsupervised embeddings?
+
+**Script:** `scripts/run_projections_informed.py`
+
+### Approach
+- Loaded v2 feature CSVs (36 pure-CAP features) for all 12 sessions
+- **KW-weighted**: scaled features by sqrt(Kruskal-Wallis H statistic) before UMAP — amplifies stage-discriminative features
+- **NCA-transformed**: learned 20D linear projection via sklearn NeighborhoodComponentsAnalysis (200 iter) that pulls same-stage points together, then ran UMAP
+- **NCA+KW combined**: applied KW-weighting on NCA dimensions
+- Compared all against raw unsupervised UMAP and supervised UMAP baselines
+
+### Key findings
+- **Linear transfer barely helps**: mean gap closed = 6.3% (median 6.2%)
+- **KW-weighting slightly hurts** on average (delta = -0.021) — in some sessions it suppresses useful features
+- **NCA provides modest improvement** (delta = -0.005 on average, but positive in 8/12 sessions)
+- **The supervised→unsupervised gap is fundamentally nonlinear** — supervised UMAP uses label information during graph construction, not just feature weighting
+- KW top features vary by session: acc_rms and breath_interval_cv appear most often, but the discriminative features are session-specific
+- NCA top features emphasize cross-channel (CRE_SO, CH_SO, coh_resp) and rate features — different from KW rankings
+
+### Interpretation
+The stage signal IS in the features (supervised UMAP proves this), but it lives in nonlinear interactions that neither reweighting nor linear projection can extract. The dominant variance structure in the raw feature space is driven by non-stage factors (amplitude drift, inter-epoch noise, respiratory depth variability). Unsupervised methods faithfully represent this dominant structure.
+
+### Outputs
+- `reports/projections/<session>/<session>_informed_silhouette.csv`
+- `reports/projections/<session>/<session>_feature_importance.csv` + `.png`
+- `reports/projections/informed_unsupervised_comparison.png` — bar chart across all sessions
+- `reports/projections/informed_gap_closed.png` — % of supervised gap recovered
+- `reports/projections/informed_comparison_summary.csv`
+
+---
+
+## 2026-05-28 — Pure-CAP projections v2 (all 12 sessions)
+
+**Question:** Can we separate sleep stages in 3D embeddings using only raw CAP sensor features (no k-calibration)?
+
+**Script:** `scripts/run_projections_v2.py`
+
+### Approach
+- Extracted 36 features per 60s window (30s step) from CLE, CRE, CH, accelerometer ONLY
+- Feature groups: per-channel band powers (16), diff signal stats with Hjorth params (6), respiratory band (6), cardiac band (4), cross-channel coherence (2), accelerometer (2)
+- Rates via ACF (no k-calibration needed)
+- Methods: PCA, UMAP (nn=15,30,50), supervised UMAP (nn=15,30), t-SNE (perp=15,30,50), PHATE (knn=10,30)
+- 7 coloring overlays: stage, time, apnea, thorax RMS, resp power, cardiac power, trajectory
+
+### Key findings
+- **Supervised UMAP dominates** — best 5-class silhouette in 11/12 sessions
+- 5-class silhouette range: -0.02 to 0.69 (median ~0.45)
+- Best sessions: S4N2 (0.69), S5N2 (0.67), S5N1 (0.56), S3N1 (0.54)
+- Worst sessions: S6N1 (-0.02), S6N2 (0.03) — needs investigation
+- Top discriminating features: acc_rms, breath_interval_cv, diff_hjorth_mobility/complexity, diff_SO
+- Thorax RMS correlates with diff_hjorth_complexity (~0.45) and resp_snr
+- PHATE preserves sleep cycle trajectory structure — visible in trajectory plots
+- Unsupervised UMAP/t-SNE show weaker separation than supervised UMAP
+
+### Outputs
+- `reports/projections/<session>/` — 43 files per session (interactive HTML, static PNG, CSV)
+- `reports/projections/cross_session_summary.csv` — silhouette comparison table
+
 ---
 
 ## 2026-05-22 — Spectral peak tracker with auto-detection and ridge tracking
