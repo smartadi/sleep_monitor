@@ -8,6 +8,7 @@ Records all code changes to library modules, scripts, and notebooks.
 
 ### SWA Validation
 - **Added** `analysis/swa_validation/CLAUDE.md` — SWA validation workspace: Lucey et al. 2019 replication plan, Steps 0-4, deliverables, working rules
+- **Added** `analysis/swa_validation/step0_inventory.py` — Step 0 data inventory script: scans all 12 sessions, reports format/channels/rates/alignment/quality
 
 ### Slow Wave / Harmonic Detection
 - **Updated** `sleep_monitor/harmonics.py` — added `detect_persistent_ridges()`: temporally-continuous ridge tracking with motion masking, fragment merging, harmonic group detection, and continuous harmonic strength scoring

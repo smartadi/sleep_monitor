@@ -24,9 +24,127 @@ Each entry records the question asked, code written, parameters used, plots gene
 - **2026-06-11** — Paper signal validation figures (`scripts/paper_signal_validation_figures.py`): 4 publication-quality figures (waveform, freq agreement, coherence+surrogates, channel comparison) + summary table
 - **2026-06-11** — Paper docx generation (`scripts/generate_paper_docx.py`, `scripts/generate_rate_consolidation_docx.py`): Word documents for signal validation and rate consolidation sections
 - **2026-06-11** — Unit tests added (`tests/`): `test_filters.py`, `test_preprocessing.py`, `test_rates.py`
+- **2026-06-11** — SWA Validation Step 0: Data inventory across all 12 overnight sessions. All CSV+PSG files present. AASM staging available for all. Key issues found: sleep staging misalignment (up to 38.5 min offset), EEG unit/montage unknown, CAP in ADC counts.
 - *(add new entries below this line)*
 
 ---
+
+## 2026-06-11 — SWA Validation Step 0: Data Inventory
+
+**Question:** What data is available for the Lucey et al. 2019 SWA replication — capacitive EEG vs contact EEG?
+
+**Script/Notebook:** `analysis/swa_validation/step0_inventory.py`
+**Outputs:** Console summary (no artifacts yet)
+
+### Setup
+Scanned all three data directories:
+- `overnight_6subject_pelthupdate_030526/` — Combined CAP+PSG synchronized CSVs
+- `overnight_6subject_complete_032626/` — PSG analysis exports (Sleep Profile, Delta FFT, etc.)
+- `combinedDataAnalyses_041626/` — Short ICP recordings (NOT overnight sleep — excluded)
+
+### Results
+
+#### Dataset summary: 12 recordings, 6 subjects × 2 nights
+
+| Session | Subject  | Date       | Duration | Samples    | File Size |
+|---------|----------|------------|----------|------------|-----------|
+| S1N1    | OS001-KJK| 09-17-2024 | 7.95 hr  | 2,862,001  | 96.8 MB   |
+| S1N2    | OS001-KJK| 09-18-2024 | 7.63 hr  | 2,748,001  | 93.3 MB   |
+| S2N1    | OS002-LDI| 09-19-2024 | 7.73 hr  | 2,784,001  | 88.9 MB   |
+| S2N2    | OS002-LDI| 09-20-2024 | 6.77 hr  | 2,436,001  | 78.2 MB   |
+| S3N1    | OS003-LCW| 12-18-2025 | 6.93 hr  | 2,496,001  | 85.6 MB   |
+| S3N2    | OS003-LCW| 12-19-2025 | 8.66 hr  | 3,117,001  | 104.0 MB  |
+| S4N1    | OS004-CJH| 12-25-2025 | 6.18 hr  | 2,224,400  | 64.4 MB   |
+| S4N2    | OS004-CJH| 12-26-2025 | 6.02 hr  | 2,166,001  | 62.9 MB   |
+| S5N1    | OS005-CJY| 01-03-2026 | 4.11 hr  | 1,479,001  | 40.4 MB   |
+| S5N2    | OS005-CJY| 12-27-2025 | 4.74 hr  | 1,707,001  | 50.5 MB   |
+| S6N1    | OS006-SK | 01-14-2026 | 5.16 hr  | 1,857,001  | 64.3 MB   |
+| S6N2    | OS006-SK | 01-15-2026 | 5.78 hr  | 2,082,001  | 67.3 MB   |
+
+#### File format
+- **Format:** Compressed CSV (`.csv.gz`), comma-separated
+- **Columns:** `timeSM` (wall-clock ISO), `timeMS` (ms counter), then 6 CAP + 8 PSG channels
+- **CAP channels:** CH, CLE, CRE, aX, aY, aZ
+- **PSG channels:** EEG, EOGl, EOGr, ECG, Flow, Pleth, Thorax, Abdomen
+- **Sampling rate:** 100 Hz (confirmed by sample_count / duration for all 12 sessions)
+
+#### Units (NEEDS CONFIRMATION)
+- **EEG:** Likely microvolts (typical range ±40 to ±270 uV; ADC clips at ±600)
+- **CAP (CLE, CRE, CH):** ADC counts — no documented conversion to physical units
+  - CLE ≈ 1970–2035, CRE ≈ 2190–2260, CH ≈ -1055 to -884
+  - CLE-CRE differential std ranges from 5.8 (S5N2) to 199.7 (S6N2)
+- **Other PSG:** ECG, Flow, Thorax, Abdomen — PSG system units (likely uV/arbitrary)
+
+#### AASM sleep staging
+- **Available:** All 12 sessions have PSG Sleep Profile text files
+- **Resolution:** 30-second epochs
+- **Stages:** Wake, Stage 1, Stage 2, Stage 3, REM, Artefact (AASM-like; no N3/N2 split beyond Stage 2 vs 3)
+- **PSG system:** Appears to be SOMNOmedics (German "SchlafProfil" identifier in files)
+- **Epochs per session:** 515–1125 (covering 4.29–9.38 hr)
+- **Reliability files:** Also present (Sleep Profile Reliability) but not yet inspected
+
+#### Time alignment
+
+**Within CSV:** CAP and PSG signals are SAMPLE-ALIGNED (synchronization done at collection time). No additional alignment needed for sample-level comparisons.
+
+**CSV vs Sleep Profile — MISALIGNMENT FOUND:**
+
+| Session | CSV→PSG offset | Staging epochs before CSV |
+|---------|---------------|--------------------------|
+| S1N1    | +38.5 min     | ~77 epochs               |
+| S1N2    | +37.0 min     | ~74 epochs               |
+| S2N1    | +39.5 min     | ~79 epochs               |
+| S2N2    | +28.0 min     | ~56 epochs               |
+| S3N1    | +25.0 min     | ~50 epochs               |
+| S3N2    | +30.5 min     | ~61 epochs               |
+| S4N1    | +0.1 min      | ~0 epochs                |
+| S4N2    | +2.0 min      | ~4 epochs                |
+| S5N1    | +6.0 min      | ~12 epochs               |
+| S5N2    | +4.0 min      | ~8 epochs                |
+| S6N1    | +12.0 min     | ~24 epochs               |
+| S6N2    | +8.0 min      | ~16 epochs               |
+
+The existing `loader.load_sleep_profile()` does NOT account for this offset — it assigns epoch 0 to CSV time 0, but epoch 0 actually corresponds to PSG start (before CSV begins). **For S1–S2 (2024 recordings), staging is misaligned by 28–39.5 minutes.** For S4+ (2025–2026), offset is small (0.1–12 min). The SWA pipeline must use wall-clock alignment via `timeSM` and Sleep Profile timestamps.
+
+#### PSG Delta FFT (system spectral output)
+- Available for all 12 sessions: `Delta FFT - NNNNN.txt`
+- Unit: % (relative power), 2 Hz sampling
+- Could serve as sanity check but NOT as the reference — we compute our own PSD from raw EEG
+
+#### Signal quality flags
+1. **S6N2 ECG dead:** Constant ~1.0 (std < 0.04). Not relevant for SWA but noted.
+2. **S6N1/S6N2 EEG noisiest:** std 65–71 uV, p1/p99 ±220–270 uV vs ~17–52 for others. Expect more artifact epochs.
+3. **S5N1 shortest:** 4.11 hr — may barely meet minimum data requirements after artifact rejection.
+4. **EEG ±600 clipping:** Occurs in S2N1/S2N2/S3N2/S4N1/S4N2/S5N1/S5N2/S6N1/S6N2 but rate is <0.12%.
+5. **S5N1 CAP polarity:** CLE-CRE is POSITIVE (~247–405) while all others are negative. Possibly reversed electrode orientation.
+6. **S6N1/S6N2 CAP noisy:** CLE-CRE differential std 108–200, vs 6–68 for others.
+
+#### Validation dataset (combinedDataAnalyses_041626) — EXCLUDED
+- Short ICP recordings (~12.5 min each), 6 subjects, tab-separated text
+- Different electrode montage (Cvl, Cvr, Cbl, Cbr — 4 cap channels)
+- No sleep staging, no overnight data
+- **Not usable for SWA validation**
+
+### Key findings
+1. All 12 overnight recordings available with simultaneous capacitive + contact EEG at 100 Hz
+2. AASM sleep staging exists for all 12 sessions (30-sec resolution, all 5 stages + artifact)
+3. **CRITICAL: Sleep staging is time-misaligned** with CSV data by up to 38.5 min (early recordings). Must fix before proceeding.
+4. **UNKNOWN: EEG montage/derivation.** Which contact EEG channel does the "EEG" column represent? (F3-M2? C3-M2? Cz?) Matters for Lucey comparison (they used frontal EEG).
+5. **UNKNOWN: Exact EEG units.** Assumed uV but not documented. Need confirmation.
+6. **UNKNOWN: Reference PSG filter characteristics.** CLAUDE.md notes "Reference device had 0.1-0.6 Hz band-stop." Need to verify if this applies to EEG in our data.
+7. CAP signals are in ADC counts — SWA comparison will use power profiles (normalized), not raw values.
+8. S5N1 is only 4.11 hr; S5N2 4.74 hr — subject OS005 has the least data but both nights available.
+9. The combinedDataAnalyses dataset is irrelevant (short ICP recordings, different montage).
+
+### Questions requiring user input before Step 1
+1. What is the EEG derivation/montage in the combined CSV?
+2. What are the EEG units? (uV seems right from the value ranges)
+3. Does the PSG system apply a band-stop filter in the 0.1–0.6 Hz range to the EEG signal?
+4. Should I fix the staging alignment in `loader.py` globally, or create an SWA-specific aligned loader?
+5. Is subject OS005 (4.1–4.7 hr recordings) acceptable, or should we flag it as marginal?
+
+### Status
+Step 0 COMPLETE — awaiting user confirmation before Step 1.
 
 ## 2026-05-28 — Stage 3: Persistent ridge features vs sleep stage
 

@@ -60,7 +60,7 @@ One function for all signals:
 - Ask whenever format/unit/rate/staging is unclear — never guess
 
 ## Status
-- [ ] Step 0: Inventory
+- [x] Step 0: Inventory (2026-06-11) — see ANALYSIS_LOG.md
 - [ ] Step 1: Shared pipeline
 - [ ] Step 2: Reference targets
 - [ ] Step 3: Validation metrics
