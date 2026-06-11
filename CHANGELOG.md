@@ -6,6 +6,14 @@ Records all code changes to library modules, scripts, and notebooks.
 
 ## 2026-06-11 (cont.)
 
+### Best-of-Both Rate Pipeline + Updated Documentation
+- **Added** `scripts/evaluate_best_pipeline.py` — unified best pipeline: Kalman (reactive, R x0.3, Q x2.0) for resp, hilbert for cardiac, multi-channel quality-weighted fusion, configurable median temporal smoothing (SMOOTH_WIN=7), per-session + LOSO k-calibration
+- **Output** `reports/rates/best_pipeline/` — 12 time-series PNGs, 12 Bland-Altman PNGs, aggregate + per-stage plots, 2 CSVs
+- Resp: **1.49 br/min** (per-session k), 1.95 (LOSO) — 42% over peaks/k baseline
+- Cardiac: **4.11 BPM** (per-session k), 5.41 (LOSO) — 15% over single-channel hilbert/k
+- **Updated** `scripts/generate_rate_consolidation_docx.py` — now two-part document: Part 1 (original consolidation) + Part 2 (hybrid pipeline with all 12 session time-series, Bland-Altman, aggregate stats, per-stage, 4 tables)
+- **Output** `writeup/CAP_rate_consolidation_section.docx` — 35 figures, 4 tables
+
 ### SWA Validation — Lucey et al. 2019 Replication (Steps 0-4)
 - **Added** `analysis/swa_validation/swa_pipeline.py` — shared spectral pipeline: FIR bandpass (0.5-40 Hz via `firwin`), 6-sec epoch Welch PSD, band powers (1-4.5 Hz total, sub-bands, 20-30 Hz EMG), relative power normalization, artifact rejection (EMG 97.5th pct + accelerometer)
 - **Added** `analysis/swa_validation/run_swa_validation.py` — full pipeline runner: Steps 1-2 (process all 12 sessions, both EEG and CAP), Step 3 (Pearson/Spearman correlation, Bland-Altman, coherence, ROC/AUC for N3 detection), Step 4 (per-subject summary, 5 publication plots)

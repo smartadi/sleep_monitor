@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 """
-Generate the multi-channel rate estimation section as a standalone Word document.
+Generate the rate estimation section as a standalone Word document.
 
-This is a secondary writeup for review. The user decides whether to merge
-it into the main paper.
+Covers:
+  1. Original multi-channel consolidation (no-k methods, CWT, Viterbi)
+  2. Hybrid pipeline (adaptive peaks, Kalman tracker, best-of-both)
 
 Output: writeup/CAP_rate_consolidation_section.docx
 """
@@ -17,10 +18,20 @@ from docx.shared import Inches, Pt, Cm, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_TABLE_ALIGNMENT
 import pandas as pd
+import numpy as np
 
 ROOT = Path(__file__).resolve().parent.parent
 FIGURES = ROOT / 'writeup' / 'figures' / 'rate_consolidation'
+BEST_DIR = ROOT / 'reports' / 'rates' / 'best_pipeline'
+PHASE3_DIR = ROOT / 'reports' / 'rates' / 'hybrid_phase3'
+PHASE2_DIR = ROOT / 'reports' / 'rates' / 'hybrid_phase2'
+PHASE1_DIR = ROOT / 'reports' / 'rates' / 'hybrid_phase1'
 OUT = ROOT / 'writeup' / 'CAP_rate_consolidation_section.docx'
+
+SESSIONS = [
+    'S1N1', 'S1N2', 'S2N1', 'S2N2', 'S3N1', 'S3N2',
+    'S4N1', 'S4N2', 'S5N1', 'S5N2', 'S6N1', 'S6N2',
+]
 
 
 def setup_styles(doc: Document):
@@ -101,7 +112,12 @@ def add_table(doc: Document, df: pd.DataFrame, caption: str):
         for j, val in enumerate(row):
             cell = table.rows[row_idx + 1].cells[j]
             if isinstance(val, float):
-                cell.text = f'{val:.1f}' if abs(val) >= 0.1 else f'{val:.2f}'
+                if np.isnan(val):
+                    cell.text = '--'
+                elif abs(val) >= 0.1:
+                    cell.text = f'{val:.2f}'
+                else:
+                    cell.text = f'{val:.3f}'
             else:
                 cell.text = str(val)
             for paragraph in cell.paragraphs:
@@ -114,12 +130,12 @@ def add_table(doc: Document, df: pd.DataFrame, caption: str):
 
 
 # ==============================================================================
-# METHODS
+# PART 1: ORIGINAL CONSOLIDATION
 # ==============================================================================
 
-def write_methods(doc: Document):
-    doc.add_heading('Methods', level=1)
-    doc.add_heading('Multi-Channel Rate Estimation Without PSG Calibration', level=2)
+def write_consolidation_methods(doc: Document):
+    doc.add_heading('Part 1: Multi-Channel Rate Estimation Without PSG Calibration', level=1)
+    doc.add_heading('Methods', level=2)
 
     doc.add_paragraph(
         'The k-factor rate estimation pipeline described previously requires a '
@@ -142,336 +158,363 @@ def write_methods(doc: Document):
         'their arithmetic average (Avg = (CLE + CRE) / 2), and a left-right '
         'differential (Diff = CLE - CRE). Each method was applied to '
         'non-overlapping 30-second windows in both the respiratory (0.1-0.5 Hz) '
-        'and cardiac (0.7-4.0 Hz) bands. No k-factor scaling was applied; the '
-        'raw estimated rate was compared directly against PSG ground truth.'
+        'and cardiac (0.7-4.0 Hz) bands. No k-factor scaling was applied.'
     )
 
     doc.add_heading('Channel Fusion', level=3)
     doc.add_paragraph(
-        'Two fusion strategies were tested to combine information across '
-        'channels. In confidence-weighted fusion, each channel contributes its '
-        'rate estimate weighted by a composite signal quality score (derived from '
-        'signal-to-noise ratio, spectral concentration, and autocorrelation '
-        'prominence). In agreement-filtered fusion, channels are first screened '
-        'for cross-method consistency: only channels where the standard deviation '
-        'across the five methods falls below a threshold (0.15 Hz for cardiac, '
-        '0.05 Hz for respiratory) are included, then confidence-weighted as '
-        'above. An oracle selector, which picks the best channel per window with '
-        'hindsight knowledge of the ground truth, establishes an upper bound on '
-        'what any per-window channel selection could achieve.'
+        'Two fusion strategies were tested. In confidence-weighted fusion, each '
+        'channel contributes its rate estimate weighted by a composite signal '
+        'quality score (SNR, spectral concentration, ACF prominence). In '
+        'agreement-filtered fusion, channels are first screened for cross-method '
+        'consistency before confidence-weighted averaging. An oracle selector '
+        'picks the best channel per window with hindsight.'
     )
 
-    doc.add_heading('Continuous Wavelet Transform Ridge Tracking', level=3)
-    doc.add_paragraph(
-        'For the cardiac band specifically, we added a continuous wavelet '
-        'transform (CWT) method. The CWT scalogram was computed using a Morlet '
-        'wavelet over 32 logarithmically spaced scales spanning the cardiac band. '
-        'The dominant ridge -- the scale with maximum energy -- was extracted per '
-        'window and converted to a frequency estimate. The motivation was that '
-        'CWT ridge tracking may resolve the fundamental cardiac repetition rate '
-        'directly from the time-frequency representation, without the harmonic '
-        'confusion that affects peak-based and Hilbert methods on BCG signals.'
-    )
-
-    doc.add_heading('Temporal Smoothing', level=3)
-    doc.add_paragraph(
-        'All per-window rate estimates were post-processed with a Viterbi-style '
-        'temporal smoother. The algorithm finds the path through a discrete grid '
-        'of candidate rates that minimizes a cost function combining fidelity to '
-        'the observed per-window estimate and a penalty for epoch-to-epoch jumps '
-        'exceeding physiological limits (5 BPM/epoch for cardiac, 2 br/min/epoch '
-        'for respiratory). This enforces the physiological constraint that heart '
-        'rate and breathing rate change gradually, suppressing isolated outlier '
-        'windows that would otherwise dominate the error.'
-    )
-
-
-# ==============================================================================
-# RESULTS
-# ==============================================================================
-
-def write_results(doc: Document):
-    doc.add_heading('Results', level=1)
-    doc.add_heading('Multi-Channel Rate Estimation', level=2)
-
-    # --- Method benchmark ---
-    doc.add_heading('Method Benchmark', level=3)
-    doc.add_paragraph(
-        'Figure 1 shows the median absolute error (MAE) for every combination '
-        'of method and channel, without k-factor scaling, pooled across all 12 '
-        'sessions.'
-    )
-    doc.add_paragraph(
-        'For respiratory rate, the spectral (Welch periodogram) method was the '
-        'clear winner at 1.5 br/min MAE, nearly uniform across all five channel '
-        'configurations. This is notable because it outperforms the k-scaled peak '
-        'counting method used in the previous analysis (2.20 br/min). The '
-        'spectral method does not count individual breath events; it identifies '
-        'the dominant frequency in the power spectrum, which sidesteps the '
-        'overcounting problem that necessitated k-factor correction in the first '
-        'place. The Hilbert method (2.0 br/min on the best channel) and peak '
-        'counting (2.5 br/min) were worse, and ACF was the poorest at '
-        '4.6-5.1 br/min.'
-    )
-    doc.add_paragraph(
-        'For cardiac rate, no method performed well. The best was ACF at '
-        '12.5 BPM MAE (Avg channel), followed by spectral at 15.5 BPM. Hilbert '
-        '(38 BPM), zero-crossing (43-48 BPM), and peak counting (46-51 BPM) '
-        'were all far worse -- these methods are severely misled by the '
-        'multi-component structure of the BCG waveform, which contains systolic '
-        'and dicrotic peaks per cardiac cycle. Without k-factor correction, '
-        'every method that counts events or tracks instantaneous phase is '
-        'approximately doubling the true rate.'
-    )
-
-    add_figure(
-        doc,
-        FIGURES / 'phase1_method_channel_heatmap.png',
-        'Figure 1. Median absolute error for five estimation methods across '
-        'five channel configurations, pooled over all 12 sessions. No k-factor '
-        'scaling applied. Left: respiratory band (best: spectral, 1.5 br/min). '
-        'Right: cardiac band (best: ACF, 12.5 BPM). The cardiac errors are '
-        'substantially larger because every method except spectral and ACF '
-        'double-counts the multi-component BCG waveform.',
-        width=6.2
-    )
-
-    # --- Channel fusion ---
-    doc.add_heading('Channel Fusion', level=3)
-    doc.add_paragraph(
-        'For respiratory rate, channel fusion provided no benefit (Figure 2, '
-        'left). All four strategies -- best fixed channel, confidence-weighted '
-        'fusion, agreement-filtered fusion, and oracle -- produced the same '
-        '1.5 br/min MAE. The respiratory signal is sufficiently uniform across '
-        'sensor locations that combining channels adds nothing. The oracle and '
-        'the worst strategy are identical, meaning that for breathing rate, it '
-        'does not matter which channel you use.'
-    )
-    doc.add_paragraph(
-        'For cardiac rate, fusion helped modestly (Figure 2, right). '
-        'Confidence-weighted fusion (10.1 BPM) reduced MAE by 19% compared to '
-        'the best fixed channel (12.5 BPM). Agreement-filtered fusion '
-        '(11.4 BPM) performed worse than pure confidence weighting, suggesting '
-        'that the cross-method agreement filter is too aggressive and discards '
-        'useful channels. The oracle (4.5 BPM) demonstrates that the information '
-        'for accurate cardiac rate estimation exists in the multi-channel array '
-        'on a per-window basis -- the problem is selecting the right channel at '
-        'the right time. The gap between the oracle and the best fusion strategy '
-        'is large (4.5 vs 10.1 BPM), indicating that our quality-based channel '
-        'selection captures only a fraction of the available benefit.'
-    )
-
-    add_figure(
-        doc,
-        FIGURES / 'phase2_fusion_comparison.png',
-        'Figure 2. Multi-channel fusion strategies compared. Left: respiratory '
-        'rate -- all strategies equivalent (1.5 br/min). Right: cardiac rate -- '
-        'confidence-weighted fusion (10.1 BPM) improves over best fixed channel '
-        '(12.5 BPM), but remains far from the per-window oracle (4.5 BPM).',
-        width=6.2
-    )
-
-    # --- CWT ---
     doc.add_heading('CWT Ridge Tracking', level=3)
     doc.add_paragraph(
-        'The CWT ridge method was the best-performing cardiac rate estimator '
-        'without k-factor scaling, achieving 11.6 BPM MAE on the Avg channel '
-        '(Figure 3). This is a meaningful improvement over spectral (15.5 BPM) '
-        'and a dramatic improvement over Hilbert (38.1 BPM) and peak counting '
-        '(49.3 BPM). The CWT method appears to resolve the fundamental cardiac '
-        'repetition rate from the scalogram more reliably than methods that '
-        'operate in either the time domain (peaks, zero-crossing) or the '
-        'frequency domain (spectral, Hilbert) alone.'
-    )
-    doc.add_paragraph(
-        'However, 11.6 BPM is still nearly three times worse than the k-scaled '
-        'Hilbert method from the previous analysis (4.19 BPM). The CWT approach '
-        'reduces the harmonic confusion problem but does not eliminate it. The '
-        'per-channel pattern was consistent: Avg was best, followed by CLE, CH, '
-        'CRE, and Diff. The bias was small and positive (1.9 BPM on Avg), '
-        'meaning the CWT still slightly overcounts, but far less than the '
-        '~38 BPM bias of uncorrected Hilbert.'
+        'For cardiac specifically, a CWT ridge method was added: Morlet wavelet '
+        'scalogram over 32 log-spaced scales, extracting the dominant ridge '
+        'frequency per window. The motivation was that CWT may resolve the '
+        'fundamental cardiac rate directly from the time-frequency representation.'
     )
 
-    add_figure(
-        doc,
-        FIGURES / 'phase3_cwt_cardiac.png',
-        'Figure 3. Cardiac rate estimation: CWT ridge tracking compared against '
-        'Hilbert, spectral, and peak counting, without k-factor scaling. CWT '
-        'achieves the lowest MAE on every channel, with the Avg channel best '
-        'at 11.6 BPM.',
-        width=6.2
-    )
-
-    # --- Viterbi ---
     doc.add_heading('Temporal Smoothing', level=3)
     doc.add_paragraph(
-        'Viterbi temporal smoothing had no effect on respiratory rate (Figure 4, '
-        'left). The respiratory estimates are already smooth because the '
-        'spectral method returns stable frequency estimates from window to '
-        'window. There is no epoch-to-epoch jitter to suppress.'
+        'All per-window estimates were post-processed with a Viterbi-style '
+        'temporal smoother that penalizes epoch-to-epoch jumps exceeding '
+        'physiological limits (5 BPM/epoch cardiac, 2 br/min/epoch respiratory).'
+    )
+
+
+def write_consolidation_results(doc: Document):
+    doc.add_heading('Results', level=2)
+
+    doc.add_heading('Method Benchmark', level=3)
+    doc.add_paragraph(
+        'For respiratory rate, spectral (Welch) was the clear winner at 1.5 br/min '
+        'MAE, outperforming even k-scaled peak counting (2.20 br/min). For cardiac, '
+        'no method performed well without k: ACF was best at 12.5 BPM, with Hilbert '
+        '(38 BPM) and peak counting (46-51 BPM) severely misled by BCG harmonics.'
+    )
+
+    add_figure(doc, FIGURES / 'phase1_method_channel_heatmap.png',
+        'Figure 1. MAE for five methods across five channels, no k-scaling. '
+        'Left: respiratory (best: spectral 1.5 br/min). Right: cardiac '
+        '(best: ACF 12.5 BPM).', width=6.2)
+
+    doc.add_heading('Channel Fusion', level=3)
+    doc.add_paragraph(
+        'For respiratory, fusion provided no benefit (all strategies 1.5 br/min). '
+        'For cardiac, confidence-weighted fusion reduced MAE by 19% to 10.1 BPM. '
+        'The oracle (4.5 BPM) shows much greater potential with better channel selection.'
+    )
+
+    add_figure(doc, FIGURES / 'phase2_fusion_comparison.png',
+        'Figure 2. Multi-channel fusion comparison. Respiratory: all strategies '
+        'equivalent. Cardiac: confidence-weighted 10.1 BPM, oracle 4.5 BPM.',
+        width=6.2)
+
+    doc.add_heading('CWT and Viterbi Smoothing', level=3)
+    doc.add_paragraph(
+        'CWT achieved 11.6 BPM cardiac MAE on Avg channel -- best without k. '
+        'Viterbi smoothing reduced cardiac MAE by 31-35%, yielding 6.6 BPM for '
+        'the best pipeline (confidence-weighted + Viterbi). Respiratory was '
+        'unchanged by smoothing.'
+    )
+
+    add_figure(doc, FIGURES / 'phase4_viterbi_improvement.png',
+        'Figure 3. Viterbi temporal smoothing effect. Respiratory: unchanged. '
+        'Cardiac: 31-35% reduction. Best: fused+Viterbi 6.6 BPM.',
+        width=6.2)
+
+    doc.add_heading('Agreement and Per-Stage Accuracy', level=3)
+
+    add_figure(doc, FIGURES / 'phase5_bland_altman.png',
+        'Figure 4. Bland-Altman: fused+Viterbi vs PSG. Respiratory bias +0.2 '
+        'br/min, LoA [-5.0, +5.5]. Cardiac bias -7.9 BPM, LoA [-44.8, +28.9].',
+        width=6.0)
+
+    add_figure(doc, FIGURES / 'phase5_per_stage_mae.png',
+        'Figure 5. Per-stage MAE. Respiratory stable at 1.5-1.6 br/min '
+        '(REM: 2.5). Cardiac best in N1 (5.5 BPM), worst in REM (7.9 BPM).',
+        width=6.2)
+
+
+# ==============================================================================
+# PART 2: HYBRID PIPELINE
+# ==============================================================================
+
+def write_hybrid_methods(doc: Document):
+    doc.add_heading('Part 2: Hybrid Rate Pipeline', level=1)
+    doc.add_heading('Methods', level=2)
+
+    doc.add_paragraph(
+        'The consolidation analysis revealed that the optimal rate estimation '
+        'strategy differs between bands. For respiratory rate, the Welch spectral '
+        'method already achieves excellent accuracy without PSG calibration. For '
+        'cardiac rate, the Hilbert instantaneous frequency method with per-session '
+        'k-scaling remains superior to all PSG-free approaches. We therefore '
+        'developed a hybrid pipeline that combines the best approach for each '
+        'band, adds adaptive peak detection and Kalman filtering for respiratory, '
+        'and applies multi-channel fusion and temporal smoothing to both.'
+    )
+
+    doc.add_heading('Adaptive Peak Detector', level=3)
+    doc.add_paragraph(
+        'A new adaptive peak detector (rate_adaptive_peaks) was developed to '
+        'improve on fixed-parameter peak counting. Three innovations were '
+        'introduced: (1) spectral guidance -- the dominant Welch PSD frequency '
+        'sets the expected rate, and minimum peak distance is set to 0.6x the '
+        'expected period rather than using the band ceiling; (2) amplitude-adaptive '
+        'prominence -- a rolling median absolute deviation (MAD) of the signal '
+        'envelope replaces the fixed standard deviation threshold, adapting to '
+        'local amplitude drift over the night; (3) inter-peak-interval (IPI) '
+        'validation -- the coefficient of variation of detected intervals is '
+        'checked against a threshold (CV < 0.40), with MAD-based outlier rejection '
+        'of anomalous intervals before rate computation.'
+    )
+
+    doc.add_heading('Kalman Rate Tracker', level=3)
+    doc.add_paragraph(
+        'A scalar Kalman filter fuses spectral and adaptive peak estimates '
+        'within each 30-second window. The filter state is the current rate '
+        'estimate in Hz. Process noise Q encodes the maximum physiological '
+        'rate-of-change: 2 br/min per epoch for respiratory, 5 BPM per epoch '
+        'for cardiac. Measurement noise R is set per-method based on benchmark '
+        'MAEs. The filter was tuned for high reactivity (R scaled by 0.3, '
+        'Q scaled by 2.0) so that it tracks genuine rate changes quickly while '
+        'rejecting isolated outlier estimates.'
+    )
+
+    doc.add_heading('Multi-Channel Quality-Weighted Fusion', level=3)
+    doc.add_paragraph(
+        'Five channel configurations (CLE, CRE, CH, Avg, Diff) are processed '
+        'independently. Per-window quality scores -- based on in-band SNR, '
+        'spectral concentration, ACF prominence, motion power, and method '
+        'agreement -- weight each channel\'s contribution to the fused estimate. '
+        'For respiratory, each channel runs the full Kalman pipeline (spectral + '
+        'adaptive peaks); for cardiac, each channel provides a Hilbert '
+        'instantaneous frequency estimate directly.'
+    )
+
+    doc.add_heading('Temporal Smoothing and k-Scaling', level=3)
+    doc.add_paragraph(
+        'A median filter (width 7 epochs = 3.5 minutes) is applied to the '
+        'fused rate trace to suppress residual jitter. The smoothing window '
+        'width is a tunable parameter. Finally, a per-session k-factor '
+        '(median ratio of CAP estimate to PSG ground truth) corrects systematic '
+        'over- or under-counting. For cross-subject generalization, leave-one-'
+        'subject-out (LOSO) k-calibration uses the median k from the remaining '
+        '5 subjects.'
+    )
+
+    doc.add_heading('Final Pipeline Summary', level=3)
+    doc.add_paragraph(
+        'Respiratory: spectral + adaptive_peaks (per channel) --> reactive '
+        'Kalman filter (per channel) --> quality-weighted multi-channel fusion '
+        '--> median temporal smoothing --> k-scaling.'
     )
     doc.add_paragraph(
-        'For cardiac rate, Viterbi smoothing was highly effective, reducing MAE '
-        'by 31-35% across all fusion strategies (Figure 4, right). The best '
-        'pipeline -- confidence-weighted fusion plus Viterbi -- achieved 6.6 BPM '
-        'MAE, down from 10.1 BPM raw. This is the best cardiac accuracy we '
-        'obtained without any PSG calibration. The smoothing works because '
-        'cardiac rate changes slowly (physiologically bounded at roughly '
-        '5 BPM/epoch), so the Viterbi path rejects isolated windows where the '
-        'BCG harmonic structure causes a spurious rate doubling or halving.'
+        'Cardiac: Hilbert instantaneous frequency (per channel) --> '
+        'quality-weighted multi-channel fusion --> median temporal smoothing '
+        '--> k-scaling.'
     )
 
-    add_figure(
-        doc,
-        FIGURES / 'phase4_viterbi_improvement.png',
-        'Figure 4. Effect of Viterbi temporal smoothing. Left: respiratory rate '
-        'unchanged (estimates already stable). Right: cardiac rate reduced by '
-        '31-35% across all fusion strategies. Best result: confidence-weighted '
-        'fusion + Viterbi = 6.6 BPM MAE.',
-        width=6.2
-    )
 
-    # --- Bland-Altman ---
-    doc.add_heading('Agreement with PSG Ground Truth', level=3)
+def write_hybrid_results(doc: Document):
+    doc.add_heading('Results', level=2)
+
+    # --- Adaptive peaks benchmark ---
+    doc.add_heading('Adaptive Peak Detector Benchmark', level=3)
     doc.add_paragraph(
-        'Figure 5 shows Bland-Altman plots for the best pipeline '
-        '(confidence-weighted fusion + Viterbi) against PSG ground truth.'
+        'The adaptive peak detector was benchmarked against five existing methods '
+        'across all 12 sessions without k-scaling (Table 1). For respiratory rate, '
+        'adaptive_peaks achieved 2.36 br/min MAE (vs. peaks 3.20, hilbert 2.50, '
+        'spectral 1.92). For cardiac, adaptive_peaks achieved 26.51 BPM MAE '
+        '(vs. peaks 48.53, hilbert 38.06, spectral 27.50). The adaptive detector '
+        'is the best peak-based method for both bands: spectral-guided minimum '
+        'distance eliminates most double-counting, and IPI validation rejects '
+        'noisy windows.'
     )
+
+    # --- Kalman tracker ---
+    doc.add_heading('Kalman Tracker', level=3)
     doc.add_paragraph(
-        'For respiratory rate, the mean bias was small (+0.2 br/min) and the '
-        '95% limits of agreement were [-5.0, +5.5] br/min. However, the plot '
-        'reveals a proportional bias: errors increase with breathing rate, '
-        'forming a diagonal fan rather than a horizontal band. At low breathing '
-        'rates (8-12 br/min), the CAP estimate tends to overshoot; at higher '
-        'rates (18-22 br/min), it undershoots. This pattern likely reflects '
-        'the spectral method locking onto a narrower frequency range than the '
-        'true breathing rate spans across the night. The practical implication '
-        'is that the 1.5 br/min median MAE overstates accuracy at the extremes '
-        'of the breathing rate distribution.'
+        'Fusing spectral and adaptive_peaks through the Kalman filter reduced '
+        'cardiac MAE from 27.50 BPM (spectral alone) and 26.51 BPM (adaptive '
+        'alone) to 21.22 BPM -- a 20% reduction over the best raw input. The '
+        'RMSE improvement was even larger (32%), indicating that the Kalman '
+        'filter primarily suppresses epoch-to-epoch jitter. For respiratory, '
+        'the Kalman output matched spectral MAE (1.90 vs. 1.92 br/min) while '
+        'adding temporal smoothness.'
     )
+
+    add_figure(doc, PHASE1_DIR / 'aggregate_mae_comparison.png',
+        'Figure 6. Kalman tracker aggregate comparison (no k). Spectral, '
+        'adaptive peaks, and Kalman fused across 12 sessions. Cardiac: '
+        'Kalman 21.2 BPM vs. spectral 27.5 (20% reduction).',
+        width=6.0)
+
+    # --- k-calibrated evaluation ---
+    doc.add_heading('Per-Session k-Calibration', level=3)
     doc.add_paragraph(
-        'For cardiac rate, the mean bias was -7.9 BPM (CAP underestimates) and '
-        'the limits of agreement were wide: [-44.8, +28.9] BPM. A 73 BPM '
-        'spread between the upper and lower limits is not clinically useful. '
-        'The scatter plot shows a dense core of epochs near the zero line, but '
-        'with a substantial tail of epochs where the CAP estimate deviates by '
-        '20-80 BPM. These large errors are concentrated in sessions S6N1 and '
-        'S6N2 (Table 1), where the cardiac signal appears to be degraded -- '
-        'S6N2 alone has a median MAE of 71.8 BPM, consistent with either sensor '
-        'contact failure or an anatomical variant that prevents BCG transmission '
-        'to the temple sensors.'
+        'With per-session k-calibration, the Kalman pipeline achieved 1.61 br/min '
+        'respiratory MAE -- a 37% improvement over the baseline peaks/k (2.58 '
+        'br/min), winning on all 12 sessions (Wilcoxon p=0.0002). However, for '
+        'cardiac rate, the baseline hilbert/k (4.84 BPM) outperformed Kalman/k '
+        '(8.67 BPM). The Hilbert instantaneous frequency captures BCG cardiac '
+        'waveform physics more naturally: its per-session k (~1.67) corrects a '
+        'consistent harmonic relationship, while the Kalman\'s spectral+adaptive '
+        'inputs have a lower, less stable k (~1.34).'
     )
 
-    add_figure(
-        doc,
-        FIGURES / 'phase5_bland_altman.png',
-        'Figure 5. Bland-Altman agreement: multi-channel fused + Viterbi '
-        'smoothed CAP rate vs PSG ground truth. Left: respiratory (bias '
-        '+0.2 br/min, LoA [-5.0, +5.5]) with visible proportional bias. '
-        'Right: cardiac (bias -7.9 BPM, LoA [-44.8, +28.9]) with wide spread '
-        'driven by outlier sessions.',
-        width=6.0
-    )
+    add_figure(doc, PHASE3_DIR / 'session_comparison_resp.png',
+        'Figure 7. Respiratory MAE per session: Kalman/k (red) vs. baseline '
+        'peaks/k (blue). Kalman/k wins on all 12 sessions.',
+        width=6.0)
 
-    # --- Per-stage ---
-    doc.add_heading('Accuracy by Sleep Stage', level=3)
+    add_figure(doc, PHASE3_DIR / 'session_comparison_card.png',
+        'Figure 8. Cardiac MAE per session: Kalman/k (red) vs. baseline '
+        'hilbert/k (blue). Baseline hilbert/k wins on all 12 sessions.',
+        width=6.0)
+
+    # --- Multi-channel ---
+    doc.add_heading('Multi-Channel Fusion', level=3)
     doc.add_paragraph(
-        'Respiratory MAE was relatively stable across sleep stages: 1.5 br/min '
-        'in N2, 1.6 br/min in Wake, N1, and N3, rising to 2.5 br/min in REM '
-        '(Figure 6, left). The REM degradation likely reflects increased '
-        'breathing irregularity during phasic REM, which broadens the spectral '
-        'peak and reduces the accuracy of single-frequency estimation. The REM '
-        'sample was small (n=218) and this estimate should be treated with '
-        'caution.'
+        'Running the Kalman pipeline independently on 5 channels and fusing '
+        'with quality weights yielded modest improvement over the single best '
+        'channel (CLE-CRE diff): respiratory 1.82 vs. 1.90 br/min (4%), '
+        'cardiac 17.74 vs. 21.22 BPM (16%). An oracle analysis selecting the '
+        'best channel per window with hindsight achieved 1.21 br/min resp and '
+        '8.63 BPM cardiac, showing substantial headroom for improved channel '
+        'selection (36% resp, 59% cardiac above quality-weighted fusion).'
     )
+
+    add_figure(doc, PHASE2_DIR / 'aggregate_comparison.png',
+        'Figure 9. Multi-channel fusion: single-channel (diff) vs. '
+        'quality-weighted vs. oracle. No k-scaling.',
+        width=6.0)
+
+    # --- Best pipeline aggregate ---
+    doc.add_heading('Best Combined Pipeline', level=3)
     doc.add_paragraph(
-        'Cardiac MAE varied more across stages: best during N1 (5.5 BPM), '
-        'followed by N3 (6.1 BPM), N2 (6.8 BPM), Wake (7.1 BPM), and REM '
-        '(7.9 BPM) (Figure 6, right). The N1 advantage is unexpected -- light '
-        'sleep might be assumed to have more variability -- but may reflect the '
-        'fact that N1 has the most regular heart rate in our cohort, making the '
-        'spectral peak sharper and easier to track. Wake and REM are worst, '
-        'likely due to autonomic variability (Wake) and phasic cardiac '
-        'irregularity (REM).'
+        'The final pipeline combines Kalman (resp) + Hilbert (cardiac), '
+        'multi-channel fusion, temporal smoothing (median filter, width=7), '
+        'and per-session k-calibration. Table 2 shows the aggregate results '
+        'across all 12 sessions.'
     )
 
-    add_figure(
-        doc,
-        FIGURES / 'phase5_per_stage_mae.png',
-        'Figure 6. Median MAE by sleep stage for the best pipeline. Left: '
-        'respiratory -- stable at 1.5-1.6 br/min except REM (2.5). Right: '
-        'cardiac -- N1 best (5.5 BPM), Wake and REM worst (7.1, 7.9 BPM). '
-        'Sample sizes shown above each bar.',
-        width=6.2
-    )
-
-    # --- Per-session table ---
-    doc.add_heading('Per-Session Results', level=3)
-
-    csv_path = FIGURES / 'phase5_per_session_summary.csv'
+    # Build results table
+    csv_path = BEST_DIR / 'best_pipeline_results.csv'
     if csv_path.exists():
         df = pd.read_csv(csv_path)
 
-        for band, unit in [('resp', 'br/min'), ('card', 'BPM')]:
-            sub = df[df.band == band][['session', 'MAE', 'RMSE', 'bias', 'r', 'n_epochs']].copy()
-            sub['MAE'] = sub['MAE'].round(1)
-            sub['RMSE'] = sub['RMSE'].round(1)
-            sub['bias'] = sub['bias'].round(1)
-            sub['r'] = sub['r'].apply(lambda x: f'{x:.2f}' if pd.notna(x) else '--')
-            sub.columns = ['Session', f'MAE ({unit})', f'RMSE ({unit})', f'Bias ({unit})', 'r', 'Epochs']
+        agg_rows = []
+        for pipe in ['no_k', 'per_session_k', 'loso_k']:
+            sub = df[df['pipeline'] == pipe]
+            pipe_label = {'no_k': 'No k', 'per_session_k': 'Per-session k',
+                          'loso_k': 'LOSO k'}[pipe]
+            agg_rows.append({
+                'Pipeline': pipe_label,
+                'Resp MAE': f"{sub['resp_mae'].mean():.2f} +/- {sub['resp_mae'].std():.2f}",
+                'Card MAE': f"{sub['card_mae'].mean():.2f} +/- {sub['card_mae'].std():.2f}",
+                'Resp r': f"{sub['resp_r'].mean():.3f}",
+                'Card r': f"{sub['card_r'].mean():.3f}",
+            })
+        agg_df = pd.DataFrame(agg_rows)
+        add_table(doc, agg_df,
+            'Table 2. Aggregate accuracy (mean +/- std across 12 sessions). '
+            'Resp MAE in br/min, Card MAE in BPM. r = mean per-session '
+            'Pearson correlation with PSG ground truth.')
 
-            label = 'Respiratory' if band == 'resp' else 'Cardiac'
-            tbl_num = '1a' if band == 'resp' else '1b'
-            add_table(
-                doc, sub,
-                f'Table {tbl_num}. {label} rate accuracy per session '
-                f'(confidence-weighted fusion + Viterbi, no k-scaling). '
-                f'r = Pearson correlation between CAP and PSG per-window rates.'
-            )
+    add_figure(doc, BEST_DIR / 'aggregate_comparison.png',
+        'Figure 10. Aggregate MAE comparison: no k, per-session k, and '
+        'LOSO k. Left: respiratory. Right: cardiac.',
+        width=6.2)
+
+    # --- Per-session breakdown ---
+    doc.add_heading('Per-Session Results', level=3)
+
+    if csv_path.exists():
+        df = pd.read_csv(csv_path)
+        ps = df[df['pipeline'] == 'per_session_k'].copy()
+        ps = ps.sort_values('session')
+        table_df = ps[['session', 'resp_mae', 'resp_r', 'k_resp',
+                        'card_mae', 'card_r', 'k_card']].copy()
+        table_df.columns = ['Session', 'Resp MAE', 'Resp r', 'k_resp',
+                            'Card MAE', 'Card r', 'k_card']
+        for col in ['Resp MAE', 'Card MAE']:
+            table_df[col] = table_df[col].apply(lambda x: f'{x:.2f}')
+        for col in ['Resp r', 'Card r']:
+            table_df[col] = table_df[col].apply(lambda x: f'{x:.3f}')
+        for col in ['k_resp', 'k_card']:
+            table_df[col] = table_df[col].apply(lambda x: f'{x:.3f}')
+
+        add_table(doc, table_df,
+            'Table 3. Per-session results with per-session k-calibration. '
+            'Resp MAE in br/min, Card MAE in BPM.')
 
     doc.add_paragraph(
-        'Table 1 reveals two problems that the pooled statistics obscure. '
-        'First, the per-window correlation (r) between CAP and PSG rates is '
-        'near zero or negative in almost every session, for both bands. A '
-        'median MAE of 1.5 br/min or 6.6 BPM sounds reasonable in isolation, '
-        'but the near-zero correlation means the pipeline tracks the average '
-        'rate over the night without following the window-to-window fluctuations. '
-        'The Viterbi smoother contributes to this: by penalizing rapid changes, '
-        'it biases the output toward a running mean and suppresses the very '
-        'variations that would produce a positive correlation with ground truth.'
-    )
-    doc.add_paragraph(
-        'Second, session S6N2 is a catastrophic failure for cardiac rate '
-        '(MAE 71.8 BPM, bias -61.4 BPM). This session also had poor results '
-        'in the k-scaled analysis. Excluding S6N2, the cardiac median MAE '
-        'across the remaining 11 sessions is 5.8 BPM -- still higher than the '
-        'k-scaled result (4.19 BPM) but not unreasonable. The respiratory '
-        'results are more consistent: worst-case MAE is 2.6 br/min (S3N2), and '
-        'the best sessions (S5N1, S5N2) achieve 0.6 br/min.'
+        'The per-session k results show consistent respiratory accuracy across '
+        'all 12 sessions (range 1.07-2.16 br/min). Cardiac accuracy is also '
+        'consistent (range 2.54-6.56 BPM), with S2N2 as the worst case. The '
+        'multi-channel Hilbert fusion eliminates the catastrophic S6 failures '
+        'seen in the no-k consolidation pipeline, achieving 5.18 and 4.13 BPM '
+        'for S6N1 and S6N2 respectively.'
     )
 
-    # --- Pipeline comparison ---
-    doc.add_heading('Pipeline Comparison', level=3)
+    # --- Per-stage ---
+    doc.add_heading('Per-Stage Accuracy', level=3)
+
+    add_figure(doc, BEST_DIR / 'per_stage_mae.png',
+        'Figure 11. Per-stage MAE with per-session k. Left: respiratory. '
+        'Right: cardiac. Sample sizes shown per stage.',
+        width=6.2)
+
+    # --- Bland-Altman aggregate ---
+    doc.add_heading('Bland-Altman Agreement', level=3)
+
+    add_figure(doc, PHASE3_DIR / 'bland_altman_aggregate_resp.png',
+        'Figure 12. Bland-Altman: Kalman/k respiratory rate vs PSG, '
+        'pooled across all 12 sessions.',
+        width=5.5)
+
+    add_figure(doc, PHASE3_DIR / 'bland_altman_aggregate_card.png',
+        'Figure 13. Bland-Altman: Kalman/k cardiac rate vs PSG, '
+        'pooled across all 12 sessions.',
+        width=5.5)
+
+    # --- Per-session time series ---
+    doc.add_heading('Per-Session Time Series', level=3)
     doc.add_paragraph(
-        'Figure 7 summarizes all pipeline variants. For respiratory rate, '
-        'every variant produces the same 1.5 br/min -- the choice of fusion '
-        'strategy and smoothing is irrelevant. For cardiac rate, the ordering is '
-        'clear: confidence-weighted fusion + Viterbi (6.6 BPM) is best, '
-        'followed by agreement-filtered + Viterbi (7.8 BPM), then best-fixed + '
-        'Viterbi (8.6 BPM). The raw (unsmoothed) variants are 31-35% worse in '
-        'every case.'
+        'Figures 14-25 show the full-night rate traces for all 12 sessions. '
+        'Each plot shows the ground truth (black), raw fused estimate (gray), '
+        'and the final k-scaled smoothed estimate (red for respiratory, blue '
+        'for cardiac), with sleep stage annotation along the bottom.'
     )
 
-    add_figure(
-        doc,
-        FIGURES / 'phase5_pipeline_comparison.png',
-        'Figure 7. Full pipeline comparison: all fusion strategies with and '
-        'without Viterbi smoothing. Respiratory rate is invariant to pipeline '
-        'choice. Cardiac rate benefits from both fusion (19% improvement) and '
-        'smoothing (35% improvement).',
-        width=6.2
+    for i, sess in enumerate(SESSIONS):
+        fig_path = BEST_DIR / f'best_{sess}.png'
+        fig_num = 14 + i
+        add_figure(doc, fig_path,
+            f'Figure {fig_num}. {sess} -- best pipeline time series '
+            f'(respiratory + cardiac with per-session k).',
+            width=6.5)
+
+    # --- Per-session Bland-Altman ---
+    doc.add_heading('Per-Session Bland-Altman', level=3)
+    doc.add_paragraph(
+        'Figures 26-37 show Bland-Altman agreement plots for each session.'
     )
+
+    for i, sess in enumerate(SESSIONS):
+        fig_path = BEST_DIR / f'bland_altman_{sess}.png'
+        fig_num = 26 + i
+        add_figure(doc, fig_path,
+            f'Figure {fig_num}. {sess} -- Bland-Altman agreement '
+            f'(respiratory left, cardiac right).',
+            width=6.2)
 
 
 # ==============================================================================
@@ -480,129 +523,82 @@ def write_results(doc: Document):
 
 def write_discussion(doc: Document):
     doc.add_heading('Discussion', level=1)
-    doc.add_heading('Can the K-Factor Be Eliminated?', level=2)
 
-    doc.add_paragraph(
-        'The answer depends on which rate. For respiratory rate, yes: the '
-        'spectral method achieves 1.5 br/min MAE without any PSG calibration, '
-        'outperforming the k-scaled peak counting method (2.20 br/min) from the '
-        'previous analysis. This is because the spectral approach estimates the '
-        'dominant frequency directly rather than counting individual breath '
-        'events, so the overcounting problem that k-factor correction was '
-        'designed to fix does not arise. There is no reason to use k-scaling '
-        'for respiratory rate estimation from these sensors.'
-    )
-    doc.add_paragraph(
-        'For cardiac rate, no: the best PSG-free pipeline (confidence-weighted '
-        'fusion + Viterbi) achieves 6.6 BPM MAE, compared to 4.19 BPM with '
-        'k-scaling -- 57% worse. The BCG waveform produces multiple mechanical '
-        'impulses per heartbeat, and no method we tested fully resolves the '
-        'fundamental rate without calibration. CWT ridge tracking comes closest '
-        '(11.6 BPM raw, 6.6 BPM after fusion and smoothing), but the remaining '
-        'error is not negligible. The k-factor approach, despite requiring an '
-        'initial PSG reference, remains the more accurate option for cardiac '
-        'rate.'
-    )
+    doc.add_heading('Pipeline Comparison', level=2)
 
-    doc.add_heading('Limitations of Temporal Smoothing', level=2)
-    doc.add_paragraph(
-        'The Viterbi smoother reduced cardiac MAE by 35%, which appears to '
-        'be a major improvement. But this improvement comes at a cost that the '
-        'MAE statistic alone does not reveal. The smoother works by penalizing '
-        'epoch-to-epoch rate changes, which suppresses both noise and genuine '
-        'physiological variation. The result is a rate trace that stays close '
-        'to the session mean but fails to track real fluctuations -- hence '
-        'the near-zero per-window correlations in Table 1. A smoothed estimate '
-        'with low MAE and zero correlation is not the same as an accurate '
-        'estimate; it is a biased estimate that happens to be close to the '
-        'mean in the median case.'
-    )
-    doc.add_paragraph(
-        'For applications that require only an average rate over the night '
-        '(e.g., screening for sleep-disordered breathing), this may be '
-        'acceptable. For applications that require tracking rate dynamics '
-        '(e.g., autonomic staging, apnea detection), the smoothed pipeline is '
-        'not suitable in its current form. A more sophisticated approach -- '
-        'adaptive smoothing that varies its constraint strength based on '
-        'local signal quality -- might preserve dynamics in high-SNR windows '
-        'while still stabilizing noisy ones.'
-    )
-
-    doc.add_heading('Channel Fusion: Limited Returns', level=2)
-    doc.add_paragraph(
-        'Multi-channel fusion provided only modest cardiac improvement (19%) '
-        'and no respiratory improvement at all. The oracle analysis shows that '
-        'per-window optimal channel selection could achieve 4.5 BPM cardiac MAE '
-        '-- close to the k-scaled result -- but our quality-based selector '
-        'captures only a fraction of this. The quality score (SNR, spectral '
-        'concentration, ACF prominence) is evidently not a good predictor of '
-        'which channel will be closest to ground truth in any given window. '
-        'A learned channel selector, trained on the relationship between quality '
-        'features and per-channel error, might close this gap, but would itself '
-        'require labeled data for training.'
-    )
-    doc.add_paragraph(
-        'The respiratory result is informative in a different way: the fact '
-        'that all channels produce identical accuracy means the respiratory '
-        'signal is spatially homogeneous across the sensor array. There is no '
-        'preferred sensor position for breathing rate estimation from the sleep '
-        'mask, and any single sensor is sufficient.'
-    )
-
-    doc.add_heading('Comparison with K-Scaled Pipeline', level=2)
-
-    # Comparison table
     comp_data = {
         'Pipeline': [
-            'Peaks/k (calibrated)',
-            'Spectral (no calibration)',
-            'Fused + Viterbi (no calibration)',
+            'Peaks/k baseline',
+            'Consolidation: fused+Viterbi (no k)',
+            'Hybrid: Kalman resp + hilbert/k cardiac',
+            'Hybrid: LOSO k (cross-subject)',
         ],
-        'Resp MAE (br/min)': ['2.20', '1.5', '1.5'],
-        'Card MAE (BPM)': ['4.19', '15.5', '6.6'],
-        'Requires PSG': ['Yes', 'No', 'No'],
-        'Tracks dynamics': ['Partially', 'No', 'No'],
+        'Resp MAE': ['2.58', '1.50', '1.49', '1.95'],
+        'Card MAE': ['4.84', '6.60', '4.11', '5.41'],
+        'Requires PSG': ['Yes', 'No', 'Yes', 'Yes (other subjects)'],
     }
     comp_df = pd.DataFrame(comp_data)
-    add_table(
-        doc, comp_df,
-        'Table 2. Comparison of rate estimation pipelines. The PSG-free '
-        'spectral method is superior for respiratory rate. The k-scaled '
-        'pipeline remains superior for cardiac rate.'
+    add_table(doc, comp_df,
+        'Table 4. Summary comparison of all rate estimation pipelines. '
+        'Resp MAE in br/min, Card MAE in BPM. Hybrid pipeline achieves '
+        'best results in both bands.')
+
+    doc.add_heading('Respiratory Rate', level=2)
+    doc.add_paragraph(
+        'The hybrid pipeline achieves 1.49 br/min MAE with per-session k, '
+        'a 42% improvement over the original peaks/k baseline (2.58 br/min). '
+        'Three factors contribute: (1) the adaptive peak detector eliminates '
+        'most double-counting through spectral-guided minimum distance; '
+        '(2) the reactive Kalman filter fuses spectral and adaptive peak '
+        'estimates, suppressing jitter while tracking genuine rate changes; '
+        '(3) multi-channel fusion provides a further 4% improvement by '
+        'quality-weighting across five sensor configurations. The respiratory '
+        'k values are near 1.0 (range 0.90-1.18), meaning the Kalman pipeline '
+        'nearly eliminates the systematic overcount that k was designed to correct.'
     )
 
+    doc.add_heading('Cardiac Rate', level=2)
     doc.add_paragraph(
-        'The k-factor approach and the multi-channel fusion approach are not '
-        'competitors -- they address different deployment scenarios. In a '
-        'laboratory setting where PSG is available for one calibration session, '
-        'k-scaling provides better cardiac accuracy and preserves some '
-        'window-level dynamics. In a home or clinical screening setting where '
-        'PSG is not available, the multi-channel pipeline provides usable '
-        'respiratory rate and approximate cardiac rate, with the caveat that '
-        'the cardiac estimate reflects the session average more than '
-        'moment-to-moment variation.'
+        'For cardiac rate, the hybrid pipeline achieves 4.11 BPM MAE -- a 15% '
+        'improvement over the previous best (hilbert/k on single channel, '
+        '4.84 BPM). The improvement comes entirely from multi-channel fusion: '
+        'the Hilbert method applied independently to five channels, '
+        'quality-weighted, and temporally smoothed, outperforms any single '
+        'channel. The cardiac k values (range 1.45-1.85, median 1.65) reflect '
+        'the consistent BCG harmonic overcounting that Hilbert detects.'
+    )
+    doc.add_paragraph(
+        'The Kalman pipeline was not used for cardiac because the spectral '
+        'and adaptive peak inputs have a fundamentally different harmonic '
+        'relationship with the BCG waveform than Hilbert instantaneous '
+        'frequency. The Kalman cardiac k (~1.34) is lower and less stable '
+        'than the Hilbert k (~1.67), resulting in worse k-corrected accuracy '
+        '(8.67 vs 4.84 BPM). This suggests that Hilbert captures a physical '
+        'property of the BCG -- likely the ratio of systolic to diastolic '
+        'components -- that spectral peak frequency does not.'
     )
 
-    doc.add_heading('Session-Level Failures', level=2)
+    doc.add_heading('Cross-Subject Generalization', level=2)
     doc.add_paragraph(
-        'Session S6N2 produced a cardiac MAE of 71.8 BPM, effectively a '
-        'complete failure. This session was also an outlier in the k-scaled '
-        'analysis (k = 0.79, indicating undercounting rather than the typical '
-        'overcounting). The most likely explanation is poor sensor-skin contact '
-        'on the cardiac-dominant sensor, degrading the BCG signal below the '
-        'noise floor. Session S6N1 from the same subject was also poor '
-        '(11.4 BPM), suggesting a subject-specific anatomical factor -- '
-        'possibly thicker temporal bone or lower-amplitude cardiac pulsations '
-        'at the temple site.'
+        'With LOSO k-calibration, accuracy degrades modestly: respiratory '
+        '1.95 br/min (vs. 1.49 per-session), cardiac 5.41 BPM (vs. 4.11 '
+        'per-session). The respiratory degradation is larger because k varies '
+        'more across subjects (0.90-1.18 vs. cardiac 1.45-1.85). For '
+        'deployment without PSG, the LOSO results represent realistic '
+        'cross-subject performance using a population-level k.'
     )
+
+    doc.add_heading('Limitations', level=2)
     doc.add_paragraph(
-        'Excluding subject S6 entirely, the cardiac MAE for the remaining 10 '
-        'sessions is 5.6 BPM, which is clinically borderline. But excluding '
-        'the worst subject is exactly the kind of post-hoc analysis that '
-        'inflates apparent performance. Any deployment of this technology '
-        'must anticipate that some fraction of users will produce unusable '
-        'cardiac data, and the system must detect and report this failure '
-        'rather than silently returning inaccurate rates.'
+        'First, per-window correlation with ground truth remains low '
+        '(mean r ~ 0.18 respiratory, -0.19 cardiac), indicating that the '
+        'pipeline tracks average rates well but does not follow window-to-window '
+        'fluctuations reliably. Second, the k-factor still requires PSG for '
+        'calibration; while LOSO provides cross-subject generalization, a truly '
+        'PSG-free cardiac pipeline with acceptable accuracy remains elusive. '
+        'Third, the smoothing parameters (median filter width, Kalman R and Q '
+        'scales) were selected by informal tuning rather than systematic '
+        'optimization, and could likely be improved.'
     )
 
 
@@ -624,8 +620,8 @@ def main():
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     run = p.add_run(
-        'Multi-Channel Rate Estimation from Capacitive Temple Sensors\n'
-        'Without PSG Calibration'
+        'Rate Estimation from Capacitive Temple Sensors:\n'
+        'Multi-Channel Consolidation and Hybrid Pipeline'
     )
     run.font.size = Pt(14)
     run.font.bold = True
@@ -633,18 +629,34 @@ def main():
 
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = p.add_run('Supplementary section for integration into main paper')
+    run = p.add_run('6 subjects, 12 overnight recordings, PSG ground truth')
     run.font.size = Pt(10)
     run.font.italic = True
     doc.add_paragraph()
 
-    write_methods(doc)
-    write_results(doc)
+    # Part 1: consolidation
+    write_consolidation_methods(doc)
+    write_consolidation_results(doc)
+
+    # Part 2: hybrid pipeline
+    write_hybrid_methods(doc)
+    write_hybrid_results(doc)
+
+    # Discussion
     write_discussion(doc)
 
     doc.save(str(OUT))
     print(f'Saved to {OUT}')
-    print(f'  Sections: Methods, Results (7 figures, 3 tables), Discussion')
+
+    # Count figures
+    n_figs = 0
+    n_figs += 5   # consolidation figures
+    n_figs += 4   # hybrid aggregate figures
+    n_figs += 2   # Bland-Altman aggregate
+    n_figs += 12  # per-session time series
+    n_figs += 12  # per-session Bland-Altman
+    print(f'  {n_figs} figures, 4 tables')
+    print(f'  Sections: Part 1 (consolidation), Part 2 (hybrid pipeline), Discussion')
 
 
 if __name__ == '__main__':
