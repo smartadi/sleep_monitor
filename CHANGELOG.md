@@ -4,11 +4,44 @@ Records all code changes to library modules, scripts, and notebooks.
 
 ---
 
+## 2026-06-11 (cont.)
+
+### Ridge Overlay v2
+- **Updated** `sleep_monitor/harmonics.py` — added `median_filter` import and Step 5c (median-filter smoothing of ridge frequency traces, size=7) after fragment merging in `detect_persistent_ridges()`
+- **Updated** `analysis/slow_wave/run_ridge_overlay.py`:
+  - `MIN_PERSIST_SEC` 180→300 (5 min minimum ridge)
+  - Added `compute_fine_spectrogram()` — scipy.signal.spectrogram with nperseg=2048, noverlap=1920, nfft=4096 for high-res visual background
+  - Replaced single-channel `plot_session()` with 6-row stacked layout (hypnogram + 3 channel spectrograms + overlaid score + ridge stats)
+  - Motion regions shown as full-height semi-transparent red overlay (alpha=0.15) instead of tiny top-of-frame ticks
+  - Removed `pick_best_channel()` and `plot_multichannel_comparison()` — merged into main stacked plot
+  - Figure size 22x20 at 200 DPI
+
+### Hybrid Rate Pipeline — Phase 1: Kalman Rate Tracker
+- **Added** `kalman_rate_track()` in `sleep_monitor/rates.py` — scalar Kalman filter fusing spectral + adaptive_peaks per-window estimates with physiological rate-of-change constraints. Auto-selects Q from band (resp: 2 br/min/epoch, cardiac: 5 BPM/epoch). Handles NaN gaps, clamps to band bounds.
+- **Updated** `sleep_monitor/__init__.py` — exported `kalman_rate_track`
+- **Added** `tests/test_rates.py::TestKalmanRateTrack` — 6 tests (constant signal, noise smoothing, NaN gaps, all-NaN, length, bounds)
+- **Added** `scripts/benchmark_kalman_tracker.py` — full benchmark: time-series, Bland-Altman, per-stage, aggregate bar chart, improvement heatmap
+- **Output** `reports/rates/hybrid_phase1/` — 24 time-series PNGs, 24 Bland-Altman PNGs, 4 aggregate plots, 2 CSVs
+
+### Hybrid Rate Pipeline — Phase 0: Adaptive Peak Detector
+- **Added** `rate_adaptive_peaks()` in `sleep_monitor/rates.py` — spectral-guided, amplitude-adaptive peak detector with IPI validation. Uses spectral peak for min_distance, rolling MAD for prominence, and inter-peak-interval CV check with MAD-based outlier rejection.
+- **Updated** `sleep_monitor/config.py` — added `adaptive_peaks` to METHOD_NAMES, METHOD_LABELS, METHOD_COLORS
+- **Updated** `sleep_monitor/__init__.py` — exported `rate_adaptive_peaks`
+- **Updated** `estimate_rate()` — now includes `adaptive_peaks` in output dict (6 methods)
+- **Added** `tests/test_rates.py::TestRateAdaptivePeaks` — 7 tests (pure sine, noise robustness, short signal, erratic peaks, integration, amplitude drift)
+- **Added** `scripts/benchmark_adaptive_peaks.py` — benchmark script comparing all methods on 12 sessions
+
+---
+
 ## 2026-06-11
 
 ### SWA Validation
 - **Added** `analysis/swa_validation/CLAUDE.md` — SWA validation workspace: Lucey et al. 2019 replication plan, Steps 0-4, deliverables, working rules
 - **Added** `analysis/swa_validation/step0_inventory.py` — Step 0 data inventory script: scans all 12 sessions, reports format/channels/rates/alignment/quality
+
+### Loader — staging alignment fix
+- **Fixed** `sleep_monitor/loader.py` `load_session()` — `time_start` was always None due to `pd.to_datetime(val, unit='ms')` on datetime strings; removed `unit='ms'`
+- **Fixed** `sleep_monitor/loader.py` `load_sleep_profile()` — now parses wall-clock timestamps from Sleep Profile epoch lines, aligns to CSV time via `session.time_start`. Drops epochs outside CSV window. Handles midnight crossing. Previously assigned epoch 0 to t=0 regardless of PSG→CSV offset (up to 38.5 min for S1-S2 sessions).
 
 ### Slow Wave / Harmonic Detection
 - **Updated** `sleep_monitor/harmonics.py` — added `detect_persistent_ridges()`: temporally-continuous ridge tracking with motion masking, fragment merging, harmonic group detection, and continuous harmonic strength scoring

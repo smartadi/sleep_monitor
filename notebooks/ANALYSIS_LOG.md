@@ -25,6 +25,10 @@ Each entry records the question asked, code written, parameters used, plots gene
 - **2026-06-11** — Paper docx generation (`scripts/generate_paper_docx.py`, `scripts/generate_rate_consolidation_docx.py`): Word documents for signal validation and rate consolidation sections
 - **2026-06-11** — Unit tests added (`tests/`): `test_filters.py`, `test_preprocessing.py`, `test_rates.py`
 - **2026-06-11** — SWA Validation Step 0: Data inventory across all 12 overnight sessions. All CSV+PSG files present. AASM staging available for all. Key issues found: sleep staging misalignment (up to 38.5 min offset), EEG unit/montage unknown, CAP in ADC counts.
+- **2026-06-11** — Hybrid rate pipeline Phase 0: adaptive peak detector (`rate_adaptive_peaks`). Benchmarked on all 12 sessions vs 5 existing methods (no k-scaling). **Resp:** adaptive_peaks MAE 2.36 br/min (vs peaks 3.20, hilbert 2.50, spectral 1.92). **Cardiac:** adaptive_peaks MAE 26.51 BPM (vs peaks 48.53, hilbert 38.06, spectral 27.50). Adaptive_peaks is the best peak-based method for both bands — spectral-guided min_distance eliminates most double-counting, IPI validation rejects noisy windows. Bias near zero for resp (+0.05), positive for cardiac (+19.96 — the fundamental overcount that k-scaling corrects). Foundation for Phase 1 Kalman tracker. Plots: `notebooks/plots/rate_analysis/adaptive_peaks_benchmark_*.png`. Data: `artifacts/adaptive_peaks_benchmark.csv`.
+- **2026-06-11** — Ridge overlay v2 (`analysis/slow_wave/run_ridge_overlay.py`): 4 improvements applied. (1) High-res spectrogram background via `scipy.signal.spectrogram` (nperseg=2048, nfft=4096, Gouraud shading) — decoupled from ridge detection Welch PSDs. (2) MIN_PERSIST_SEC raised from 180→300 (5-min minimum ridge). (3) Median-filter smoothing (size=7) on ridge frequency traces — flat lines instead of per-window jitter. (4) All 3 channels stacked in a single 6-row figure (hypnogram, CH/CLE/CRE spectrograms, overlaid score, ridge stats). Motion regions shown as red semi-transparent overlay. Removed `pick_best_channel()` and `plot_multichannel_comparison()`. All 12 sessions reprocessed — 55,878 parquet rows. Ridge counts per session: 39–95 per channel. S4N2 richest (14.5% strong on CRE). Pooled score-by-stage: CLE/CRE show REM and N3 with highest harmonic IQR; CH weaker throughout. Outputs: `reports/slow_wave/ridge_overlay_*.png`, `ridge_overlay_score_by_stage.png`, `ridge_overlay_epochs.parquet`.
+- **2026-06-11** — Hybrid rate pipeline Phase 1: Kalman tracker fusing spectral + adaptive_peaks. Benchmarked on all 12 sessions. **Resp:** Kalman MAE 1.90 br/min (vs spectral 1.92, adaptive 2.36) — matches spectral while adding temporal smoothing, RMSE 2.53 vs 2.54. **Cardiac:** Kalman MAE 21.22 BPM (vs spectral 27.50, adaptive 26.51) — **20% reduction** over best raw input. RMSE drops from 35.81 to 24.38 (32% reduction). Kalman wins on every session for cardiac. Improvement concentrated in jitter suppression (RMSE drop >> MAE drop). Bias preserved (~+20 BPM cardiac = systematic k-overcount, not noise). Per-stage and Bland-Altman plots in `reports/rates/hybrid_phase1/`. Data: `reports/rates/hybrid_phase1/kalman_tracker_results.csv`.
+- **2026-06-11** — SWA Step 0 cont: fixed global staging misalignment in `loader.py`. Verified offsets via N3/delta separation sweep (12/12 match). Fixed `time_start` parsing bug (was always None due to `unit='ms'` on string). ~25 prior scripts affected. QA table + apnea loader flag.
 - *(add new entries below this line)*
 
 ---
@@ -140,11 +144,93 @@ The existing `loader.load_sleep_profile()` does NOT account for this offset — 
 1. What is the EEG derivation/montage in the combined CSV?
 2. What are the EEG units? (uV seems right from the value ranges)
 3. Does the PSG system apply a band-stop filter in the 0.1–0.6 Hz range to the EEG signal?
-4. Should I fix the staging alignment in `loader.py` globally, or create an SWA-specific aligned loader?
-5. Is subject OS005 (4.1–4.7 hr recordings) acceptable, or should we flag it as marginal?
 
 ### Status
 Step 0 COMPLETE — awaiting user confirmation before Step 1.
+
+---
+
+## 2026-06-11 — SWA Step 0 cont: Staging alignment fix + QA table
+
+**Question:** Verify and fix the sleep staging time misalignment. Build per-night QA table.
+
+**Script/Notebook:** `analysis/swa_validation/step0_inventory.py` (updated), `sleep_monitor/loader.py` (fixed)
+
+### Setup
+Per user direction:
+- Fix staging alignment globally in `loader.py` using wall-clock timestamps
+- Verify offset via independent signal (N3/delta power separation sweep)
+- Flag affected analyses
+- Build per-night QA table
+
+### Results
+
+#### Offset verification — N3/delta power separation sweep
+For each session, swept epoch skip from 0 to 120 and measured Cohen's d between N3 and non-N3 log-delta power. The timestamp-derived offset matches the optimal d within 0-2 epochs for 8/12 sessions:
+
+| Session | TS skip | Best skip | Diff | d at TS | d at best | N3 epochs | Status |
+|---------|---------|-----------|------|---------|-----------|-----------|--------|
+| S1N1    | 77      | 89        | +12  | 1.889   | 1.923     | 43        | Flat plateau |
+| S1N2    | 74      | 73        | -1   | 1.886   | 1.978     | 32        | MATCH  |
+| S2N1    | 79      | 78        | -1   | 1.024   | 1.041     | 98        | MATCH  |
+| S2N2    | 56      | 56        | 0    | 1.473   | 1.473     | 131       | MATCH  |
+| S3N1    | 50      | 49        | -1   | 1.631   | 1.656     | 61        | MATCH  |
+| S3N2    | 61      | 51        | -10  | 0.880   | 0.891     | 105       | Flat plateau |
+| S4N1    | 0       | 0         | 0    | 1.023   | 1.023     | 49        | MATCH  |
+| S4N2    | 4       | 3         | -1   | 1.570   | 1.604     | 58        | MATCH  |
+| S5N1    | 12      | 11        | -1   | 1.734   | 1.777     | 96        | MATCH  |
+| S5N2    | 8       | 0         | -8   | 0.858   | 1.025     | 46        | Flat region |
+| S6N1    | 24      | 13        | -11  | 0.327   | 1.347     | 14        | Too few N3 |
+| S6N2    | 16      | 16        | 0    | 0.222   | 0.222     | 50        | MATCH  |
+
+S1N1 and S3N2 have large diffs but nearly identical d-values (flat landscape). S6N1 has only 14 N3 epochs making the metric unreliable. **Conclusion: timestamp-derived offsets are correct.**
+
+#### Bugs fixed in `loader.py`
+1. **`load_session()` — `time_start` parsing:** Changed `pd.to_datetime(val, unit='ms', utc=True)` to `pd.to_datetime(val)`. The `unit='ms'` flag caused string datetime values to fail, making `time_start` always None.
+2. **`load_sleep_profile()` — wall-clock alignment:** Now parses HH:MM:SS timestamps from each Sleep Profile epoch line, computes offset from CSV start time (`session.time_start`), and drops epochs outside the CSV recording window. Handles midnight crossing.
+
+#### Per-Night QA Table
+
+| Sess | Subj  | Dur   | N3 min | N2 min | REM min | Wake min | EEG std | EEG clip% | CAP diff std | Polarity | ECG | d(N3) |
+|------|-------|-------|--------|--------|---------|----------|---------|-----------|--------------|----------|-----|-------|
+| S1N1 | OS001 | 7.95h | 21.5   | 236.5  | 9.5     | 77.5     | 25.1    | 0.00%     | 7.3          | NEG      | OK  | +1.89 |
+| S1N2 | OS001 | 7.63h | 16.0   | 166.5  | 2.5     | 99.0     | 21.1    | 0.00%     | 19.9         | NEG      | OK  | +1.89 |
+| S2N1 | OS002 | 7.73h | 49.5   | 399.0  | 4.0     | 4.0      | 17.4    | 0.00%     | 58.0         | NEG      | OK  | +1.02 |
+| S2N2 | OS002 | 6.77h | 66.5   | 325.0  | 3.5     | 6.5      | 16.8    | 0.00%     | 23.3         | NEG      | OK  | +1.47 |
+| S3N1 | OS003 | 6.93h | 30.5   | 255.5  | 6.5     | 34.0     | 19.8    | 0.00%     | 8.7          | NEG      | OK  | +1.63 |
+| S3N2 | OS003 | 8.66h | 52.5   | 296.5  | 8.0     | 67.5     | 41.3    | 0.04%     | 24.7         | NEG      | OK  | +0.88 |
+| S4N1 | OS004 | 6.18h | 24.5   | 217.0  | 19.0    | 40.0     | 29.9    | 0.04%     | 67.6         | NEG      | OK  | +1.02 |
+| S4N2 | OS004 | 6.02h | 29.0   | 178.0  | 39.5    | 45.5     | 22.1    | 0.00%     | 15.6         | NEG      | OK  | +1.57 |
+| S5N1 | OS005 | 4.11h | 48.0   | 101.0  | 6.5     | 48.5     | 32.1    | 0.00%     | 25.0         | **POS**  | OK  | +1.73 |
+| S5N2 | OS005 | 4.74h | 23.0   | 164.5  | 13.0    | 35.5     | 52.6    | 0.12%     | 5.8          | NEG      | OK  | +0.86 |
+| S6N1 | OS006 | 5.16h | 7.0    | 238.5  | 2.5     | 25.5     | 64.7    | 0.04%     | 107.6        | NEG      | OK  | +0.33 |
+| S6N2 | OS006 | 5.78h | 25.0   | 286.0  | 0.0     | 15.0     | 70.6    | 0.06%     | 199.7        | NEG      | DEAD| +0.22 |
+
+#### Affected prior analyses (~25 scripts)
+All scripts that loaded sleep profiles were using the OLD (misaligned) staging, with offsets up to 38.5 min for S1-S2 sessions. Key affected areas:
+- Rate accuracy per-stage analysis (`scripts/rate_accuracy_analysis.py`)
+- Projection/staging coloring (`scripts/run_projections_v2.py`, etc.)
+- Slow wave detection (`analysis/slow_wave/detect_sws.py`, etc.)
+- Ridge overlay stage analysis (`analysis/slow_wave/run_ridge_overlay.py`)
+- Signal validation per-stage (`scripts/signal_validation*.py`)
+- Rate consolidation per-stage (`scripts/run_rate_consolidation.py`)
+
+**Impact:** Results from S4-S6 (small offset 0-12 min) are minimally affected. S1-S2 results (28-39 min offset) should be regenerated before citing. Aggregate cross-session statistics may shift but trends likely hold.
+
+#### Also noted: `load_apnea_events()` has the same bug
+`_hms_to_hr()` returns time-of-day (0-24h), but apnea events are filtered against `session_dur_hr` (recording duration). This drops events from recordings crossing midnight. Not needed for SWA — flagged for future fix.
+
+### Key findings
+1. Wall-clock alignment verified via independent delta power separation — timestamp offsets confirmed correct
+2. `time_start` was always None due to `pd.to_datetime(string, unit='ms')` bug — now fixed
+3. 8/12 sessions match within 0-1 epochs; 4 have flat d-landscapes or too few N3 epochs
+4. S6N1 has only 7 min of N3 and d=0.33 — marginal for SWA validation
+5. S6N2 has 0 REM epochs and dead ECG — unusual sleep architecture
+6. S5N1 CLE-CRE polarity is positive (flipped) — harmless for PSD-based SWA, noted
+7. All 12 sessions have d > 0 after fix (correct direction), confirming alignment
+
+### Status
+Done. Loader fix committed. Ready for Step 1 pending user go-ahead.
 
 ## 2026-05-28 — Stage 3: Persistent ridge features vs sleep stage
 

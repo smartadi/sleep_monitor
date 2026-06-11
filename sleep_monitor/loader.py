@@ -43,7 +43,7 @@ def load_session(idx_or_meta, dtype=np.float32) -> SleepSession:
             dtype={c: np.float32 for c in ALL_SIG_COLS + ['timeMS']},
             usecols=['timeSM', 'timeMS'] + ALL_SIG_COLS,
         )
-        time_start = pd.to_datetime(df['timeSM'].iloc[0], unit='ms', utc=True)
+        time_start = pd.to_datetime(df['timeSM'].iloc[0])
     except (ValueError, KeyError):
         df = pd.read_csv(
             meta['csv'], compression='gzip',
@@ -102,7 +102,7 @@ def load_all_sessions(
 
 # ── PSG sleep profile loader ───────────────────────────────────────────────────
 
-_DATA_LINE_RE = re.compile(r'^\d{2}:\d{2}:\d{2},\d{3};\s*(.+)$')
+_DATA_LINE_RE = re.compile(r'^(\d{2}):(\d{2}):(\d{2}),(\d{3});\s*(.+)$')
 _APNEA_LINE_RE = re.compile(
     r'^(\d{2}:\d{2}:\d{2}),(\d{3})-(\d{2}:\d{2}:\d{2}),(\d{3});\s*(\d+);(.+)$'
 )
@@ -111,6 +111,11 @@ _APNEA_LINE_RE = re.compile(
 def load_sleep_profile(session: SleepSession) -> Optional[dict]:
     """
     Parse the PSG Sleep Profile text file for the given session.
+
+    Aligns epochs to the CSV recording's wall-clock time axis using the
+    ``timeSM`` column (session.time_start) and the Sleep Profile's absolute
+    timestamps.  Epochs that fall before or after the CSV recording are
+    dropped.
 
     Returns
     -------
@@ -131,6 +136,7 @@ def load_sleep_profile(session: SleepSession) -> Optional[dict]:
         return None
 
     codes: List[int] = []
+    epoch_tod_sec: List[float] = []
     with open(matches[0], 'r', encoding='utf-8', errors='replace') as f:
         lines = f.readlines()
 
@@ -138,7 +144,8 @@ def load_sleep_profile(session: SleepSession) -> Optional[dict]:
         m = _DATA_LINE_RE.match(line.strip())
         if not m:
             continue
-        label = m.group(1).strip().lower()
+        h, mi, s, ms = int(m.group(1)), int(m.group(2)), int(m.group(3)), int(m.group(4))
+        label = m.group(5).strip().lower()
         code = -1
         for k, v in PSG_STAGE_MAP.items():
             if k == 'a':
@@ -149,17 +156,35 @@ def load_sleep_profile(session: SleepSession) -> Optional[dict]:
                 code = v
                 break
         codes.append(code)
+        epoch_tod_sec.append(h * 3600 + mi * 60 + s + ms / 1000.0)
 
     if not codes:
         return None
 
-    t_ep_hr = np.arange(len(codes)) * PSG_EPOCH_SEC / 3600.0
+    epoch_tod = np.array(epoch_tod_sec)
 
+    # Wall-clock alignment: convert absolute epoch times to hours from CSV start.
+    if session.time_start is not None:
+        ts = session.time_start
+        if hasattr(ts, 'tz') and ts.tz is not None:
+            ts = ts.tz_localize(None) if hasattr(ts, 'tz_localize') else ts.replace(tzinfo=None)
+        csv_start_tod = ts.hour * 3600 + ts.minute * 60 + ts.second + ts.microsecond / 1e6
+
+        # Handle midnight crossing: if epoch time < csv_start by > 12 h,
+        # the epoch is on the next calendar day.
+        offset = epoch_tod - csv_start_tod
+        offset[offset < -43200] += 86400  # epoch on next day
+        offset[offset > 43200] -= 86400   # csv on next day
+
+        t_ep_hr = offset / 3600.0
+    else:
+        t_ep_hr = np.arange(len(codes)) * PSG_EPOCH_SEC / 3600.0
+
+    # Keep only epochs within the CSV recording window.
     session_dur_hr = float(session.time_hr[-1])
-    if t_ep_hr[-1] > session_dur_hr:
-        keep = t_ep_hr <= session_dur_hr
-        t_ep_hr = t_ep_hr[keep]
-        codes = [c for c, k in zip(codes, keep) if k]
+    keep = (t_ep_hr >= -PSG_EPOCH_SEC / 3600.0) & (t_ep_hr <= session_dur_hr)
+    t_ep_hr = t_ep_hr[keep]
+    codes = [c for c, k in zip(codes, keep) if k]
 
     return {
         't_ep_hr': t_ep_hr,
