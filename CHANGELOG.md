@@ -6,6 +6,16 @@ Records all code changes to library modules, scripts, and notebooks.
 
 ## 2026-06-11 (cont.)
 
+### SWA Validation — Lucey et al. 2019 Replication (Steps 0-4)
+- **Added** `analysis/swa_validation/swa_pipeline.py` — shared spectral pipeline: FIR bandpass (0.5-40 Hz via `firwin`), 6-sec epoch Welch PSD, band powers (1-4.5 Hz total, sub-bands, 20-30 Hz EMG), relative power normalization, artifact rejection (EMG 97.5th pct + accelerometer)
+- **Added** `analysis/swa_validation/run_swa_validation.py` — full pipeline runner: Steps 1-2 (process all 12 sessions, both EEG and CAP), Step 3 (Pearson/Spearman correlation, Bland-Altman, coherence, ROC/AUC for N3 detection), Step 4 (per-subject summary, 5 publication plots)
+- **Added** `analysis/swa_validation/step0_inventory.py` — data inventory scanner
+- **Fixed** `swa_pipeline.py:bandpass_fir()` — replaced `firls` with `firwin`: `firls` with narrow 0.1 Hz transition band at 0.5 Hz produced catastrophically ill-conditioned coefficients (range ±2794, signal amplification ×26M). `firwin` window method is numerically stable (coefficients ±0.16 to 0.79)
+- **Fixed** `sleep_monitor/loader.py:load_session()` — removed `unit='ms', utc=True` from `pd.to_datetime()` call (was causing `time_start` to always be None for datetime strings)
+- **Fixed** `sleep_monitor/loader.py:load_sleep_profile()` — complete rewrite: now parses wall-clock timestamps from Sleep Profile epochs and computes offset from CSV `timeSM` start time, handles midnight crossing, drops out-of-range epochs. Previously assumed epoch 0 = CSV time 0, causing up to 38.5 min misalignment
+- **Output** `analysis/swa_validation/outputs/` — `swa_validation_results.csv`, `swa_validation_per_subject.csv`, 5 PNGs (swa_overlay, bland_altman, coherence, roc_curves, correlation_scatter)
+- **Result**: Negative — CAP temple differential does not measure cortical SWA (r≈0, coherence≈0, N3 AUC≈0.5). EEG sanity check confirms pipeline correctness (AUC=0.740).
+
 ### Hybrid Rate Pipeline — Phase 4: Streaming Demo
 - **Added** `scripts/demo_realtime_rates.py` — real-time streaming rate tracker demo: `KalmanState` class for lightweight scalar Kalman filter, epoch-by-epoch processing with spectral + adaptive_peaks → Kalman fusion, live console display, summary plot
 - **Output** `reports/rates/hybrid_phase4/streaming_demo_S1N1.png` — full-night time series (Kalman vs GT)
@@ -35,6 +45,10 @@ Records all code changes to library modules, scripts, and notebooks.
   - Removed ladder dots, pick_best_channel, plot_multichannel_comparison
   - 6-row stacked layout, motion as red semi-transparent overlay, output to `reports/slow_wave/overlay/`
   - Figure size 22x20 at 200 DPI
+- **Deleted** old superseded outputs: `harmonics_*.png`, `harmonic_ladders_*.png/.parquet`, `ridge_multichannel_*.png` from `reports/slow_wave/`
+- **Added** `writeup/harmonics/generate_harmonics_docx.py` — Methods + Results section for harmonic ridge prominence analysis
+- **Added** `writeup/harmonics/CAP_harmonic_ridge_analysis.docx` — generated Word document with 3 figures + Table 1
+- **Added** `writeup/figures/harmonics/` — key figures (S1N1, S4N2 overlays, score-by-stage boxplot)
 
 ### Hybrid Rate Pipeline — Phase 1: Kalman Rate Tracker
 - **Added** `kalman_rate_track()` in `sleep_monitor/rates.py` — scalar Kalman filter fusing spectral + adaptive_peaks per-window estimates with physiological rate-of-change constraints. Auto-selects Q from band (resp: 2 br/min/epoch, cardiac: 5 BPM/epoch). Handles NaN gaps, clamps to band bounds.

@@ -61,7 +61,14 @@ One function for all signals:
 
 ## Status
 - [x] Step 0: Inventory (2026-06-11) — see ANALYSIS_LOG.md
-- [ ] Step 1: Shared pipeline
-- [ ] Step 2: Reference targets
-- [ ] Step 3: Validation metrics
-- [ ] Step 4: Reporting
+- [x] Step 1: Shared pipeline (2026-06-11) — `swa_pipeline.py`
+- [x] Step 2: Reference targets (2026-06-11) — EEG SWA + N3 labels
+- [x] Step 3: Validation metrics (2026-06-11) — correlation, coherence, ROC/AUC
+- [x] Step 4: Reporting (2026-06-11) — `outputs/` (CSV + 5 PNGs)
+
+## Key Result
+**Negative result:** Capacitive temple sensors do NOT measure cortical EEG slow-wave activity.
+- EEG–CAP correlation: r = 0.015 ± 0.045 (effectively zero)
+- EEG–CAP coherence: 0.003 ± 0.005 (noise floor)
+- CAP N3 detection AUC: 0.490 ± 0.040 (chance)
+- EEG N3 detection AUC: 0.740 ± 0.056 (pipeline sanity check — works correctly)
