@@ -1,0 +1,97 @@
+# Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+.virtualenv/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment variables
+.env
+.env.local
+
+# Logs
+*.log
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Type checker / linter caches
+.mypy_cache/
+.ruff_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Local tooling
+.claude/
+
+# Data / artifacts (large, reproducible from raw)
+artifacts/
+*.parquet
+*.npz
+*.csv
+*.h5
+*.hdf5
+*.pkl
+*.pickle
+
+# Binary documents (not code)
+*.docx
+*.pptx
+*.xlsx
+*.pdf
+
+# Images (generated plots)
+*.png
+*.jpg
+*.jpeg
+*.svg
+
+# Plots directories
+plots/
+notebooks/plots/
+
+# Cache
+.cache/
+notebooks/.cache/
+
+# Archive (superseded code)
+archive/
