@@ -58,20 +58,22 @@ DELTA_SUB_COLORS = {
 }
 
 # ── Rate estimation methods ────────────────────────────────────────────────────
-METHOD_NAMES  = ['spectral', 'acf', 'hilbert', 'zerocross', 'peaks']
+METHOD_NAMES  = ['spectral', 'acf', 'hilbert', 'zerocross', 'peaks', 'adaptive_peaks']
 METHOD_LABELS = {
-    'spectral':  'Spectral peak',
-    'acf':       'ACF',
-    'hilbert':   'Hilbert inst. freq.',
-    'zerocross': 'Zero-crossing',
-    'peaks':     'Peak counting',
+    'spectral':       'Spectral peak',
+    'acf':            'ACF',
+    'hilbert':        'Hilbert inst. freq.',
+    'zerocross':      'Zero-crossing',
+    'peaks':          'Peak counting',
+    'adaptive_peaks': 'Adaptive peaks',
 }
 METHOD_COLORS = {
-    'spectral':  '#3498DB',
-    'acf':       '#E74C3C',
-    'hilbert':   '#27AE60',
-    'zerocross': '#9B59B6',
-    'peaks':     '#E67E22',
+    'spectral':       '#3498DB',
+    'acf':            '#E74C3C',
+    'hilbert':        '#27AE60',
+    'zerocross':      '#9B59B6',
+    'peaks':          '#E67E22',
+    'adaptive_peaks': '#16A085',
 }
 
 # ── Advanced rate estimation methods ──────────────────────────────────────────

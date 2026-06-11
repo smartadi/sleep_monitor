@@ -1,12 +1,13 @@
 """
 Rate estimators for respiratory and cardiac rates from bandpassed signals.
 
-Five methods are implemented:
-  spectral  — Welch PSD peak frequency
-  acf       — ACF dominant lag (parabolic interpolation)
-  hilbert   — Hilbert instantaneous frequency median
-  zerocross — Upward zero-crossing rate
-  peaks     — Peak-counting with prominence threshold
+Six methods are implemented:
+  spectral        — Welch PSD peak frequency
+  acf             — ACF dominant lag (parabolic interpolation)
+  hilbert         — Hilbert instantaneous frequency median
+  zerocross       — Upward zero-crossing rate
+  peaks           — Peak-counting with prominence threshold
+  adaptive_peaks  — Spectral-guided, amplitude-adaptive peak detector
 
 Public API
 ----------
@@ -145,6 +146,79 @@ def rate_envelope(x: np.ndarray, f_lo: float, f_hi: float,
     return rate_acf(env, env_lo, env_hi, fs)
 
 
+# ── Adaptive peak detector ────────────────────────────────────────────────────
+
+def rate_adaptive_peaks(x: np.ndarray, f_lo: float, f_hi: float,
+                        fs: float = FS,
+                        ipi_cv_max: float = 0.40) -> float:
+    """
+    Spectral-guided, amplitude-adaptive peak detector.
+
+    Improvements over rate_peaks:
+      1. Uses spectral peak to set expected rate → min_distance adapts to the
+         actual dominant frequency, not just the band ceiling.
+      2. Prominence threshold tracks the local amplitude envelope (rolling MAD)
+         instead of a fixed fraction of global std.
+      3. Inter-peak-interval (IPI) validation rejects estimates where the CV
+         of detected intervals exceeds ipi_cv_max.
+
+    Returns rate in Hz, or np.nan on failure.
+    """
+    x = x.astype(np.float64)
+    N = len(x)
+    if N < int(fs / f_lo):
+        return np.nan
+
+    # Step 1: spectral guidance — expected rate from Welch PSD
+    f_expected = rate_spectral(x, f_lo, f_hi, fs)
+    if not np.isfinite(f_expected) or f_expected <= 0:
+        f_expected = (f_lo + f_hi) / 2.0
+
+    expected_period_s = 1.0 / f_expected
+    min_dist = max(1, int(0.6 * expected_period_s * fs))
+
+    # Step 2: amplitude-adaptive prominence via rolling MAD
+    env = np.abs(x)
+    mad_win = max(3, int(expected_period_s * fs))
+    kernel = np.ones(mad_win) / mad_win
+    local_mean = np.convolve(env, kernel, mode='same')
+    local_mad = np.convolve(np.abs(env - local_mean), kernel, mode='same')
+    med_mad = np.median(local_mad)
+    if med_mad < 1e-12:
+        med_mad = np.std(x) * 0.3
+    prom_threshold = 0.5 * med_mad
+
+    # Step 3: mild smoothing then peak detection
+    smooth_win = max(3, min_dist // 4)
+    x_sm = np.convolve(x, np.ones(smooth_win) / smooth_win, mode='same')
+    pks, props = find_peaks(x_sm, distance=min_dist, prominence=prom_threshold)
+
+    if len(pks) < 2:
+        return np.nan
+
+    # Step 4: IPI validation — reject if too irregular
+    ipis = np.diff(pks) / fs
+    ipi_mean = ipis.mean()
+    if ipi_mean <= 0:
+        return np.nan
+    ipi_cv = ipis.std() / ipi_mean
+    if ipi_cv > ipi_cv_max:
+        # Fallback: keep only IPIs within 1.5 MAD of the median
+        ipi_med = np.median(ipis)
+        ipi_mad = np.median(np.abs(ipis - ipi_med))
+        if ipi_mad < 1e-6:
+            ipi_mad = 0.1 * ipi_med
+        good = np.abs(ipis - ipi_med) <= 1.5 * ipi_mad
+        if good.sum() < 2:
+            return np.nan
+        ipi_mean = ipis[good].mean()
+
+    rate_hz = 1.0 / ipi_mean
+    if rate_hz < f_lo or rate_hz > f_hi:
+        return np.nan
+    return float(rate_hz)
+
+
 # ── Multi-method dispatcher ────────────────────────────────────────────────────
 
 def estimate_rate(x: np.ndarray, f_lo: float, f_hi: float, fs: float = FS,
@@ -158,11 +232,12 @@ def estimate_rate(x: np.ndarray, f_lo: float, f_hi: float, fs: float = FS,
         Typically enabled for cardiac band, disabled for respiratory.
     """
     out = {
-        'spectral':  rate_spectral(x,  f_lo, f_hi, fs),
-        'acf':       rate_acf(x,       f_lo, f_hi, fs),
-        'hilbert':   rate_hilbert(x,   f_lo, f_hi, fs),
-        'zerocross': rate_zerocross(x, fs),
-        'peaks':     rate_peaks(x,     f_lo, f_hi, fs),
+        'spectral':        rate_spectral(x,  f_lo, f_hi, fs),
+        'acf':             rate_acf(x,       f_lo, f_hi, fs),
+        'hilbert':         rate_hilbert(x,   f_lo, f_hi, fs),
+        'zerocross':       rate_zerocross(x, fs),
+        'peaks':           rate_peaks(x,     f_lo, f_hi, fs),
+        'adaptive_peaks':  rate_adaptive_peaks(x, f_lo, f_hi, fs),
     }
     if include_envelope:
         out['envelope'] = rate_envelope(x, f_lo, f_hi, fs)
@@ -423,7 +498,7 @@ def sliding_rates(
     step_sec: float = 1.0,
 ) -> tuple:
     """
-    Sliding-window rate estimation using all five methods.
+    Sliding-window rate estimation using all six methods.
 
     Parameters
     ----------
@@ -455,3 +530,92 @@ def sliding_rates(
     t_s = np.array(t_list)
     rates = {m: np.array(r_list[m]) for m in METHOD_NAMES}
     return t_s, rates
+
+
+# ── Kalman rate tracker ──────────────────────────────────────────────────────
+
+def kalman_rate_track(
+    estimates: dict,
+    f_lo: float,
+    f_hi: float,
+    step_sec: float = 30.0,
+    max_delta_hz: float | None = None,
+    R_base: dict | None = None,
+) -> np.ndarray:
+    """
+    Kalman-filter fusion of multiple per-window rate estimates.
+
+    Fuses two or more method time series into a single smooth rate track
+    with physiological rate-of-change constraints.
+
+    Parameters
+    ----------
+    estimates : {method_name: (K,) array of rate_Hz}.
+        NaN entries are skipped (infinite measurement noise).
+    f_lo, f_hi : frequency band bounds (Hz). Used to clamp output and
+        initialise the state when no observations are available.
+    step_sec : time between consecutive windows (seconds).
+    max_delta_hz : maximum rate change per step (Hz). Controls process
+        noise Q. Default: 2 br/min per 30s for resp, 5 BPM per 30s for
+        cardiac, auto-selected from f_hi.
+    R_base : {method_name: measurement_variance_Hz2}. Default derived
+        from Phase 0 benchmark MAEs.
+
+    Returns
+    -------
+    (K,) array of Kalman-smoothed rates in Hz. NaN where no observations
+    were available and the prediction drifted outside the band.
+    """
+    methods = list(estimates.keys())
+    K = len(next(iter(estimates.values())))
+
+    if max_delta_hz is None:
+        if f_hi <= 0.6:
+            max_delta_hz = 2.0 / 60.0 * (step_sec / 30.0)
+        else:
+            max_delta_hz = 5.0 / 60.0 * (step_sec / 30.0)
+
+    Q = max_delta_hz ** 2
+
+    if R_base is None:
+        if f_hi <= 0.6:
+            R_base = {m: (2.5 / 60.0) ** 2 for m in methods}
+        else:
+            R_base = {m: (30.0 / 60.0) ** 2 for m in methods}
+
+    f_mid = (f_lo + f_hi) / 2.0
+    x = f_mid
+    P = ((f_hi - f_lo) / 2.0) ** 2
+
+    out = np.full(K, np.nan)
+
+    for k in range(K):
+        x_pred = x
+        P_pred = P + Q
+
+        obs = []
+        R_obs = []
+        for m in methods:
+            z = estimates[m][k]
+            if np.isfinite(z) and f_lo <= z <= f_hi:
+                obs.append(z)
+                R_obs.append(R_base[m])
+
+        if len(obs) == 0:
+            x = x_pred
+            P = P_pred
+            if f_lo <= x <= f_hi:
+                out[k] = x
+            continue
+
+        for z_i, r_i in zip(obs, R_obs):
+            S = P_pred + r_i
+            K_gain = P_pred / S
+            x_pred = x_pred + K_gain * (z_i - x_pred)
+            P_pred = (1.0 - K_gain) * P_pred
+
+        x = np.clip(x_pred, f_lo, f_hi)
+        P = P_pred
+        out[k] = x
+
+    return out

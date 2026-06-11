@@ -31,10 +31,11 @@ from .preprocessing import (
 )
 from .rates import (
     rate_spectral, rate_acf, rate_hilbert, rate_zerocross, rate_peaks, rate_envelope,
+    rate_adaptive_peaks,
     rate_hilbert_scaled_cardiac, rate_peaks_scaled_resp,
     calibrate_k_cardiac, calibrate_k_resp,
     estimate_rate, fuse_rates, detect_peaks, zerocross_indices,
-    peaks_by_method, sliding_rates,
+    peaks_by_method, sliding_rates, kalman_rate_track,
 )
 from .quality import (
     window_features, combined_quality,
@@ -132,10 +133,11 @@ __all__ = [
     'preprocess_window', 'preprocess_full',
     # rates (base)
     'rate_spectral', 'rate_acf', 'rate_hilbert', 'rate_zerocross', 'rate_peaks', 'rate_envelope',
+    'rate_adaptive_peaks',
     'rate_hilbert_scaled_cardiac', 'rate_peaks_scaled_resp',
     'calibrate_k_cardiac', 'calibrate_k_resp',
     'estimate_rate', 'fuse_rates', 'detect_peaks', 'zerocross_indices',
-    'peaks_by_method', 'sliding_rates',
+    'peaks_by_method', 'sliding_rates', 'kalman_rate_track',
     # rates (advanced classical)
     'rate_vmd', 'rate_cwt', 'rate_stft_track', 'rate_music',
     'estimate_rate_advanced', 'sliding_rates_advanced',

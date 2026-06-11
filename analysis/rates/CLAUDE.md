@@ -15,7 +15,7 @@ Estimate respiratory and cardiac rates from CAP temple sensors, validated agains
 - ACF method broken for cardiac (sub-harmonic lock-in, MAE 15.81)
 
 ## Package modules
-- `sleep_monitor/rates.py` — 5 base estimators + scaled variants
+- `sleep_monitor/rates.py` — 6 base estimators (spectral, acf, hilbert, zerocross, peaks, adaptive_peaks) + scaled variants
 - `sleep_monitor/rates_classical.py` — VMD, CWT, STFT ridge, MUSIC (experimental)
 - `sleep_monitor/rates_ml.py` — XGBoost fusion, denoising autoencoder, spectrogram CNN
 - `sleep_monitor/ground_truth.py` — ECG R-peaks, Flow peaks via neurokit2

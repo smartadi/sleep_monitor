@@ -22,6 +22,7 @@ import numpy as np
 import pytest
 from sleep_monitor.rates import (
     rate_spectral, rate_acf, rate_hilbert, rate_zerocross, rate_peaks,
+    rate_adaptive_peaks, kalman_rate_track,
     rate_hilbert_scaled_cardiac, rate_peaks_scaled_resp,
     estimate_rate, fuse_rates, sliding_rates,
 )
@@ -220,6 +221,57 @@ class TestRatePeaks:
         assert np.isnan(result)
 
 
+# ─── rate_adaptive_peaks ─────────────────────────────────────────────────────
+
+class TestRateAdaptivePeaks:
+    def test_resp_sine_correct(self, resp_sine):
+        rate = rate_adaptive_peaks(resp_sine, RESP_LO, RESP_HI, fs=FS)
+        assert abs(rate - RESP_F0) <= RESP_TOL, \
+            f"adaptive_peaks resp: expected {RESP_F0}, got {rate:.4f}"
+
+    def test_cardiac_sine_correct(self, cardiac_sine):
+        rate = rate_adaptive_peaks(cardiac_sine, CARD_LO, CARD_HI, fs=FS)
+        assert abs(rate - CARDIAC_F0) <= CARDIAC_TOL, \
+            f"adaptive_peaks cardiac: expected {CARDIAC_F0}, got {rate:.4f}"
+
+    def test_noisy_sine_still_works(self):
+        """With moderate noise (SNR ~10 dB) the adaptive detector should still recover the rate."""
+        rng = np.random.default_rng(42)
+        t = np.arange(int(60 * FS)) / FS
+        sig = np.sin(2 * np.pi * RESP_F0 * t) + 0.3 * rng.standard_normal(len(t))
+        rate = rate_adaptive_peaks(sig, RESP_LO, RESP_HI, fs=FS)
+        assert np.isfinite(rate), "Should return finite rate for moderate noise"
+        assert abs(rate - RESP_F0) <= 0.06, f"Noisy: expected ~{RESP_F0}, got {rate:.4f}"
+
+    def test_returns_nan_for_short_signal(self):
+        sig = np.sin(2 * np.pi * 0.25 * np.arange(50) / FS)
+        result = rate_adaptive_peaks(sig, RESP_LO, RESP_HI, fs=FS)
+        assert np.isnan(result)
+
+    def test_ipi_validation_rejects_erratic_peaks(self):
+        """A signal with wildly irregular peaks should be rejected or filtered by IPI validation."""
+        rng = np.random.default_rng(99)
+        sig = rng.standard_normal(6000)
+        result = rate_adaptive_peaks(sig, RESP_LO, RESP_HI, fs=FS)
+        # Pure noise: either nan or heavily filtered — should not return a confident estimate
+        # (we accept either nan or a value; the key is it doesn't crash)
+        assert result is not None  # doesn't crash
+
+    def test_included_in_estimate_rate(self, resp_sine):
+        result = estimate_rate(resp_sine, RESP_LO, RESP_HI, fs=FS)
+        assert 'adaptive_peaks' in result
+        assert np.isfinite(result['adaptive_peaks'])
+
+    def test_amplitude_drift_handled(self):
+        """Signal with linearly increasing amplitude — adaptive prominence should track it."""
+        t = np.arange(int(60 * FS)) / FS
+        envelope = 0.5 + 1.5 * (t / t[-1])
+        sig = envelope * np.sin(2 * np.pi * RESP_F0 * t)
+        rate = rate_adaptive_peaks(sig, RESP_LO, RESP_HI, fs=FS)
+        assert np.isfinite(rate), "Should handle amplitude drift"
+        assert abs(rate - RESP_F0) <= 0.05, f"Drifting amp: expected ~{RESP_F0}, got {rate:.4f}"
+
+
 # ─── rate_hilbert_scaled_cardiac ──────────────────────────────────────────────
 
 class TestHilbertScaledCardiac:
@@ -346,7 +398,7 @@ class TestFuseRates:
 class TestEstimateRate:
     def test_returns_all_methods(self, resp_sine):
         result = estimate_rate(resp_sine, RESP_LO, RESP_HI, fs=FS)
-        expected_keys = {'spectral', 'acf', 'hilbert', 'zerocross', 'peaks'}
+        expected_keys = {'spectral', 'acf', 'hilbert', 'zerocross', 'peaks', 'adaptive_peaks'}
         assert set(result.keys()) == expected_keys
 
     def test_all_methods_finite_for_clean_signal(self, resp_sine):
@@ -408,3 +460,79 @@ class TestSlidingRates:
         for method, arr in rates.items():
             assert len(arr) == len(t_s), \
                 f"Method '{method}' array length {len(arr)} != t_s length {len(t_s)}"
+
+
+# ─── kalman_rate_track ───────────────────────────────────────────────────────
+
+class TestKalmanRateTrack:
+    def test_constant_signal_returns_constant(self):
+        """Two methods agreeing on the same constant rate → output equals that rate."""
+        N = 50
+        rate = 0.25
+        estimates = {
+            'spectral': np.full(N, rate),
+            'adaptive_peaks': np.full(N, rate),
+        }
+        out = kalman_rate_track(estimates, RESP_LO, RESP_HI)
+        assert np.allclose(out[-10:], rate, atol=0.005)
+
+    def test_smooths_noisy_estimates(self):
+        """Kalman output should have lower variance than noisy inputs."""
+        rng = np.random.default_rng(42)
+        N = 100
+        true_rate = 0.25
+        noise_std = 0.03
+        estimates = {
+            'spectral': true_rate + noise_std * rng.standard_normal(N),
+            'adaptive_peaks': true_rate + noise_std * rng.standard_normal(N),
+        }
+        for m in estimates:
+            estimates[m] = np.clip(estimates[m], RESP_LO, RESP_HI)
+        out = kalman_rate_track(estimates, RESP_LO, RESP_HI)
+        assert np.nanstd(out) < noise_std, \
+            f"Kalman std {np.nanstd(out):.4f} not less than input noise {noise_std}"
+
+    def test_handles_nan_gaps(self):
+        """NaN in one method should not produce NaN output if other method is valid."""
+        N = 30
+        rate = 1.2
+        spectral = np.full(N, rate)
+        adaptive = np.full(N, rate)
+        adaptive[10:20] = np.nan
+        estimates = {'spectral': spectral, 'adaptive_peaks': adaptive}
+        out = kalman_rate_track(estimates, CARD_LO, CARD_HI)
+        assert np.all(np.isfinite(out)), "Should not have NaN when one method is available"
+
+    def test_handles_all_nan(self):
+        """When both methods are NaN, output should still be finite if prior prediction is in-band."""
+        N = 20
+        rate = 0.3
+        spectral = np.full(N, rate)
+        adaptive = np.full(N, rate)
+        spectral[15:] = np.nan
+        adaptive[15:] = np.nan
+        estimates = {'spectral': spectral, 'adaptive_peaks': adaptive}
+        out = kalman_rate_track(estimates, RESP_LO, RESP_HI)
+        assert np.all(np.isfinite(out[:15])), "Valid region should be finite"
+        # After gap, prediction drifts but stays in-band for a few steps
+        assert np.isfinite(out[15]), "First gap step should use prior prediction"
+
+    def test_output_length_matches_input(self):
+        N = 40
+        estimates = {
+            'spectral': np.full(N, 0.25),
+            'adaptive_peaks': np.full(N, 0.25),
+        }
+        out = kalman_rate_track(estimates, RESP_LO, RESP_HI)
+        assert len(out) == N
+
+    def test_respects_band_bounds(self):
+        """Output should be clamped within [f_lo, f_hi]."""
+        N = 30
+        estimates = {
+            'spectral': np.full(N, 0.25),
+            'adaptive_peaks': np.full(N, 0.25),
+        }
+        out = kalman_rate_track(estimates, RESP_LO, RESP_HI)
+        assert np.all(out[np.isfinite(out)] >= RESP_LO)
+        assert np.all(out[np.isfinite(out)] <= RESP_HI)

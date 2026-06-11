@@ -6,14 +6,34 @@ Records all code changes to library modules, scripts, and notebooks.
 
 ## 2026-06-11 (cont.)
 
-### Ridge Overlay v2
-- **Updated** `sleep_monitor/harmonics.py` — added `median_filter` import and Step 5c (median-filter smoothing of ridge frequency traces, size=7) after fragment merging in `detect_persistent_ridges()`
+### Hybrid Rate Pipeline — Phase 4: Streaming Demo
+- **Added** `scripts/demo_realtime_rates.py` — real-time streaming rate tracker demo: `KalmanState` class for lightweight scalar Kalman filter, epoch-by-epoch processing with spectral + adaptive_peaks → Kalman fusion, live console display, summary plot
+- **Output** `reports/rates/hybrid_phase4/streaming_demo_S1N1.png` — full-night time series (Kalman vs GT)
+- S1N1: 954 epochs in 1.8s (16,348x real-time), resp MAE 1.88 br/min, cardiac MAE 21.29 BPM
+
+### Hybrid Rate Pipeline — Phase 2: Multi-Channel Fusion
+- **Added** `scripts/evaluate_multichannel.py` — runs spectral + adaptive_peaks → Kalman on 5 channels (CLE, CRE, CH, avg, diff) independently, quality-weighted fusion across channels, oracle (best per-window)
+- **Output** `reports/rates/hybrid_phase2/` — 28 PNGs (per-session channel comparison, aggregate bars, heatmaps), 2 CSVs
+- Resp: multi-ch 1.82 br/min (vs single-best 1.90, oracle 1.21) — 4% improvement
+- Cardiac: multi-ch 17.74 BPM (vs single-best 21.22, oracle 8.63) — 16% improvement
+- Oracle headroom shows substantial gains possible with better channel selection
+
+### Hybrid Rate Pipeline — Phase 3: Formal Evaluation
+- **Added** `scripts/evaluate_hybrid_pipeline.py` — full evaluation: per-session k-calibration for baseline (hilbert/k, peaks/k) and Kalman pipeline, LOSO k cross-validation, per-stage MAE, Bland-Altman, Wilcoxon tests
+- **Output** `reports/rates/hybrid_phase3/` — 24 time-series PNGs, 3 Bland-Altman aggregate PNGs, 2 per-stage PNGs, 2 session-comparison PNGs, 3 CSVs (results, windows, k-calibration)
+
+### Ridge Overlay v2 + Prominence Scoring
+- **Updated** `sleep_monitor/harmonics.py`:
+  - Step 5c: median-filter smoothing of ridge frequency traces (size=7)
+  - Step 5d: per-ridge prominence traces (amp / local spectral floor ±0.3 Hz), median-filter smoothed
+  - Added `compute_prominence_score()` — per-window max ridge prominence (gated at min_prominence=2.0), temporally smoothed (median filter size=15 ≈ 3.75 min), normalized to [0,1]
 - **Updated** `analysis/slow_wave/run_ridge_overlay.py`:
   - `MIN_PERSIST_SEC` 180→300 (5 min minimum ridge)
-  - Added `compute_fine_spectrogram()` — scipy.signal.spectrogram with nperseg=2048, noverlap=1920, nfft=4096 for high-res visual background
-  - Replaced single-channel `plot_session()` with 6-row stacked layout (hypnogram + 3 channel spectrograms + overlaid score + ridge stats)
-  - Motion regions shown as full-height semi-transparent red overlay (alpha=0.15) instead of tiny top-of-frame ticks
-  - Removed `pick_best_channel()` and `plot_multichannel_comparison()` — merged into main stacked plot
+  - Added `compute_fine_spectrogram()` — high-res visual background (nperseg=2048, nfft=4096)
+  - Replaced harmonic-ladder scoring with prominence-based scoring throughout
+  - Ridges colored by prominence (SNR vs floor) instead of raw amplitude; labels show "freq (Nx)"
+  - Removed ladder dots, pick_best_channel, plot_multichannel_comparison
+  - 6-row stacked layout, motion as red semi-transparent overlay, output to `reports/slow_wave/overlay/`
   - Figure size 22x20 at 200 DPI
 
 ### Hybrid Rate Pipeline — Phase 1: Kalman Rate Tracker
