@@ -326,3 +326,495 @@ def detect_harmonics_multichannel(
         best_rows.append(row)
 
     return pd.DataFrame(best_rows)
+
+
+# ── Persistent ridge tracking ──────────────────────────────────────────────
+
+def detect_persistent_ridges(
+    sig: np.ndarray,
+    fs: float = FS,
+    win_sec: float = 30.0,
+    step_sec: float = 30.0,
+    max_freq: float = 5.0,
+    smooth_windows: int = 5,
+    min_persistence_sec: float = 120.0,
+    max_freq_jump: float = 0.08,
+    peak_prominence_frac: float = 0.15,
+    welch_seg_sec: float = 8.0,
+    max_gap_windows: int = 2,
+    acc_mag: Optional[np.ndarray] = None,
+    motion_thresh_mad: float = 3.0,
+) -> dict:
+    """
+    Detect spectral ridges that persist over time, then group into harmonic sets.
+
+    Unlike per-window detection, this enforces temporal continuity: a ridge is a
+    spectral peak that stays within max_freq_jump Hz between consecutive windows
+    and persists for at least min_persistence_sec.
+
+    Returns dict with keys: t_hr, freqs, psds, psds_smooth, motion_mask,
+    ridges (list of dicts with freq_trace, amp_trace, start_idx, end_idx,
+    duration_sec, median_freq, n_present, label), harmonic_groups.
+    """
+    win_n = int(win_sec * fs)
+    step_n = int(step_sec * fs)
+    nperseg = min(int(welch_seg_sec * fs), win_n)
+    n = len(sig)
+
+    starts = np.arange(0, n - win_n + 1, step_n)
+    n_win = len(starts)
+
+    # ── Motion mask ──
+    motion_mask = np.zeros(n_win, dtype=bool)
+    if acc_mag is not None:
+        acc = acc_mag.astype(np.float64)
+        motion_rms = np.array([
+            np.sqrt(np.mean((acc[s0:s0+win_n] - np.mean(acc[s0:s0+win_n]))**2))
+            for s0 in starts
+        ])
+        med = np.median(motion_rms)
+        mad = np.median(np.abs(motion_rms - med)) + 1e-12
+        motion_mask = motion_rms > (med + motion_thresh_mad * mad)
+
+    # ── Step 1: Compute PSDs ──
+    t_hr = np.array([(s0 + win_n / 2) / fs / 3600.0 for s0 in starts])
+    sample_freqs, sample_psd = welch(
+        sig[:win_n].astype(np.float64), fs=fs, nperseg=nperseg,
+        noverlap=nperseg // 2, scaling='density',
+    )
+    f_mask = sample_freqs <= max_freq
+    freqs = sample_freqs[f_mask]
+    n_f = len(freqs)
+
+    psds = np.full((n_win, n_f), np.nan)
+    for i, s0 in enumerate(starts):
+        if motion_mask[i]:
+            continue
+        chunk = sig[s0:s0+win_n].astype(np.float64)
+        _, psd = welch(chunk, fs=fs, nperseg=nperseg,
+                       noverlap=nperseg // 2, scaling='density')
+        psds[i] = psd[f_mask]
+
+    # ── Step 2: Temporal median smoothing ──
+    half = smooth_windows // 2
+    psds_smooth = np.full_like(psds, np.nan)
+    for i in range(n_win):
+        lo = max(0, i - half)
+        hi = min(n_win, i + half + 1)
+        block = psds[lo:hi]
+        valid_rows = ~np.all(np.isnan(block), axis=1)
+        if valid_rows.sum() >= 2:
+            psds_smooth[i] = np.nanmedian(block[valid_rows], axis=0)
+        elif valid_rows.sum() == 1:
+            psds_smooth[i] = block[valid_rows][0]
+
+    # ── Step 3: Find peaks in smoothed PSDs per window ──
+    peaks_per_window = []
+    for i in range(n_win):
+        if np.all(np.isnan(psds_smooth[i])):
+            peaks_per_window.append([])
+            continue
+        psd_s = psds_smooth[i]
+        local_med = np.nanmedian(psd_s) + 1e-30
+        prom_thresh = peak_prominence_frac * local_med
+        peak_idxs, props = find_peaks(psd_s, prominence=prom_thresh)
+        peak_list = [(freqs[pi], psd_s[pi]) for pi in peak_idxs]
+        peaks_per_window.append(peak_list)
+
+    # ── Step 4: Track ridges with continuity constraint ──
+    active_ridges = []
+    finished_ridges = []
+
+    for i in range(n_win):
+        peaks = list(peaks_per_window[i])
+        matched_peak_idxs = set()
+
+        for ridge in active_ridges:
+            best_dist = max_freq_jump + 1
+            best_pi = -1
+            for pi, (f, a) in enumerate(peaks):
+                if pi in matched_peak_idxs:
+                    continue
+                dist = abs(f - ridge['last_freq'])
+                if dist < best_dist:
+                    best_dist = dist
+                    best_pi = pi
+
+            if best_pi >= 0 and best_dist <= max_freq_jump:
+                f, a = peaks[best_pi]
+                ridge['freq_trace'][i] = f
+                ridge['amp_trace'][i] = a
+                ridge['last_freq'] = f
+                ridge['gap'] = 0
+                ridge['end_idx'] = i
+                matched_peak_idxs.add(best_pi)
+            else:
+                ridge['gap'] += 1
+
+        still_active = []
+        for ridge in active_ridges:
+            if ridge['gap'] > max_gap_windows:
+                finished_ridges.append(ridge)
+            else:
+                still_active.append(ridge)
+        active_ridges = still_active
+
+        for pi, (f, a) in enumerate(peaks):
+            if pi not in matched_peak_idxs:
+                freq_trace = np.full(n_win, np.nan)
+                amp_trace = np.full(n_win, np.nan)
+                freq_trace[i] = f
+                amp_trace[i] = a
+                active_ridges.append({
+                    'freq_trace': freq_trace,
+                    'amp_trace': amp_trace,
+                    'last_freq': f,
+                    'gap': 0,
+                    'start_idx': i,
+                    'end_idx': i,
+                })
+
+    finished_ridges.extend(active_ridges)
+
+    # ── Step 5: Filter by minimum persistence and frequency ──
+    min_windows = max(1, int(min_persistence_sec / step_sec))
+    df_freq = freqs[1] - freqs[0] if len(freqs) > 1 else 0.1
+    min_freq = 2 * df_freq
+    ridges = []
+    for r in finished_ridges:
+        n_present = np.sum(~np.isnan(r['freq_trace']))
+        duration = (r['end_idx'] - r['start_idx'] + 1) * step_sec
+        median_freq = float(np.nanmedian(r['freq_trace']))
+        if (n_present >= min_windows and duration >= min_persistence_sec
+                and median_freq >= min_freq):
+            ridges.append({
+                'freq_trace': r['freq_trace'],
+                'amp_trace': r['amp_trace'],
+                'start_idx': r['start_idx'],
+                'end_idx': r['end_idx'],
+                'duration_sec': duration,
+                'median_freq': median_freq,
+                'n_present': int(n_present),
+                'label': f'{median_freq:.2f}Hz',
+            })
+
+    ridges.sort(key=lambda r: r['median_freq'])
+
+    # ── Step 5b: Merge fragmented ridges ──
+    ridges = _merge_ridge_fragments(ridges, n_win, step_sec,
+                                    max_freq_jump, max_gap_windows * 3)
+
+    # ── Step 6: Group into harmonic sets ──
+    harmonic_groups = _find_harmonic_groups(ridges, t_hr)
+
+    return {
+        't_hr': t_hr,
+        'freqs': freqs,
+        'psds': psds,
+        'psds_smooth': psds_smooth,
+        'motion_mask': motion_mask,
+        'ridges': ridges,
+        'harmonic_groups': harmonic_groups,
+    }
+
+
+def _merge_ridge_fragments(
+    ridges: list,
+    n_win: int,
+    step_sec: float,
+    max_freq_jump: float,
+    merge_gap_windows: int,
+) -> list:
+    """
+    Merge ridge fragments that end and restart at similar frequencies.
+
+    After greedy tracking, a single physical ridge often gets split into
+    fragments when it briefly dips below the prominence threshold.  This
+    pass stitches them back together if the gap is small and the frequency
+    difference at the boundary is within tolerance.
+    """
+    if len(ridges) < 2:
+        return ridges
+
+    ridges = sorted(ridges, key=lambda r: (r['start_idx'], r['median_freq']))
+    merged = [ridges[0]]
+
+    for cand in ridges[1:]:
+        did_merge = False
+        for mi, base in enumerate(merged):
+            gap = cand['start_idx'] - base['end_idx']
+            if gap < 1 or gap > merge_gap_windows:
+                continue
+            freq_base = base['freq_trace'][base['end_idx']]
+            freq_cand = cand['freq_trace'][cand['start_idx']]
+            if np.isnan(freq_base) or np.isnan(freq_cand):
+                continue
+            if abs(freq_base - freq_cand) > max_freq_jump * 2:
+                continue
+
+            new_freq = base['freq_trace'].copy()
+            new_amp = base['amp_trace'].copy()
+            mask_c = ~np.isnan(cand['freq_trace'])
+            new_freq[mask_c] = cand['freq_trace'][mask_c]
+            new_amp[mask_c] = cand['amp_trace'][mask_c]
+
+            n_present = int(np.sum(~np.isnan(new_freq)))
+            end_idx = max(base['end_idx'], cand['end_idx'])
+            start_idx = min(base['start_idx'], cand['start_idx'])
+            duration = (end_idx - start_idx + 1) * step_sec
+            median_freq = float(np.nanmedian(new_freq))
+
+            merged[mi] = {
+                'freq_trace': new_freq,
+                'amp_trace': new_amp,
+                'start_idx': start_idx,
+                'end_idx': end_idx,
+                'duration_sec': duration,
+                'median_freq': median_freq,
+                'n_present': n_present,
+                'label': f'{median_freq:.2f}Hz',
+            }
+            did_merge = True
+            break
+
+        if not did_merge:
+            merged.append(cand)
+
+    merged.sort(key=lambda r: r['median_freq'])
+    return merged
+
+
+def compute_harmonic_score(
+    rr: dict,
+    ratio_tol: float = 0.12,
+    min_f0: float = 0.1,
+) -> dict:
+    """
+    Continuous per-window harmonic strength score from persistent ridges.
+
+    For each window, collects all active ridges and scores how well they form
+    integer-ratio ladders.  Returns a continuous score in [0, 1] that encodes
+    ratio_quality, n_harmonics, and power.
+
+    Returns dict with: harmonic_score, ratio_quality, n_ladder, ladder_f0,
+    ladder_power, ladder_freqs (all arrays of length n_windows).
+    """
+    ridges = rr['ridges']
+    n_win = len(rr['t_hr'])
+
+    score = np.zeros(n_win)
+    rq = np.zeros(n_win)
+    n_lad = np.zeros(n_win, dtype=int)
+    lad_f0 = np.full(n_win, np.nan)
+    lad_power = np.zeros(n_win)
+    lad_freqs = [[] for _ in range(n_win)]
+
+    for i in range(n_win):
+        active = []
+        for ri, ridge in enumerate(ridges):
+            f = ridge['freq_trace'][i]
+            a = ridge['amp_trace'][i]
+            if np.isfinite(f) and f >= min_f0:
+                active.append((ri, f, a))
+
+        if len(active) < 2:
+            continue
+
+        active.sort(key=lambda x: x[1])
+
+        best_score = 0.0
+        best_rq = 0.0
+        best_n = 0
+        best_f0 = np.nan
+        best_pwr = 0.0
+        best_fqs = []
+
+        for ai in range(len(active)):
+            _, f0, a0 = active[ai]
+            if f0 < min_f0:
+                continue
+
+            members = [(f0, a0)]
+            deviations = []
+
+            for aj in range(len(active)):
+                if aj == ai:
+                    continue
+                _, fj, aj_amp = active[aj]
+                ratio = fj / f0
+                nearest_int = round(ratio)
+                dev = abs(ratio - nearest_int)
+                if nearest_int >= 2 and dev < ratio_tol:
+                    members.append((fj, aj_amp))
+                    deviations.append(dev)
+
+            if len(members) < 2:
+                continue
+
+            quality = 1.0 - np.mean(deviations) / ratio_tol if deviations else 0.0
+            n_harm = len(members)
+            power = sum(m[1] for m in members)
+            harm_factor = min(np.log2(max(n_harm, 1)) / np.log2(6), 1.0)
+            s = quality * harm_factor
+
+            if s > best_score:
+                best_score = s
+                best_rq = quality
+                best_n = n_harm
+                best_f0 = f0
+                best_pwr = power
+                best_fqs = [m[0] for m in members]
+
+        score[i] = best_score
+        rq[i] = best_rq
+        n_lad[i] = best_n
+        lad_f0[i] = best_f0
+        lad_power[i] = best_pwr
+        lad_freqs[i] = best_fqs
+
+    # Normalise power to [0, 1] across session
+    valid_pwr = lad_power[lad_power > 0]
+    if len(valid_pwr) > 0:
+        p95 = np.percentile(valid_pwr, 95)
+        if p95 > 0:
+            power_norm = np.clip(lad_power / p95, 0, 1)
+            score = score * power_norm
+
+    return {
+        'harmonic_score': np.clip(score, 0, 1),
+        'ratio_quality': rq,
+        'n_ladder': n_lad,
+        'ladder_f0': lad_f0,
+        'ladder_power': lad_power,
+        'ladder_freqs': lad_freqs,
+    }
+
+
+def _find_harmonic_groups(ridges: list, t_hr: np.ndarray,
+                          ratio_tol: float = 0.12) -> list:
+    """
+    Among persistent ridges, find sets where frequencies form integer ratios.
+
+    For each pair of concurrent ridges, check if freq_high / freq_low is close
+    to an integer (2, 3, 4, ...). Build groups bottom-up from lowest frequency.
+    """
+    if len(ridges) < 2:
+        return []
+
+    n_ridges = len(ridges)
+    groups = []
+    used = set()
+
+    for i in range(n_ridges):
+        if i in used:
+            continue
+        f_i = ridges[i]['median_freq']
+        if f_i < 0.05:
+            continue
+
+        members = [i]
+        for j in range(i + 1, n_ridges):
+            if j in used:
+                continue
+            f_j = ridges[j]['median_freq']
+            ratio = f_j / f_i
+            nearest_int = round(ratio)
+            if nearest_int >= 2 and abs(ratio - nearest_int) < ratio_tol:
+                overlap_start = max(ridges[i]['start_idx'], ridges[j]['start_idx'])
+                overlap_end = min(ridges[i]['end_idx'], ridges[j]['end_idx'])
+                if overlap_end > overlap_start:
+                    members.append(j)
+
+        if len(members) >= 2:
+            for m in members:
+                used.add(m)
+            groups.append({
+                'fundamental_idx': i,
+                'harmonic_idxs': members,
+                'f0_median': f_i,
+            })
+
+    return groups
+
+
+# ── Concurrent-ridge harmonic ladder labeling ─────────────────────────────
+
+def label_harmonic_ladder_windows(
+    rr: dict,
+    ratio_tol: float = 0.12,
+    min_harmonics: int = 2,
+    min_f0: float = 0.1,
+) -> dict:
+    """
+    Per-window harmonic ladder labeling from persistent ridge output.
+
+    At each window, collects all active persistent ridges and checks whether
+    any subset forms an integer-ratio ladder (f0, 2*f0, 3*f0, ...).
+
+    Returns dict with: is_ladder, ladder_f0, ladder_n, ladder_power,
+    ladder_members, ladder_freqs.
+    """
+    ridges = rr['ridges']
+    n_win = len(rr['t_hr'])
+
+    is_ladder = np.zeros(n_win, dtype=bool)
+    ladder_f0 = np.full(n_win, np.nan)
+    ladder_n = np.zeros(n_win, dtype=int)
+    ladder_power = np.full(n_win, np.nan)
+    ladder_members = [[] for _ in range(n_win)]
+    ladder_freqs = [[] for _ in range(n_win)]
+
+    for i in range(n_win):
+        active = []
+        for ri, ridge in enumerate(ridges):
+            f = ridge['freq_trace'][i]
+            a = ridge['amp_trace'][i]
+            if np.isfinite(f) and f >= min_f0:
+                active.append((ri, f, a))
+
+        if len(active) < min_harmonics:
+            continue
+
+        active.sort(key=lambda x: x[1])
+
+        best_ladder = []
+        best_f0 = np.nan
+        best_power = 0.0
+
+        for ai in range(len(active)):
+            ri_0, f0, a0 = active[ai]
+            if f0 < min_f0:
+                continue
+
+            members = [(ri_0, f0, a0, 1)]
+
+            for aj in range(len(active)):
+                if aj == ai:
+                    continue
+                ri_j, f_j, a_j = active[aj]
+                ratio = f_j / f0
+                nearest_int = round(ratio)
+                if nearest_int >= 2 and abs(ratio - nearest_int) < ratio_tol:
+                    members.append((ri_j, f_j, a_j, nearest_int))
+
+            if len(members) >= min_harmonics and len(members) > len(best_ladder):
+                best_ladder = members
+                best_f0 = f0
+                best_power = sum(m[2] for m in members)
+
+        if len(best_ladder) >= min_harmonics:
+            is_ladder[i] = True
+            ladder_f0[i] = best_f0
+            ladder_n[i] = len(best_ladder)
+            ladder_power[i] = best_power
+            ladder_members[i] = [m[0] for m in best_ladder]
+            ladder_freqs[i] = [m[1] for m in best_ladder]
+
+    return {
+        'is_ladder': is_ladder,
+        'ladder_f0': ladder_f0,
+        'ladder_n': ladder_n,
+        'ladder_power': ladder_power,
+        'ladder_members': ladder_members,
+        'ladder_freqs': ladder_freqs,
+    }

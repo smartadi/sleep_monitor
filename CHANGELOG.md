@@ -4,6 +4,49 @@ Records all code changes to library modules, scripts, and notebooks.
 
 ---
 
+## 2026-06-11
+
+### SWA Validation
+- **Added** `analysis/swa_validation/CLAUDE.md` — SWA validation workspace: Lucey et al. 2019 replication plan, Steps 0-4, deliverables, working rules
+
+### Slow Wave / Harmonic Detection
+- **Updated** `sleep_monitor/harmonics.py` — added `detect_persistent_ridges()`: temporally-continuous ridge tracking with motion masking, fragment merging, harmonic group detection, and continuous harmonic strength scoring
+- **Added** `analysis/slow_wave/detect_sws.py` — LOSO N3 binary classifier from CAP features (motion, band power, spectral entropy, rate regularity, DC stability, coherence, harmonic features)
+- **Added** `analysis/slow_wave/detect_trials.py` — trial-based SWS exploration: finds sleep segments matching physiological criteria (DC slope, post-movement settling, thorax smoothness)
+- **Added** `analysis/slow_wave/plot_settling_events.py` — post-movement settling event visualization: ±15 min windows with stacked panels (accel, CAP, thorax, cardiac/resp rates, PPG, stage)
+- **Added** `analysis/slow_wave/plot_trial_signals.py` — full-night raw CAP + PSG time series with detected trial regions highlighted (9 panels + spectrogram)
+- **Added** `analysis/slow_wave/run_harmonic_ladders.py` — harmonic ladder detection via concurrent persistent ridges with integer-ratio grouping, prevalence by sleep stage
+- **Added** `analysis/slow_wave/run_ridge_overlay.py` — consolidated harmonic ridge overlay: artifact removal, persistent ridges, continuous harmonic score, rich 4-row overlay plots, per-epoch parquet. Run on all 12 sessions; CRE dominant in 9/12.
+- **Added** `analysis/slow_wave/NEXT_RIDGE_OVERLAY.md` — pickup spec for v2: high-res spectrogram, 5-min min ridge, median-filtered flat traces, 3-channel stacked layout
+- **Added** `analysis/slow_wave/verify_harmonics_overlay.py` — harmonic detection verification: 5 figure types overlaying detected peaks/ridges on spectrograms and PSDs
+
+### Rate Consolidation
+- **Added** `scripts/run_rate_consolidation.py` — multi-channel fused rate pipeline (6 phases): method benchmark, channel confidence fusion, CWT ridge tracker, Viterbi smoothing, combined evaluation, k-calibration. Fixed stage assignment and encoding bugs; all 6 phases run to completion. 23 figures + CSV to `writeup/figures/rate_consolidation/` and `reports/rates/`
+- **Updated** `writeup/PAPER_TASK.md` — added Rate Consolidation section (done) with figure inventory and key numbers
+- **Added** `scripts/generate_rate_consolidation_docx.py` — Word document generation for rate consolidation section
+- **Added** `writeup/CAP_rate_consolidation_section.docx` — standalone rate consolidation writeup
+
+### Projections / Staging
+- **Added** `scripts/run_clustering_phase3.py` — Phase 3 clustering: GMM (k=3,4,5) + DBSCAN on supervised UMAP embeddings for all 12 sessions
+- **Added** `scripts/run_pooled_phase4.py` — Phase 4 pooled cross-session projections: subject-level z-score, pooled PCA/UMAP/t-SNE, GMM k=4, LOSO evaluation
+- **Added** `scripts/run_supervised_validation.py` — supervised UMAP train/test validation: train fraction sweep (25/50/75%), GMM predict on held-out embeddings
+- **Added** `scripts/run_supervised_validation_v2.py` — supervised UMAP validation v2: kNN + Random Forest in raw vs UMAP space, separating embedding value from classification ability
+
+### Signal Validation & Paper
+- **Added** `scripts/paper_signal_validation_figures.py` — paper-ready signal validation figures (4 figs + 1 table): waveform example, frequency agreement, coherence + surrogates, channel comparison
+- **Added** `scripts/generate_paper_docx.py` — Word document generator for CAP sleep analysis paper (Signal Validation Methods + Results)
+- **Added** `writeup/CAP_sleep_analysis_paper.docx` — main paper document (signal validation section)
+- **Added** `writeup/PAPER_TASK.md` — paper writing task: scope, prerequisites, missing figures, data sources, key numbers
+- **Added** `writeup/figures/` — paper-ready figures organized by topic: `signal_validation/`, `rate_consolidation/`, `rate_accuracy/`, `harmonics/`, `spectrograms/`, `supervised_umap/`, `gmm_clustering/`, `k_biomarker/`, `sfn_abstract/`
+
+### Tests
+- **Added** `tests/` — unit test suite: `test_filters.py`, `test_preprocessing.py`, `test_rates.py` with shared `conftest.py`
+
+### Writeup
+- **Added** `writeup/` — paper writeup directory with SFN abstract drafts (V4, V5, updated results v1/v2), XML export, figures
+
+---
+
 ## 2026-05-28
 
 - **Added** `analysis/slow_wave/run_ridge_stage3.py` — Stage 3: persistent ridge features vs sleep stage for all 12 sessions x 3 channels. Per-epoch feature extraction, KW and MW-U tests, per-subject analysis, 4 plot types.
