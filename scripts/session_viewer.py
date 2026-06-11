@@ -20,6 +20,7 @@ from plotly.subplots import make_subplots
 
 from sleep_monitor import (
     load_session, SESSION_META, FS,
+    PSG_CHANNELS,
     EEG_BANDS, BAND_COLORS,
     DELTA_SUB_BANDS, DELTA_SUB_COLORS,
     STAGE_LABELS, STAGE_COLORS, STAGE_ORDER,
@@ -35,6 +36,8 @@ from sleep_monitor.ground_truth import gt_sliding_rates
 CAP_CHS = ['CH', 'CLE', 'CRE']
 CAP_SET = {'CH', 'CLE', 'CRE', 'aX', 'aY', 'aZ'}
 SPEC_FMAX = 5.0
+PSG_SPEC_FMAX = 30.0
+PSG_SET = set(PSG_CHANNELS)
 SPEC_NPERSEG_SEC = 10.0
 SPEC_NOVERLAP_SEC = 5.0
 SMOOTH_PTS = 12
@@ -51,12 +54,13 @@ ROW_H = {
     'apnea': 60,
     'spectrogram': 220,
     'band_power': 220,
+    'ridges': 220,
     'feature': 160,
 }
 
 PCA_COLORS = ['#E74C3C', '#3498DB', '#2ECC71']
 
-ALL_RAW_CHS = ['CH', 'CLE', 'CRE']
+ALL_RAW_CHS = ['CH', 'CLE', 'CRE'] + PSG_CHANNELS
 
 RAW_COLORS = {
     'CH': '#2980B9', 'CLE': '#27AE60', 'CRE': '#8E44AD',
@@ -83,11 +87,12 @@ def _compute_spectrogram(sig, fs, fmax=SPEC_FMAX):
 
 
 def _smooth(arr, n=SMOOTH_PTS):
-    out = np.empty_like(arr)
-    for i in range(len(arr)):
-        window = arr[max(0, i - n + 1):i + 1]
-        valid = window[np.isfinite(window)]
-        out[i] = np.mean(valid) if len(valid) > 0 else np.nan
+    finite = np.isfinite(arr)
+    x = np.where(finite, arr, 0.0)
+    kernel = np.ones(n)
+    sums = np.convolve(x, kernel, mode='full')[:len(arr)]
+    counts = np.convolve(finite.astype(float), kernel, mode='full')[:len(arr)]
+    out = np.where(counts > 0, sums / counts, np.nan)
     return out
 
 
@@ -110,6 +115,42 @@ def _parse_custom_bands(text):
             continue
         bands[name.strip()] = (lo, hi)
     return bands if bands else None
+
+
+def _parse_ridge_freqs(text):
+    """Parse '0.5, 1.0, 1.5' or '0.5:2.5:0.25' into a sorted list of freqs."""
+    if not text or not text.strip():
+        return None
+    freqs = []
+    for part in text.split(','):
+        part = part.strip()
+        if ':' in part:
+            pieces = part.split(':')
+            if len(pieces) >= 2:
+                try:
+                    start, stop = float(pieces[0]), float(pieces[1])
+                    step = float(pieces[2]) if len(pieces) >= 3 else 0.1
+                    if step > 0 and stop > start:
+                        freqs.extend(np.arange(start, stop + step / 2, step).tolist())
+                except ValueError:
+                    continue
+        else:
+            try:
+                freqs.append(float(part))
+            except ValueError:
+                continue
+    return sorted(set(round(f, 3) for f in freqs)) if freqs else None
+
+
+def _ridge_colors(n):
+    """Generate n perceptually-distinct colors via HSL rotation."""
+    import colorsys
+    colors = []
+    for i in range(n):
+        h = (i * 0.618033988) % 1.0
+        r, g, b = colorsys.hls_to_rgb(h, 0.45, 0.85)
+        colors.append(f'rgb({int(r*255)},{int(g*255)},{int(b*255)})')
+    return colors
 
 
 def _apply_filter(sig, lo, hi, fs):
@@ -135,7 +176,18 @@ def _apply_filter(sig, lo, hi, fs):
     return sosfiltfilt(sos, sig)
 
 
-MAX_RAW_DISPLAY_PTS = 30000
+MAX_RAW_DISPLAY_PTS = 15000
+MAX_SPEC_TIME_PTS = 2000
+
+
+def _downsample_spec(t_hr, freqs, Sxx_db):
+    """Downsample spectrogram time axis and round for smaller JSON."""
+    n_t = Sxx_db.shape[1]
+    if n_t > MAX_SPEC_TIME_PTS:
+        step = n_t // MAX_SPEC_TIME_PTS
+        t_hr = t_hr[::step]
+        Sxx_db = Sxx_db[:, ::step]
+    return t_hr, freqs, np.around(Sxx_db, 1)
 
 
 # ── Session cache ────────────────────────────────────────────────────────────
@@ -190,6 +242,13 @@ class SessionCache:
 
         print(f'[viewer] Session {self.session.label} ready.')
 
+    def get_spectrogram(self, ch):
+        if ch not in self.spectrograms:
+            src = self.session.psg if ch in self.session.psg else self.session.cap
+            fmax = PSG_SPEC_FMAX if ch in PSG_SET else SPEC_FMAX
+            self.spectrograms[ch] = _compute_spectrogram(src[ch], FS, fmax=fmax)
+        return self.spectrograms[ch]
+
     def get_custom_band_power(self, band_ch, bands):
         """Cached custom band power — ratio denominator is full Nyquist range."""
         key = (band_ch, tuple(sorted(bands.items())))
@@ -234,6 +293,7 @@ app.layout = html.Div([
                     {'label': ' Hypnogram', 'value': 'hypnogram'},
                     {'label': ' Apnea', 'value': 'apnea'},
                     {'label': ' Band power', 'value': 'band_power'},
+                    {'label': ' Ridges', 'value': 'ridges'},
                 ],
                 value=['hypnogram', 'apnea', 'band_power'], inline=True,
                 style={'fontSize': '13px'}),
@@ -243,7 +303,8 @@ app.layout = html.Div([
                        style={'fontWeight': 'bold', 'fontSize': '13px'}),
             dcc.Checklist(
                 id='spec-channels',
-                options=[{'label': f' {ch}', 'value': ch} for ch in CAP_CHS],
+                options=[{'label': f' {ch}', 'value': ch}
+                         for ch in CAP_CHS + PSG_CHANNELS],
                 value=['CH', 'CLE', 'CRE'], inline=True,
                 style={'fontSize': '13px'}),
         ]),
@@ -283,6 +344,14 @@ app.layout = html.Div([
                       style={'width': '280px', 'fontSize': '13px'}),
         ]),
         html.Div([
+            html.Label('Ridge freqs (Hz)',
+                       style={'fontWeight': 'bold', 'fontSize': '13px'}),
+            dcc.Input(id='ridge-freqs-input', type='text',
+                      placeholder='0.5, 1.0, 1.5 or 0.5:2.5:0.25',
+                      debounce=True,
+                      style={'width': '260px', 'fontSize': '13px'}),
+        ]),
+        html.Div([
             html.Label('Band LP (mHz)',
                        style={'fontWeight': 'bold', 'fontSize': '13px'}),
             dcc.Input(id='band-lp-cutoff', type='number',
@@ -316,12 +385,21 @@ app.layout = html.Div([
                 value=[], inline=True, style={'fontSize': '13px'}),
         ]),
         html.Div([
-            html.Label('Raw signals',
+            html.Label('CAP raw',
                        style={'fontWeight': 'bold', 'fontSize': '13px'}),
             dcc.Checklist(
-                id='raw-signals',
+                id='raw-cap',
                 options=[{'label': f' {ch}', 'value': ch}
-                         for ch in ALL_RAW_CHS],
+                         for ch in ['CH', 'CLE', 'CRE']],
+                value=[], inline=True, style={'fontSize': '13px'}),
+        ]),
+        html.Div([
+            html.Label('PSG raw',
+                       style={'fontWeight': 'bold', 'fontSize': '13px'}),
+            dcc.Checklist(
+                id='raw-psg',
+                options=[{'label': f' {ch}', 'value': ch}
+                         for ch in PSG_CHANNELS],
                 value=[], inline=True, style={'fontSize': '13px'}),
         ]),
         html.Div([
@@ -363,7 +441,7 @@ app.layout = html.Div([
 def _build_figure(cache, panels, spec_channels, band_ch, band_mode,
                   band_set, spec_norm, features, custom_bands_text,
                   raw_signals, do_zscore, filter_lo, filter_hi,
-                  band_lp_mhz):
+                  band_lp_mhz, ridge_freqs_text):
     session = cache.session
     sp = session.sleep_profile
     apnea = session.apnea_events
@@ -371,6 +449,7 @@ def _build_figure(cache, panels, spec_channels, band_ch, band_mode,
     show_hypno = 'hypnogram' in panels
     show_apnea = 'apnea' in panels
     show_bands = 'band_power' in panels
+    show_ridges = 'ridges' in panels
 
     # Split PCA toggles from regular features
     pc_indices = sorted(
@@ -389,6 +468,8 @@ def _build_figure(cache, panels, spec_channels, band_ch, band_mode,
         row_info.append((f'Spectrogram — {ch}', ROW_H['spectrogram']))
     if show_bands:
         row_info.append(('Band power', ROW_H['band_power']))
+    if show_ridges:
+        row_info.append((f'Spectral ridges — {band_ch}', ROW_H['ridges']))
 
     feat_labels = {
         'resp_rate': 'Resp rate (br/min)',
@@ -484,14 +565,14 @@ def _build_figure(cache, panels, spec_channels, band_ch, band_mode,
     # ── Spectrograms ────────────────────────────────────────────────────
     for ch in spec_channels:
         cur_row += 1
-        t_hr, freqs, Sxx_db = cache.spectrograms[ch]
+        t_hr, freqs, Sxx_db = _downsample_spec(*cache.get_spectrogram(ch))
 
         if spec_norm == 'per_col':
             col_min = np.nanmin(Sxx_db, axis=0, keepdims=True)
             col_max = np.nanmax(Sxx_db, axis=0, keepdims=True)
             rng = col_max - col_min
             rng[rng < 1e-6] = 1.0
-            z = (Sxx_db - col_min) / rng
+            z = np.around((Sxx_db - col_min) / rng, 2)
             zmin, zmax = 0.0, 1.0
         else:
             z = Sxx_db
@@ -550,7 +631,7 @@ def _build_figure(cache, panels, spec_channels, band_ch, band_mode,
                                  output='sos')
                     interp = sosfiltfilt(sos, interp)
                     vals = np.where(valid, interp, np.nan)
-            fig.add_trace(go.Scatter(
+            fig.add_trace(go.Scattergl(
                 x=bp_t, y=vals, mode='lines',
                 line=dict(color=colors[name], width=1.5),
                 name=f'{name} ({flo:.1f}–{fhi:.1f} Hz)',
@@ -575,13 +656,53 @@ def _build_figure(cache, panels, spec_channels, band_ch, band_mode,
                 font=dict(size=12, color='#E74C3C'),
                 row=cur_row, col=1)
 
+    # ── Spectral ridges ────────────────────────────────────────────────
+    if show_ridges:
+        cur_row += 1
+        target_freqs = _parse_ridge_freqs(ridge_freqs_text)
+        if target_freqs:
+            t_hr, freqs, Sxx_db = cache.get_spectrogram(band_ch)
+            colors = _ridge_colors(len(target_freqs))
+            for i, tf in enumerate(target_freqs):
+                idx = np.argmin(np.abs(freqs - tf))
+                actual_f = freqs[idx]
+                trace = _smooth(Sxx_db[idx, :])
+                if band_lp_mhz:
+                    bp_fs = 1.0 / (SPEC_NOVERLAP_SEC)
+                    cutoff_hz = band_lp_mhz / 1000.0
+                    if cutoff_hz < bp_fs / 2.0:
+                        valid = np.isfinite(trace)
+                        if valid.sum() > 12:
+                            interp = np.interp(
+                                np.arange(len(trace)),
+                                np.where(valid)[0], trace[valid])
+                            sos = butter(2, cutoff_hz, btype='low',
+                                         fs=bp_fs, output='sos')
+                            interp = sosfiltfilt(sos, interp)
+                            trace = np.where(valid, interp, np.nan)
+                fig.add_trace(go.Scattergl(
+                    x=t_hr, y=trace, mode='lines',
+                    line=dict(color=colors[i], width=1.3),
+                    name=f'{actual_f:.2f} Hz',
+                    legendgroup='ridges',
+                ), row=cur_row, col=1)
+            fig.update_yaxes(title_text=f'{band_ch} power (dB)',
+                             row=cur_row, col=1)
+        else:
+            fig.add_annotation(
+                text='Enter frequencies: "0.5, 1.0, 1.5" or "0.5:2.5:0.25"',
+                showarrow=False,
+                xref='x domain', yref='y domain', x=0.5, y=0.5,
+                font=dict(size=12, color='#E74C3C'),
+                row=cur_row, col=1)
+
     # ── Feature rows ────────────────────────────────────────────────────
     for feat in other_features:
         cur_row += 1
 
         if feat == 'resp_rate':
             if cache.gt_rates is not None:
-                fig.add_trace(go.Scatter(
+                fig.add_trace(go.Scattergl(
                     x=cache.gt_rates['t_hr'],
                     y=cache.gt_rates['resp_hz'] * 60.0,
                     mode='lines', name='Resp rate',
@@ -592,7 +713,7 @@ def _build_figure(cache, panels, spec_channels, band_ch, band_mode,
 
         elif feat == 'card_rate':
             if cache.gt_rates is not None:
-                fig.add_trace(go.Scatter(
+                fig.add_trace(go.Scattergl(
                     x=cache.gt_rates['t_hr'],
                     y=cache.gt_rates['card_hz'] * 60.0,
                     mode='lines', name='Cardiac rate',
@@ -602,13 +723,13 @@ def _build_figure(cache, panels, spec_channels, band_ch, band_mode,
             fig.update_yaxes(title_text='BPM', row=cur_row, col=1)
 
         elif feat == 'head_pos':
-            fig.add_trace(go.Scatter(
+            fig.add_trace(go.Scattergl(
                 x=cache.motion['t_hr'], y=cache.motion['roll_deg'],
                 mode='lines', name='Roll',
                 line=dict(color='#3498DB', width=1),
                 legendgroup='features',
             ), row=cur_row, col=1)
-            fig.add_trace(go.Scatter(
+            fig.add_trace(go.Scattergl(
                 x=cache.motion['t_hr'], y=cache.motion['pitch_deg'],
                 mode='lines', name='Pitch',
                 line=dict(color='#E67E22', width=1),
@@ -617,7 +738,7 @@ def _build_figure(cache, panels, spec_channels, band_ch, band_mode,
             fig.update_yaxes(title_text='deg', row=cur_row, col=1)
 
         elif feat == 'motion':
-            fig.add_trace(go.Scatter(
+            fig.add_trace(go.Scattergl(
                 x=cache.motion['t_hr'], y=cache.motion['movement_rms'],
                 mode='lines', name='Motion RMS',
                 line=dict(color='#9B59B6', width=1),
@@ -631,7 +752,7 @@ def _build_figure(cache, panels, spec_channels, band_ch, band_mode,
         for pi in pc_indices:
             if pi < cache.pca_scores.shape[1]:
                 var_pct = cache.pca_var_ratio[pi] * 100
-                fig.add_trace(go.Scatter(
+                fig.add_trace(go.Scattergl(
                     x=cache.pca_t_hr,
                     y=cache.pca_scores[:, pi],
                     mode='lines',
@@ -646,7 +767,8 @@ def _build_figure(cache, panels, spec_channels, band_ch, band_mode,
     for ch in raw_signals:
         cur_row += 1
 
-        sig = cache.session.cap[ch].astype(np.float64)
+        src = cache.session.psg if ch in cache.session.psg else cache.session.cap
+        sig = src[ch].astype(np.float64)
         sig = _apply_filter(sig, filter_lo, filter_hi, FS)
 
         if do_zscore:
@@ -679,7 +801,7 @@ def _build_figure(cache, panels, spec_channels, band_ch, band_mode,
         legend=dict(orientation='h', yanchor='bottom', y=1.01,
                     xanchor='left', x=0, font=dict(size=10)),
         margin=dict(l=55, r=15, t=70, b=35),
-        hovermode='x unified',
+        hovermode='closest',
         plot_bgcolor='#ffffff',
     )
     fig.update_xaxes(title_text='Time (hr)', row=n_rows, col=1,
@@ -701,28 +823,30 @@ def _build_figure(cache, panels, spec_channels, band_ch, band_mode,
      Input('spec-norm', 'value'),
      Input('feature-overlays', 'value'),
      Input('custom-bands-input', 'value'),
-     Input('raw-signals', 'value'),
+     Input('raw-cap', 'value'),
+     Input('raw-psg', 'value'),
      Input('zscore-toggle', 'value'),
      Input('filter-lo', 'value'),
      Input('filter-hi', 'value'),
-     Input('band-lp-cutoff', 'value')],
+     Input('band-lp-cutoff', 'value'),
+     Input('ridge-freqs-input', 'value')],
 )
 def update_figure(session_idx, panels, spec_channels, band_ch, band_mode,
                   band_set, spec_norm, features, custom_bands_text,
-                  raw_signals, zscore_toggle, filter_lo, filter_hi,
-                  band_lp_mhz):
+                  raw_cap, raw_psg, zscore_toggle, filter_lo, filter_hi,
+                  band_lp_mhz, ridge_freqs_text):
     global _cache
     if _cache is None or _cache.idx != session_idx:
         _cache = SessionCache(session_idx)
     panels = panels or []
     spec_channels = spec_channels or []
     features = features or []
-    raw_signals = raw_signals or []
+    raw_signals = (raw_cap or []) + (raw_psg or [])
     do_zscore = 'zscore' in (zscore_toggle or [])
     return _build_figure(_cache, panels, spec_channels, band_ch, band_mode,
                          band_set, spec_norm, features, custom_bands_text,
                          raw_signals, do_zscore, filter_lo, filter_hi,
-                         band_lp_mhz)
+                         band_lp_mhz, ridge_freqs_text)
 
 
 if __name__ == '__main__':
