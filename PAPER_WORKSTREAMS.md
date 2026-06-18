@@ -135,3 +135,30 @@ Status legend: [ ] todo  [~] partial  [x] done
 - **Account 2 (parallel):** D, then E.
 - **Account 3 (parallel):** F.
 D feeds C (spectrogram figure), so finish D before C's docx if possible.
+
+---
+
+## C-interim. Interim manuscript draft for review (run BEFORE rates fully finalized)
+**Depends on:** A done, B's results available, D/E/F done. Produces a review copy; C
+(final) reruns after rates finalize.
+
+Status as of this entry: A done, B done (tracking FAILS both bands — see
+`memory`/CHANGELOG), D/E/F done. This interim draft integrates all of that.
+
+> Use the `docx` skill. Produce a readable INTERIM manuscript draft for the user to review;
+> mark the rate section PRELIMINARY (rate workstream still finalizing).
+> **Reconcile, do not transcribe:** the `writeup/paper/*.md` scaffold predates the consensus
+> GT and the tracking-FAILS finding and overclaims. Read current truth from `CHANGELOG.md`
+> (2026-06-18), `notebooks/ANALYSIS_LOG.md`, `CONTINUATION_RATE_DETECTION.md`,
+> `analysis/swa_validation/` logs; update `CLAIMS.md` + `KEY_NUMBERS.md` to match, then write.
+> Encode honest results: (1) CAP carries resp 0.1-0.5 Hz + cardiac 0.5-3 Hz bands (signal_
+> validation figs 5-7); (2) consensus resp GT, Flow-vs-RIPSum ceiling r=0.47, cardiac GT=ECG;
+> (3) mean-rate recovery works (resp ~1.1 br/min, card ~3.9 BPM, confirm post-consensus
+> numbers from reports/rates/mask/); (4) within-session TRACKING FAILS both bands vs shuffle
+> null (RESP r=+0.058 p=0.34 4/12; CARD r=-0.188 p=0.85 3/12) — two-operating-points framing,
+> symmetric, "mean rate + stage structure, not instantaneous variation"; (5) harmonic ridges
+> significant (KW p<1e-16) but weak N3 classifier (LOSO AUC 0.534); (6) mask-vs-contact-EEG
+> groundwork per swa_validation results. Deliverable: `writeup/CAP_sleep_mask_manuscript_
+> draft.docx` (Abstract, Intro, Methods, Results in that order, Discussion), key figures
+> embedded, "PRELIMINARY — rate numbers pending" banner on rates, and an OPEN-ITEMS list at
+> the end. Use the anaconda python; log + commit+push.
