@@ -152,7 +152,14 @@ finding: the capacitive BCG-like cardiac signal's per-window dominant frequency 
 governed by stable morphology/mechanics, not the wandering cardiac fundamental.
 
 ## Next-session priorities (highest value first)
-0. **(NEW, do first) PAPER REFRAME.** Tracking is conclusively not achievable —
+0a. **(NEW, may run before reframe) DETECTOR B — see `DETECTOR_B_PLAN.md`.** Build a
+   responsive tracker (variation-carrying methods, multi-channel mean-fusion, short
+   overlapping windows, no spectral, minimal smoothing) and test the mask's CAPACITY to
+   track within-session rate variation, IDENTICALLY for resp and cardiac. Headline test =
+   within-session r vs temporal-shuffle null. Expected: resp weak-PASS (~0.1-0.2), cardiac
+   likely FAIL — but symmetric treatment. This decides whether the paper can claim any
+   tracking capacity before falling back to the mean-rate reframe.
+0b. **PAPER REFRAME (fallback if Detector B fails both bands).** Tracking is conclusively not achievable —
    stop building trackers. Write the rate section around: (a) accurate per-session
    MEAN rate recovery (resp 1.09 br/min, card 3.91 BPM) with calibration; (b) rate
    statistics carry sleep-stage structure; (c) honest negative result: no method
