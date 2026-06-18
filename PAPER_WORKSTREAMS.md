@@ -162,3 +162,34 @@ Status as of this entry: A done, B done (tracking FAILS both bands — see
 > draft.docx` (Abstract, Intro, Methods, Results in that order, Discussion), key figures
 > embedded, "PRELIMINARY — rate numbers pending" banner on rates, and an OPEN-ITEMS list at
 > the end. Use the anaconda python; log + commit+push.
+
+---
+
+## C-FULL. Assemble the ENTIRE manuscript (all workstreams done)
+**Depends on:** A, B, D, E, F all done. Supersedes C-interim once all analysis is final.
+
+> Use the `docx` skill. Write the COMPLETE manuscript integrating every finished workstream
+> (GT reconciliation, rate detection, signal-band validation, slow-wave harmonics, EEG
+> groundwork) into one coherent paper for review. Assembly + honest reconciliation, not new
+> analysis.
+> THESIS: rigorous honest characterization of a capacitive temple sleep mask (CLE/CRE/CH +
+> accel, 12 nights, 6x2 subjects, PSG ref) — what it can/can't measure: (1) carries resp+
+> cardiac band energy; (2) accurate MEAN rate but NOT instantaneous within-session tracking;
+> (3) spectral harmonics stage-associated but weak N3 classifier; (4) capacitive-vs-contact
+> EEG SWA groundwork.
+> RECONCILE not transcribe: scaffold `writeup/paper/*.md` predates consensus GT + tracking-
+> FAILS finding and overclaims. Establish truth from CHANGELOG (2026-06-18), ANALYSIS_LOG,
+> CONTINUATION_RATE_DETECTION.md, reports/rates/mask/, reports/slow_wave/, analysis/swa_
+> validation/. VERIFY every number against source files (scaffold values are pre-consensus).
+> Update CLAIMS.md + KEY_NUMBERS.md to reconciled truth FIRST, then write docx from them.
+> STRUCTURE: Title/Abstract, Intro, Methods (participants; CAP sensors + OLS+NLMS + bands;
+> GT = ECG cardiac + multi-signal consensus resp w/ Flow-vs-RIPSum r~0.47 uncertainty;
+> estimators + Detector B; stats incl shuffle null + LOSO), Results [1 signal validation
+> figs5-7; 2 rate detection mean-rate figs2,3,18 + honest tracking-FAILS figs19-23,14,15,
+> two operating points, ceiling 0.47; 3 harmonics KW p<1e-16 / LOSO AUC 0.534 figs paper_*;
+> 4 EEG groundwork per swa_validation], Discussion (capabilities vs limits + why), Limitations,
+> Conclusion. TABLES: participants; per-band mean-rate MAE/bias/LoA; tracking battery
+> (r, delta-r, %beat-null, p) resp+card; harmonic/N3 LOSO — from reports/ CSVs.
+> DELIVERABLE: `writeup/CAP_sleep_mask_manuscript.docx`, key figures embedded, closing
+> OPEN-ITEMS/REVIEW-NOTES section (unverified numbers, revised claims, still-evolving
+> sections incl. B). Anaconda python; log + commit+push.
