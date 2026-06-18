@@ -8,6 +8,7 @@ Records all code changes to library modules, scripts, and notebooks.
 
 - **Added** `sleep_monitor/ground_truth.py:gt_resp_rate_consensus()` — loads consolidated multi-signal resp GT from `artifacts/consolidated_resp_gt.parquet`, returns consensus rate on any time grid (exact sampling). Module-level cache for repeated calls.
 - **Changed** `sleep_monitor/ground_truth.py:gt_sliding_rates()` — new `resp_method=` arg (default `'consensus'`). Uses multi-signal consensus for resp GT; falls back gracefully to Flow→Thorax peak detection when parquet missing or session absent (e.g. validation recordings).
+- **Added** `scripts/reattach_consensus_gt.py` — re-attaches consensus resp GT to `artifacts/mask_phase_a.parquet` on the IDENTICAL grid (exact join on session+t_hr, no merge_asof). 46,595/46,595 resp rows matched (9,319 unique epochs × 5 channels), 295 previously-NaN epochs now filled. Cardiac untouched. Median |delta| = 0.06 br/min, 96.5% of epochs changed.
 
 ---
 
