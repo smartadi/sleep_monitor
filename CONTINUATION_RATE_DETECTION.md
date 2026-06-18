@@ -33,7 +33,52 @@ Channels: `CLE, CRE, CH, avg, diff`. Bands: `resp, card`. Methods as columns abo
 **Scripts:**
 - `scripts/run_mask_rate_detection.py` — full 6-phase pipeline (Phase A/B/C cached; D/E/F regenerate figures in ~1 min)
 - `scripts/analyze_adaptive_k_and_oracle.py` — cache-only follow-up analysis
+- `scripts/analyze_window_size_spectral.py` — window-size / spectral-resolution sweep (reprocesses diff channel; ~3 min)
 - Python: `C:\Users\adity\anaconda3\python.exe` (NOT the bare `python` — that's a broken Store stub)
+
+---
+
+## ⚠️ CRITICAL CAVEAT (2026-06-18): MAE was flattering everything — tracking is weak
+
+Two findings that the next session MUST account for. **Stop reporting MAE alone; report
+within-session tracking correlation too.**
+
+### The resp 'spectral win' is a window-size artifact
+- `rate_spectral` uses `nperseg = max(64, fs*4) = 400` → df = 0.25 Hz. The whole resp
+  band (0.1–0.5 Hz) is ~1.6 bins. Result: **r_spectral(resp) = 0.25 Hz in 9317/9319
+  epochs** — a literal constant predictor (15 br/min), within-session corr with GT = **0.00**.
+- It "wins" on MAE only because sleeping adults breathe near 15 br/min, so predicting
+  the population mean scores well. It carries **zero** respiratory information.
+- Window sweep (`window_size_sweep.csv`, figs 10/11): a high-resolution spectral
+  (full-window periodogram + parabolic interp) is *noisier*, not better (resp MAE ~4).
+  Longer windows lower MAE for all methods but within-session corr stays ≈0 for resp.
+  Resp rate is genuinely stable (within-session GT std ≈ 2.0 br/min), so there is little
+  to track — MAE-to-mean is legitimate but it is NOT "tracking respiration."
+
+### Per-session k + stable rates means "predict the session mean" already wins
+- The honest metric is **within-session** correlation. Pooled correlation is inflated
+  by between-session mean-matching (per-session k makes each session's constant
+  prediction ≈ that session's mean GT → looks like correlation across sessions).
+- Cardiac: within-session GT std ≈ 9.7 BPM, range ≈ 58 BPM (lots to track), yet
+  within-session corr of peaks ≈ 0. BUT median-MAE (3.7) < predict-the-mean (~6.5),
+  so peaks captures the *coarse* HR trend; the ~0 corr is partly GT R-peak detection
+  noise on 30s windows. **Next:** re-evaluate cardiac tracking with smoothed GT or
+  per-stage mean HR before concluding it fails.
+
+### Adaptive k as a biomarker — does NOT hold up as an *independent* biomarker (yet)
+Tested k_card(t) = peaks/GT (supervised) and peaks/spectral (GT-free proxy), diff channel:
+- k(t) is structured (lag-1 autocorr 0.52, not white noise) and has modest stage
+  structure (median k: N1 2.03 > N3 1.98 > N2 1.92 ≈ Wake 1.89 ≈ REM 1.89).
+- **corr(k_gt, GT_rate) within session = −0.83** → per-epoch k is mostly just absorbing
+  1/rate (because peaks doesn't track HR, k is forced to carry the variation). So k(t)
+  is NOT independent of rate.
+- **corr(k_gt, k_selfsup) = −0.06** → the GT-free proxy can't recover true k, so it
+  isn't computable in deployment.
+- **For k to be a genuine biomarker you need a method that tracks rate first**; then the
+  *residual* k after regressing out rate can be tested for morphology/autonomic signal.
+  Mechanistic hook: k≈2 ⇒ biphasic pulse (systolic + dicrotic notch); k(t) ∝ dicrotic
+  prominence ⇒ proxy for vascular tone / autonomic state. This is the real biomarker
+  experiment (links to [[k-biomarker-plan]] [[project_cap_mean_drift]]).
 
 ---
 
