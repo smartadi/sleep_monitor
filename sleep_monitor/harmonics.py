@@ -16,6 +16,7 @@ from typing import Optional, Tuple
 
 import numpy as np
 import pandas as pd
+from scipy.ndimage import median_filter
 from scipy.signal import welch, find_peaks
 
 from .config import FS
@@ -504,6 +505,55 @@ def detect_persistent_ridges(
     ridges = _merge_ridge_fragments(ridges, n_win, step_sec,
                                     max_freq_jump, max_gap_windows * 3)
 
+    # ── Step 5c: Smooth ridge frequency traces ──
+    for ridge in ridges:
+        valid = ~np.isnan(ridge['freq_trace'])
+        if valid.sum() < 7:
+            continue
+        freq_valid = ridge['freq_trace'][valid]
+        freq_smooth = median_filter(freq_valid, size=7, mode='nearest')
+        ridge['freq_trace'][valid] = freq_smooth
+        ridge['median_freq'] = float(np.nanmedian(ridge['freq_trace']))
+        ridge['label'] = f'{ridge["median_freq"]:.2f}Hz'
+
+    # ── Step 5d: Compute and smooth ridge prominence traces ──
+    df_freq = freqs[1] - freqs[0] if len(freqs) > 1 else 0.1
+    floor_half_bins = max(3, int(0.3 / df_freq))
+    peak_half_bins = max(1, int(0.05 / df_freq))
+
+    for ridge in ridges:
+        prom_trace = np.full(n_win, np.nan)
+        si, ei = ridge['start_idx'], ridge['end_idx']
+        for i in range(si, min(ei + 1, n_win)):
+            f = ridge['freq_trace'][i]
+            a = ridge['amp_trace'][i]
+            if np.isnan(f) or np.isnan(a) or np.all(np.isnan(psds_smooth[i])):
+                continue
+            fi = np.argmin(np.abs(freqs - f))
+            lo = max(0, fi - floor_half_bins)
+            hi = min(n_f, fi + floor_half_bins + 1)
+            pk_lo = max(lo, fi - peak_half_bins)
+            pk_hi = min(hi, fi + peak_half_bins + 1)
+            floor_vals = np.concatenate([
+                psds_smooth[i, lo:pk_lo],
+                psds_smooth[i, pk_hi:hi],
+            ])
+            floor_vals = floor_vals[np.isfinite(floor_vals)]
+            if len(floor_vals) < 3:
+                continue
+            floor = np.median(floor_vals)
+            if floor > 0:
+                prom_trace[i] = a / floor
+
+        valid = ~np.isnan(prom_trace)
+        if valid.sum() >= 7:
+            prom_smooth = median_filter(prom_trace[valid], size=7, mode='nearest')
+            prom_trace[valid] = prom_smooth
+
+        ridge['prominence_trace'] = prom_trace
+        ridge['median_prominence'] = float(np.nanmedian(prom_trace))
+        ridge['peak_prominence'] = float(np.nanmax(prom_trace)) if valid.sum() > 0 else 0.0
+
     # ── Step 6: Group into harmonic sets ──
     harmonic_groups = _find_harmonic_groups(ridges, t_hr)
 
@@ -687,6 +737,74 @@ def compute_harmonic_score(
         'ladder_f0': lad_f0,
         'ladder_power': lad_power,
         'ladder_freqs': lad_freqs,
+    }
+
+
+def compute_prominence_score(
+    rr: dict,
+    smooth_windows: int = 15,
+    min_prominence: float = 2.0,
+    strong_threshold: float = 5.0,
+) -> dict:
+    """
+    Per-window ridge prominence score from persistent ridges.
+
+    For each window, takes the maximum ridge prominence (ridge amp / local
+    spectral floor) among ridges exceeding min_prominence.  Ridges barely
+    above the floor (< min_prominence) are treated as background.
+    Applies temporal median smoothing for stable traces.
+    Normalises to [0, 1] via the 95th percentile.
+
+    Parameters
+    ----------
+    rr              : output of detect_persistent_ridges
+    smooth_windows  : median-filter kernel for temporal smoothing of the
+                      per-window aggregate (15 windows @ 15s step ≈ 3.75 min)
+    min_prominence  : minimum raw prominence for a ridge to count (filters
+                      out ridges barely above the spectral floor)
+    strong_threshold: raw prominence value to count a ridge as "strong"
+
+    Returns
+    -------
+    dict with: prominence_score (0-1), max_prominence (smoothed),
+    max_prominence_raw (unsmoothed), n_strong_ridges.
+    """
+    ridges = rr['ridges']
+    n_win = len(rr['t_hr'])
+
+    max_prom = np.zeros(n_win)
+    n_strong = np.zeros(n_win, dtype=int)
+
+    for ridge in ridges:
+        pt = ridge.get('prominence_trace')
+        if pt is None:
+            continue
+        above = np.isfinite(pt) & (pt >= min_prominence)
+        better = above & (pt > max_prom)
+        max_prom[better] = pt[better]
+        n_strong += (np.isfinite(pt) & (pt >= strong_threshold)).astype(int)
+
+    # Zero out motion-masked windows
+    max_prom[rr['motion_mask']] = 0.0
+    n_strong[rr['motion_mask']] = 0
+
+    # Temporal smoothing — rolling median
+    if n_win >= smooth_windows:
+        max_prom_raw = max_prom.copy()
+        max_prom = median_filter(max_prom, size=smooth_windows, mode='nearest')
+    else:
+        max_prom_raw = max_prom.copy()
+
+    # Normalise to [0, 1] via 95th percentile
+    valid_prom = max_prom[max_prom > 0]
+    p95 = float(np.percentile(valid_prom, 95)) if len(valid_prom) > 0 else 1.0
+    score = np.clip(max_prom / max(p95, 1e-10), 0, 1)
+
+    return {
+        'prominence_score': score,
+        'max_prominence': max_prom,
+        'max_prominence_raw': max_prom_raw,
+        'n_strong_ridges': n_strong,
     }
 
 

@@ -33,6 +33,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from matplotlib.colors import Normalize
 from matplotlib.cm import ScalarMappable
+from scipy.signal import spectrogram as sp_spectrogram
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
@@ -41,11 +42,10 @@ from sleep_monitor.config import PSG_EPOCH_SEC
 from sleep_monitor.preprocessing import remove_acc_artifact
 from sleep_monitor.harmonics import (
     detect_persistent_ridges,
-    compute_harmonic_score,
-    label_harmonic_ladder_windows,
+    compute_prominence_score,
 )
 
-REPORT_DIR = Path(__file__).resolve().parents[2] / 'reports' / 'slow_wave'
+REPORT_DIR = Path(__file__).resolve().parents[2] / 'reports' / 'slow_wave' / 'overlay'
 REPORT_DIR.mkdir(parents=True, exist_ok=True)
 
 # ── Tuned parameters ──────────────────────────────────────────────────────────
@@ -57,14 +57,11 @@ WIN_SEC = 30.0
 STEP_SEC = 15.0           # overlapping for smoother traces
 MAX_FREQ = 5.0
 SMOOTH_WINDOWS = 9        # wider smoothing for more stable PSDs
-MIN_PERSIST_SEC = 180.0   # 3 minutes minimum ridge
+MIN_PERSIST_SEC = 300.0   # 5 minutes minimum ridge
 MAX_FREQ_JUMP = 0.10      # slightly more tolerant continuity
 PEAK_PROM_FRAC = 0.25     # lower threshold — catch weaker ridges
 MAX_GAP_WINDOWS = 6       # survive ~90s of dropout
 WELCH_SEG_SEC = 10.0      # longer segment for better freq resolution
-
-RATIO_TOL = 0.12
-MIN_F0 = 0.1
 
 # Score thresholds for event labeling
 SCORE_THRESH_STRONG = 0.3
@@ -81,7 +78,7 @@ def prepare_signals(session):
 
 
 def run_detection(signals, acc_mag):
-    """Run ridge detection + harmonic scoring on all channels."""
+    """Run ridge detection + prominence scoring on all channels."""
     results = {}
     for ch in CHANNELS:
         rr = detect_persistent_ridges(
@@ -96,8 +93,8 @@ def run_detection(signals, acc_mag):
             welch_seg_sec=WELCH_SEG_SEC,
             acc_mag=acc_mag,
         )
-        hs = compute_harmonic_score(rr, ratio_tol=RATIO_TOL, min_f0=MIN_F0)
-        results[ch] = {'rr': rr, 'hs': hs}
+        ps = compute_prominence_score(rr)
+        results[ch] = {'rr': rr, 'ps': ps}
     return results
 
 
@@ -133,22 +130,122 @@ def _find_events(score, t_hr, thresh, min_windows=3):
     return events
 
 
-def plot_session(session, results, best_ch, out_path):
+def compute_fine_spectrogram(sig, fs=100.0, max_freq=5.0):
+    """High-res spectrogram for visual background (decoupled from ridge detection)."""
+    f, t, Sxx = sp_spectrogram(sig, fs=fs, nperseg=2048, noverlap=1920,
+                                nfft=4096, scaling='density')
+    mask = f <= max_freq
+    return t / 3600.0, f[mask], 10 * np.log10(Sxx[mask] + 1e-30)
+
+
+def _plot_spectrogram_row(ax, sig, fs, rr, ps, ch, ch_color, motion_mask_regions):
+    """Draw one spectrogram row: fine background + ridges colored by prominence + events."""
+    t_hr = rr['t_hr']
+    ridges = rr['ridges']
+    score = ps['prominence_score']
+
+    # Fine spectrogram background
+    t_spec, f_spec, Sxx_db = compute_fine_spectrogram(sig, fs=fs, max_freq=MAX_FREQ)
+    vmin, vmax = np.nanpercentile(Sxx_db, [5, 95])
+    ax.pcolormesh(t_spec, f_spec, Sxx_db,
+                  shading='gouraud', cmap='inferno',
+                  vmin=vmin, vmax=vmax, rasterized=True)
+
+    # Semi-transparent red overlay on motion-masked regions
+    for (t0, t1) in motion_mask_regions:
+        ax.axvspan(t0, t1, color='red', alpha=0.15, zorder=2)
+
+    # Ridge traces — color by prominence, label top 20
+    if ridges:
+        all_prom = np.concatenate([
+            r['prominence_trace'][np.isfinite(r['prominence_trace'])]
+            for r in ridges if np.any(np.isfinite(r.get('prominence_trace', [])))
+        ])
+        prom_norm = Normalize(
+            vmin=1.0,
+            vmax=np.percentile(all_prom, 95) if len(all_prom) > 0 else 10.0,
+        )
+
+        ridge_prom = [r.get('median_prominence', 0.0) for r in ridges]
+        top_n = min(20, len(ridges))
+        top_idxs = set(np.argsort(ridge_prom)[-top_n:])
+
+        cmap_ridge = plt.cm.cool
+        for ri, ridge in enumerate(ridges):
+            valid = ~np.isnan(ridge['freq_trace'])
+            pt = ridge.get('prominence_trace', np.full_like(ridge['freq_trace'], np.nan))
+            if valid.sum() < 2:
+                continue
+            t_r = t_hr[valid]
+            f_r = ridge['freq_trace'][valid]
+            p_r = pt[valid]
+            lw = 2.0 if ri in top_idxs else 1.0
+            alpha = 0.9 if ri in top_idxs else 0.5
+            for si in range(len(t_r) - 1):
+                pval = p_r[si] if np.isfinite(p_r[si]) else 1.0
+                color = cmap_ridge(prom_norm(pval))
+                ax.plot(t_r[si:si + 2], f_r[si:si + 2],
+                        '-', color=color, lw=lw, alpha=alpha, zorder=3)
+            if ri in top_idxs:
+                med_p = ridge.get('median_prominence', 0)
+                lbl = f'{ridge["label"]} ({med_p:.1f}x)'
+                ax.text(t_r[0], f_r[0] + 0.08, lbl,
+                        fontsize=5.5, color='white', fontweight='bold',
+                        bbox=dict(fc='black', alpha=0.5, pad=0.5, lw=0), zorder=4)
+
+    # Green event bars for strong prominence windows
+    strong_events = _find_events(score, t_hr, SCORE_THRESH_STRONG, min_windows=4)
+    for (t0, t1, _) in strong_events:
+        ax.axvspan(t0, t1, ymin=0, ymax=1, color='lime', alpha=0.12, zorder=1)
+        ax.axvspan(t0, t1, ymin=0, ymax=0.04, color='lime', alpha=0.9, zorder=5)
+
+    ax.set_ylim(0, MAX_FREQ)
+    ax.set_ylabel(f'{ch}\nFreq (Hz)', fontsize=9, color=ch_color)
+
+    # Per-channel annotation
+    n_ridges = len(ridges)
+    n_valid = int((~rr['motion_mask']).sum())
+    n_strong = int((score >= SCORE_THRESH_STRONG).sum())
+    med_prom = float(np.median(ps['max_prominence'][~rr['motion_mask']])) if n_valid > 0 else 0
+    ax.text(0.005, 0.97,
+            f'{ch}: {n_ridges} ridges | {n_strong} strong ({100*n_strong/max(n_valid,1):.1f}%) '
+            f'| median prominence {med_prom:.1f}x',
+            transform=ax.transAxes, fontsize=8, fontweight='bold',
+            color='white', va='top',
+            bbox=dict(boxstyle='round,pad=0.3', fc='black', alpha=0.7))
+
+    return strong_events
+
+
+def _get_motion_regions(rr):
+    """Convert per-window motion mask to (t_start_hr, t_end_hr) spans."""
+    t_hr = rr['t_hr']
+    mask = rr['motion_mask']
+    dt = STEP_SEC / 3600.0
+    regions = []
+    i = 0
+    while i < len(mask):
+        if mask[i]:
+            start = t_hr[i] - dt / 2
+            while i < len(mask) and mask[i]:
+                i += 1
+            end = t_hr[i - 1] + dt / 2
+            regions.append((start, end))
+        else:
+            i += 1
+    return regions
+
+
+def plot_session(session, signals, results, out_path):
     """
-    Per-session overlay: hypnogram + spectrogram with ridges + harmonic score + stats.
+    6-row stacked overlay: hypnogram, 3x channel spectrograms, score, stats.
     """
     sp = session.sleep_profile
-    rr = results[best_ch]['rr']
-    hs = results[best_ch]['hs']
-    t_hr = rr['t_hr']
-    freqs = rr['freqs']
-    ridges = rr['ridges']
-    score = hs['harmonic_score']
-    n_lad = hs['n_ladder']
-    lad_f0 = hs['ladder_f0']
+    ref_rr = results[CHANNELS[0]]['rr']
+    t_hr = ref_rr['t_hr']
 
-    fig, axes = plt.subplots(4, 1, figsize=(20, 14),
-                             gridspec_kw={'height_ratios': [0.4, 2.0, 0.8, 0.8]},
+    fig, axes = plt.subplots(6, 1, figsize=(22, 20),
+                             gridspec_kw={'height_ratios': [0.4, 1.8, 1.8, 1.8, 0.8, 0.8]},
                              sharex=True)
 
     # ── Row 0: Hypnogram ──
@@ -163,185 +260,94 @@ def plot_session(session, results, best_ch, out_path):
     patches = [mpatches.Patch(color=STAGE_COLORS[c], label=STAGE_LABELS[c])
                for c in STAGE_ORDER]
     ax.legend(handles=patches, loc='upper right', fontsize=7, ncol=5)
-    ax.set_title(f'{session.label}  —  Harmonic Ridge Overlay  ({best_ch} channel)',
+    ax.set_title(f'{session.label}  —  Harmonic Ridge Overlay v2  (all channels)',
                  fontsize=13, fontweight='bold')
 
-    # ── Row 1: Spectrogram + ridge traces ──
-    ax = axes[1]
-    psds_plot = rr['psds_smooth']
-    valid_rows = ~np.all(np.isnan(psds_plot), axis=1)
-    if valid_rows.sum() > 0:
-        Sxx_db = 10 * np.log10(np.where(np.isnan(psds_plot), 1e-30, psds_plot) + 1e-30)
-        vmin, vmax = np.nanpercentile(Sxx_db[valid_rows], [5, 95])
-        ax.pcolormesh(t_hr, freqs, Sxx_db.T,
-                      shading='nearest', cmap='inferno',
-                      vmin=vmin, vmax=vmax, rasterized=True)
+    # ── Rows 1-3: Per-channel spectrograms ──
+    all_strong_events = {}
+    for ci, ch in enumerate(CHANNELS):
+        rr = results[ch]['rr']
+        ps = results[ch]['ps']
+        motion_regions = _get_motion_regions(rr)
+        events = _plot_spectrogram_row(
+            axes[ci + 1], signals[ch], FS, rr, ps, ch,
+            CH_COLORS[ch], motion_regions,
+        )
+        all_strong_events[ch] = events
 
-    # Ridge traces — color by amplitude strength, label only strongest
-    if ridges:
-        all_amps = np.concatenate([r['amp_trace'][~np.isnan(r['amp_trace'])]
-                                   for r in ridges if np.any(~np.isnan(r['amp_trace']))])
-        if len(all_amps) > 0:
-            amp_norm = Normalize(vmin=np.percentile(all_amps, 10),
-                                 vmax=np.percentile(all_amps, 95))
-        else:
-            amp_norm = Normalize(0, 1)
-
-        # Rank ridges by total amplitude for labeling
-        ridge_power = [float(np.nansum(r['amp_trace'])) for r in ridges]
-        top_n = min(20, len(ridges))
-        top_idxs = set(np.argsort(ridge_power)[-top_n:])
-
-        cmap_ridge = plt.cm.cool
-        for ri, ridge in enumerate(ridges):
-            valid = ~np.isnan(ridge['freq_trace'])
-            if valid.sum() < 2:
-                continue
-            t_r = t_hr[valid]
-            f_r = ridge['freq_trace'][valid]
-            a_r = ridge['amp_trace'][valid]
-
-            lw = 2.0 if ri in top_idxs else 1.0
-            alpha = 0.9 if ri in top_idxs else 0.5
-            for seg_start in range(len(t_r) - 1):
-                color = cmap_ridge(amp_norm(a_r[seg_start]))
-                ax.plot(t_r[seg_start:seg_start + 2], f_r[seg_start:seg_start + 2],
-                        '-', color=color, lw=lw, alpha=alpha, zorder=3)
-
-            if ri in top_idxs:
-                ax.text(t_r[0], f_r[0] + 0.08, ridge['label'],
-                        fontsize=5.5, color='white', fontweight='bold',
-                        bbox=dict(fc='black', alpha=0.5, pad=0.5, lw=0), zorder=4)
-
-    # Highlight strong harmonic event windows
-    strong_events = _find_events(score, t_hr, SCORE_THRESH_STRONG, min_windows=4)
-    for (t0, t1, peak) in strong_events:
-        ax.axvspan(t0, t1, ymin=0, ymax=1, color='lime', alpha=0.12, zorder=1)
-        ax.axvspan(t0, t1, ymin=0, ymax=0.04, color='lime', alpha=0.9, zorder=5)
-
-    # Harmonic ladder member dots
-    for i in range(len(t_hr)):
-        if score[i] >= SCORE_THRESH_MODERATE:
-            for f in hs['ladder_freqs'][i]:
-                ax.plot(t_hr[i], f, '.', color='cyan',
-                        markersize=1.5, alpha=0.6, zorder=5)
-
-    # Motion mask
-    for i in range(len(t_hr)):
-        if rr['motion_mask'][i]:
-            dt = STEP_SEC / 7200.0
-            ax.axvspan(t_hr[i] - dt, t_hr[i] + dt,
-                       ymin=0.96, ymax=1.0, color='red', alpha=0.6, zorder=5)
-
-    ax.set_ylim(0, MAX_FREQ)
-    ax.set_ylabel('Frequency (Hz)', fontsize=9)
-
-    n_ridges = len(ridges)
-    n_valid = int((~rr['motion_mask']).sum())
-    n_strong = sum(1 for i in range(len(t_hr)) if score[i] >= SCORE_THRESH_STRONG)
-    ax.text(0.005, 0.97,
-            f'{n_ridges} ridges  |  {n_strong}/{n_valid} strong harmonic windows '
-            f'({100*n_strong/max(n_valid,1):.1f}%)',
-            transform=ax.transAxes, fontsize=8, fontweight='bold',
-            color='white', va='top',
-            bbox=dict(boxstyle='round,pad=0.3', fc='black', alpha=0.7))
-
+    # Legend on first spectrogram row only
     legend_elements = [
-        mpatches.Patch(color='lime', alpha=0.4, label='Strong harmonic event'),
-        plt.Line2D([0], [0], color='cyan', marker='.', lw=0, markersize=5,
-                   label='Ladder frequency'),
-        mpatches.Patch(color='red', alpha=0.6, label='Motion'),
+        mpatches.Patch(color='lime', alpha=0.4, label='Strong prominence event'),
+        mpatches.Patch(color='red', alpha=0.15, label='Motion artifact'),
     ]
-    ax.legend(handles=legend_elements, loc='upper right', fontsize=7, ncol=3)
+    axes[1].legend(handles=legend_elements, loc='upper right', fontsize=7, ncol=2)
 
-    # ── Row 2: Continuous harmonic score ──
-    ax = axes[2]
-    valid_mask = ~rr['motion_mask']
-    t_plot = t_hr.copy()
-    s_plot = score.copy()
-    s_plot[~valid_mask] = np.nan
+    # ── Row 4: Prominence score (all 3 channels overlaid) ──
+    ax = axes[4]
+    for ch in CHANNELS:
+        rr = results[ch]['rr']
+        ps = results[ch]['ps']
+        s_plot = ps['prominence_score'].copy()
+        s_plot[rr['motion_mask']] = np.nan
+        ax.fill_between(rr['t_hr'], 0, s_plot, color=CH_COLORS[ch], alpha=0.2, step='mid')
+        ax.plot(rr['t_hr'], s_plot, color=CH_COLORS[ch], lw=0.8, alpha=0.8, label=ch)
 
-    ax.fill_between(t_plot, 0, s_plot, color='#3498DB', alpha=0.4, step='mid')
-    ax.plot(t_plot, s_plot, color='#2980B9', lw=0.8, alpha=0.8)
+    ax.axhline(SCORE_THRESH_STRONG, color='lime', lw=1, ls='--', alpha=0.7)
+    ax.axhline(SCORE_THRESH_MODERATE, color='yellow', lw=0.8, ls=':', alpha=0.5)
 
-    ax.axhline(SCORE_THRESH_STRONG, color='lime', lw=1, ls='--', alpha=0.7,
-               label=f'Strong ({SCORE_THRESH_STRONG})')
-    ax.axhline(SCORE_THRESH_MODERATE, color='yellow', lw=0.8, ls=':', alpha=0.5,
-               label=f'Moderate ({SCORE_THRESH_MODERATE})')
-
-    # Stage-colored background
     if sp is not None:
         for j in range(len(sp['t_ep_hr']) - 1):
             c = int(sp['codes'][j])
             ax.axvspan(sp['t_ep_hr'][j], sp['t_ep_hr'][j + 1],
                        color=STAGE_COLORS.get(c, '#AAA'), alpha=0.08, zorder=0)
 
-    ax.set_ylim(0, min(1.0, np.nanmax(s_plot) * 1.3 + 0.05) if np.any(np.isfinite(s_plot)) else 1.0)
-    ax.set_ylabel('Harmonic\nScore', fontsize=9)
-    ax.legend(loc='upper right', fontsize=7, ncol=2)
+    all_scores = np.concatenate([results[ch]['ps']['prominence_score'] for ch in CHANNELS])
+    smax = np.nanmax(all_scores) if np.any(np.isfinite(all_scores)) else 1.0
+    ax.set_ylim(0, min(1.0, smax * 1.3 + 0.05))
+    ax.set_ylabel('Prominence\nScore', fontsize=9)
+    ax.legend(loc='upper right', fontsize=7, ncol=3)
     ax.grid(True, alpha=0.15)
 
-    # ── Row 3: Ridge stats ──
-    ax = axes[3]
-
-    # Count active ridges per window
-    n_active = np.zeros(len(t_hr), dtype=int)
-    for ridge in ridges:
-        active = ~np.isnan(ridge['freq_trace'])
-        n_active += active.astype(int)
-
-    ax.fill_between(t_hr, 0, n_active, color='#9B59B6', alpha=0.3, step='mid',
-                    label='Active ridges')
-    ax.plot(t_hr, n_active, color='#8E44AD', lw=0.8)
+    # ── Row 5: Ridge stats (active count + strong count per channel) ──
+    ax = axes[5]
+    for ch in CHANNELS:
+        rr = results[ch]['rr']
+        n_active = np.zeros(len(rr['t_hr']), dtype=int)
+        for ridge in rr['ridges']:
+            n_active += (~np.isnan(ridge['freq_trace'])).astype(int)
+        ax.fill_between(rr['t_hr'], 0, n_active, color=CH_COLORS[ch], alpha=0.15, step='mid')
+        ax.plot(rr['t_hr'], n_active, color=CH_COLORS[ch], lw=0.8, label=f'{ch} ridges')
 
     ax2 = ax.twinx()
-    f0_plot = lad_f0.copy()
-    f0_plot[n_lad < 2] = np.nan
-    ax2.plot(t_hr, f0_plot, '.', color='#E67E22', markersize=2, alpha=0.6,
-             label='Ladder f0')
-    ax2.set_ylabel('Ladder f0 (Hz)', fontsize=8, color='#E67E22')
-    ax2.set_ylim(0, 1.0)
-    ax2.tick_params(axis='y', colors='#E67E22')
+    for ch in CHANNELS:
+        ps = results[ch]['ps']
+        rr = results[ch]['rr']
+        ns = ps['n_strong_ridges'].astype(float)
+        ns[rr['motion_mask']] = np.nan
+        ax2.plot(rr['t_hr'], ns, '.', color=CH_COLORS[ch],
+                 markersize=2, alpha=0.4)
+    ax2.set_ylabel('Strong ridges\n(>5x floor)', fontsize=8, color='#E67E22')
+    ax2.set_ylim(0, None)
 
     ax.set_ylabel('Active\nRidges', fontsize=9)
     ax.set_xlabel('Time (hr)', fontsize=10)
     ax.grid(True, alpha=0.15)
-    ax.legend(loc='upper left', fontsize=7)
-    ax2.legend(loc='upper right', fontsize=7)
+    ax.legend(loc='upper left', fontsize=7, ncol=3)
 
     fig.tight_layout()
-    fig.savefig(out_path, dpi=180)
+    fig.savefig(out_path, dpi=200)
     plt.close(fig)
-    return strong_events
-
-
-def pick_best_channel(results):
-    """Pick channel with highest mean harmonic score (non-zero windows only)."""
-    best_ch = None
-    best_val = -1
-    for ch in CHANNELS:
-        rr = results[ch]['rr']
-        hs = results[ch]['hs']
-        valid = ~rr['motion_mask']
-        if valid.sum() == 0:
-            continue
-        scores = hs['harmonic_score'][valid]
-        nz = scores[scores > 0]
-        val = float(np.mean(nz)) * len(nz) / max(valid.sum(), 1) if len(nz) > 0 else 0
-        if val > best_val:
-            best_val = val
-            best_ch = ch
-    return best_ch or 'CH'
+    return all_strong_events
 
 
 def build_epoch_table(session, results):
-    """Per-epoch DataFrame with harmonic scores and sleep stages."""
+    """Per-epoch DataFrame with prominence scores and sleep stages."""
     rows = []
     sp = session.sleep_profile
 
     for ch in CHANNELS:
         rr = results[ch]['rr']
-        hs = results[ch]['hs']
+        ps = results[ch]['ps']
         t_hr = rr['t_hr']
         stages = align_stages(t_hr, sp)
 
@@ -356,11 +362,9 @@ def build_epoch_table(session, results):
                 'channel': ch,
                 't_hr': t_hr[i],
                 'motion_masked': bool(rr['motion_mask'][i]),
-                'harmonic_score': float(hs['harmonic_score'][i]),
-                'ratio_quality': float(hs['ratio_quality'][i]),
-                'n_ladder': int(hs['n_ladder'][i]),
-                'ladder_f0': float(hs['ladder_f0'][i]),
-                'ladder_power': float(hs['ladder_power'][i]),
+                'prominence_score': float(ps['prominence_score'][i]),
+                'max_prominence': float(ps['max_prominence'][i]),
+                'n_strong_ridges': int(ps['n_strong_ridges'][i]),
                 'n_active_ridges': int(n_active[i]),
                 'stage_code': int(stages[i]),
                 'stage_label': STAGE_LABELS.get(int(stages[i]), '?'),
@@ -370,7 +374,7 @@ def build_epoch_table(session, results):
 
 
 def plot_score_by_stage(all_df, out_path):
-    """Boxplots of harmonic score by sleep stage, per channel."""
+    """Boxplots of prominence score by sleep stage, per channel."""
     valid = all_df[~all_df['motion_masked'] & (all_df['stage_code'] >= 0)].copy()
 
     fig, axes = plt.subplots(1, len(CHANNELS), figsize=(5 * len(CHANNELS), 5),
@@ -388,7 +392,7 @@ def plot_score_by_stage(all_df, out_path):
         for sc in STAGE_ORDER:
             sv = cv[cv['stage_code'] == sc]
             if len(sv) > 0:
-                data.append(sv['harmonic_score'].values)
+                data.append(sv['prominence_score'].values)
                 labels_used.append(STAGE_LABELS[sc])
                 colors.append(STAGE_COLORS[sc])
 
@@ -405,59 +409,11 @@ def plot_score_by_stage(all_df, out_path):
                     fontsize=7, fontweight='bold')
 
         ax.set_title(ch, fontsize=10, fontweight='bold', color=CH_COLORS.get(ch, 'black'))
-        ax.set_ylabel('Harmonic Score' if ci == 0 else '', fontsize=9)
+        ax.set_ylabel('Prominence Score' if ci == 0 else '', fontsize=9)
         ax.grid(True, alpha=0.15, axis='y')
 
-    fig.suptitle('Harmonic Score by Sleep Stage (all sessions)', fontsize=12)
+    fig.suptitle('Ridge Prominence by Sleep Stage (all sessions)', fontsize=12)
     fig.tight_layout(rect=[0, 0, 1, 0.95])
-    fig.savefig(out_path, dpi=180)
-    plt.close(fig)
-
-
-def plot_multichannel_comparison(session, results, out_path):
-    """Compare harmonic score across channels for one session."""
-    fig, axes = plt.subplots(len(CHANNELS) + 1, 1, figsize=(18, 3 * (len(CHANNELS) + 1)),
-                             gridspec_kw={'height_ratios': [0.4] + [1.0] * len(CHANNELS)},
-                             sharex=True)
-
-    sp = session.sleep_profile
-    ax = axes[0]
-    if sp is not None:
-        for j in range(len(sp['t_ep_hr']) - 1):
-            c = int(sp['codes'][j])
-            ax.axvspan(sp['t_ep_hr'][j], sp['t_ep_hr'][j + 1],
-                       color=STAGE_COLORS.get(c, '#AAA'), alpha=0.6)
-    ax.set_yticks([])
-    ax.set_ylabel('Stage', fontsize=8)
-    ax.set_title(f'{session.label}  —  Multi-channel harmonic score comparison',
-                 fontsize=11, fontweight='bold')
-
-    for ci, ch in enumerate(CHANNELS):
-        ax = axes[ci + 1]
-        rr = results[ch]['rr']
-        hs = results[ch]['hs']
-        t_hr = rr['t_hr']
-        score = hs['harmonic_score'].copy()
-        score[rr['motion_mask']] = np.nan
-
-        ax.fill_between(t_hr, 0, score, color=CH_COLORS[ch], alpha=0.4, step='mid')
-        ax.plot(t_hr, score, color=CH_COLORS[ch], lw=0.8)
-        ax.axhline(SCORE_THRESH_STRONG, color='lime', lw=0.8, ls='--', alpha=0.5)
-
-        n_ridges = len(rr['ridges'])
-        med_score = float(np.nanmedian(score[~rr['motion_mask']])) if (~rr['motion_mask']).sum() > 0 else 0
-        ax.text(0.005, 0.92,
-                f'{ch}: {n_ridges} ridges, median score={med_score:.3f}',
-                transform=ax.transAxes, fontsize=8, fontweight='bold',
-                color='white', va='top',
-                bbox=dict(boxstyle='round,pad=0.2', fc='black', alpha=0.6))
-
-        ax.set_ylim(0, 1)
-        ax.set_ylabel(f'{ch}\nScore', fontsize=8)
-        ax.grid(True, alpha=0.15)
-
-    axes[-1].set_xlabel('Time (hr)', fontsize=9)
-    fig.tight_layout()
     fig.savefig(out_path, dpi=180)
     plt.close(fig)
 
@@ -482,35 +438,28 @@ if __name__ == '__main__':
         signals, acc_mag = prepare_signals(s)
         results = run_detection(signals, acc_mag)
 
-        best_ch = pick_best_channel(results)
-
         for ch in CHANNELS:
             rr = results[ch]['rr']
-            hs = results[ch]['hs']
-            n_strong = int((hs['harmonic_score'] >= SCORE_THRESH_STRONG).sum())
+            ps = results[ch]['ps']
+            n_strong = int((ps['prominence_score'] >= SCORE_THRESH_STRONG).sum())
             n_valid = int((~rr['motion_mask']).sum())
-            med_score = float(np.median(hs['harmonic_score'][~rr['motion_mask']])) if n_valid > 0 else 0
-            marker = ' <-- best' if ch == best_ch else ''
+            med_prom = float(np.median(ps['max_prominence'][~rr['motion_mask']])) if n_valid > 0 else 0
             print(f'  {ch:>3}: {len(rr["ridges"]):2d} ridges, '
-                  f'med_score={med_score:.3f}, '
-                  f'{n_strong:3d}/{n_valid:3d} strong ({100*n_strong/max(n_valid,1):.1f}%)'
-                  f'{marker}')
+                  f'med_prom={med_prom:.1f}x, '
+                  f'{n_strong:3d}/{n_valid:3d} strong ({100*n_strong/max(n_valid,1):.1f}%)')
 
-        # Per-session overlay plot (best channel)
+        # Per-session 6-row stacked overlay plot
         out = REPORT_DIR / f'ridge_overlay_{s.label}.png'
-        print(f'  Overlay plot ({best_ch}) -> {out.name}')
-        strong_events = plot_session(s, results, best_ch, out)
-        if strong_events:
-            print(f'  {len(strong_events)} strong harmonic events:')
-            for t0, t1, pk in strong_events[:5]:
-                print(f'    {t0:.2f}–{t1:.2f} hr  (peak score={pk:.3f})')
-            if len(strong_events) > 5:
-                print(f'    ... and {len(strong_events) - 5} more')
-
-        # Multi-channel comparison
-        mc_out = REPORT_DIR / f'ridge_multichannel_{s.label}.png'
-        print(f'  Multi-channel comparison -> {mc_out.name}')
-        plot_multichannel_comparison(s, results, mc_out)
+        print(f'  Overlay plot (3-channel stacked) -> {out.name}')
+        all_strong_events = plot_session(s, signals, results, out)
+        total_events = sum(len(v) for v in all_strong_events.values())
+        if total_events:
+            print(f'  {total_events} strong harmonic events across channels:')
+            for ch, events in all_strong_events.items():
+                for t0, t1, pk in events[:3]:
+                    print(f'    {ch} {t0:.2f}–{t1:.2f} hr  (peak={pk:.3f})')
+                if len(events) > 3:
+                    print(f'    ... and {len(events) - 3} more on {ch}')
 
         # Epoch table
         df = build_epoch_table(s, results)
@@ -523,12 +472,12 @@ if __name__ == '__main__':
     print(f'\nSaved {len(all_df)} rows -> {pq_path.name}')
 
     # ── Pooled score-by-stage plot ──
-    print('\nPlotting harmonic score by stage...')
+    print('\nPlotting prominence score by stage...')
     plot_score_by_stage(all_df, REPORT_DIR / 'ridge_overlay_score_by_stage.png')
 
     # ── Summary ──
     print('\n' + '=' * 60)
-    print('HARMONIC SCORE SUMMARY (best channel per session)')
+    print('RIDGE PROMINENCE SUMMARY (all channels)')
     print('=' * 60)
     for ch in CHANNELS:
         cv = all_df[~all_df['motion_masked'] & (all_df['stage_code'] >= 0)
@@ -537,8 +486,10 @@ if __name__ == '__main__':
         for sc in STAGE_ORDER:
             sv = cv[cv['stage_code'] == sc]
             if len(sv) > 0:
-                med = sv['harmonic_score'].median()
-                strong_pct = 100 * (sv['harmonic_score'] >= SCORE_THRESH_STRONG).sum() / len(sv)
-                print(f'    {STAGE_LABELS[sc]:>4}: med={med:.4f}  strong={strong_pct:.1f}%  (n={len(sv)})')
+                med = sv['prominence_score'].median()
+                med_raw = sv['max_prominence'].median()
+                strong_pct = 100 * (sv['prominence_score'] >= SCORE_THRESH_STRONG).sum() / len(sv)
+                print(f'    {STAGE_LABELS[sc]:>4}: score={med:.3f}  prom={med_raw:.1f}x  '
+                      f'strong={strong_pct:.1f}%  (n={len(sv)})')
 
-    print('\nDone. Check reports/slow_wave/ for ridge_overlay_*.png files.')
+    print('\nDone. Check reports/slow_wave/overlay/ for ridge_overlay_*.png files.')

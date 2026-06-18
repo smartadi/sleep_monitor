@@ -5,8 +5,8 @@ Ridge overlay v1 complete — `run_ridge_overlay.py` processes all 12 sessions w
 persistent ridge detection + continuous harmonic scoring. CRE dominant channel (9/12 sessions).
 Pooled: REM/N1 have highest harmonic scores, N3 reduced — consistent with Stage 3.
 
-**Active task**: Ridge overlay v2 improvements — see `NEXT_RIDGE_OVERLAY.md` for full spec.
-4 changes: high-res spectrogram, 5-min min ridge, flat traces, 3-channel stacked layout.
+**Completed**: Ridge overlay v2 (2026-06-11) — see `NEXT_RIDGE_OVERLAY.md` for spec.
+High-res spectrogram, 5-min min ridge, median-filter smooth traces, 3-channel stacked 6-row layout.
 
 Artifacts: `reports/slow_wave/ridge_overlay_epochs.parquet` (55,878 rows), per-session PNG overlays
 Outputs -> `reports/slow_wave/`

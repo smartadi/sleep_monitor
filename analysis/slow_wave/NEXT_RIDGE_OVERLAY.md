@@ -1,10 +1,12 @@
 # Ridge Overlay v2 — Pickup Spec
 
-**Context**: `run_ridge_overlay.py` runs on all 12 sessions, produces per-session
-4-row overlay plots + parquet. Current version works but needs visual + stability tuning.
-Core module: `sleep_monitor/harmonics.py` (detect_persistent_ridges, compute_harmonic_score).
+**Status: DONE (2026-06-11).** All 4 changes implemented and verified on all 12 sessions.
 
-## Changes needed (4 items)
+**Context**: `run_ridge_overlay.py` runs on all 12 sessions, produces per-session
+6-row stacked overlay plots + parquet. Core module: `sleep_monitor/harmonics.py`
+(detect_persistent_ridges with median-filter smoothing, compute_harmonic_score).
+
+## Changes (4 items — all complete)
 
 ### 1. High-res spectrogram background
 
