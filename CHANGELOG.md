@@ -6,6 +6,10 @@ Records all code changes to library modules, scripts, and notebooks.
 
 ## 2026-06-18
 
+- **Added** `writeup/figures/signal_validation/generate_band_energy.py` — generates fig5/6/7 demonstrating CAP mask energy in resp (0.1–0.5 Hz) and cardiac (0.5–3.0 Hz) bands. Uses `sleep_monitor/spectral.py` Welch PSD + `sleep_monitor/viz.py` for spectrograms. Three panels: annotated spectrograms (3 sessions), band-power time course vs PSG GT rate, in-band SNR summary (boxplots + time course + mean PSD).
+- **Output** `writeup/figures/signal_validation/fig5_cap_spectrogram_bands.png` — CLE−CRE spectrograms (0–5 Hz) with resp/cardiac band overlays
+- **Output** `writeup/figures/signal_validation/fig6_bandpower_vs_psg_rate.png` — sliding 60s band power vs PSG GT rate, dual-axis
+- **Output** `writeup/figures/signal_validation/fig7_inband_snr.png` — in-band SNR boxplots, SNR time course, mean PSD with band annotations
 - **Added** `sleep_monitor/ground_truth.py:gt_resp_rate_consensus()` — loads consolidated multi-signal resp GT from `artifacts/consolidated_resp_gt.parquet`, returns consensus rate on any time grid (exact sampling). Module-level cache for repeated calls.
 - **Changed** `sleep_monitor/ground_truth.py:gt_sliding_rates()` — new `resp_method=` arg (default `'consensus'`). Uses multi-signal consensus for resp GT; falls back gracefully to Flow→Thorax peak detection when parquet missing or session absent (e.g. validation recordings).
 - **Added** `scripts/reattach_consensus_gt.py` — re-attaches consensus resp GT to `artifacts/mask_phase_a.parquet` on the IDENTICAL grid (exact join on session+t_hr, no merge_asof). 46,595/46,595 resp rows matched (9,319 unique epochs × 5 channels), 295 previously-NaN epochs now filled. Cardiac untouched. Median |delta| = 0.06 br/min, 96.5% of epochs changed.
