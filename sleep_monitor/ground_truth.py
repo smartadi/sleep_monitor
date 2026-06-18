@@ -2,26 +2,36 @@
 Ground-truth rate extraction from PSG reference signals.
 
 Cardiac GT : ECG R-peak detection (neurokit2 Pan-Tompkins variant)
-Respiratory GT : Flow (nasal airflow) peak detection (neurokit2)
+Respiratory GT : Multi-signal consensus (Flow+Thorax+Abdomen+RIPSum),
+                 fallback to Flow peak detection, then Thorax
 Fallbacks      : Pleth for cardiac, Thorax for respiratory
 
 Public API
 ----------
-gt_heart_rate(session, ...)   -> GTResult  (beat-level HR from ECG)
-gt_resp_rate(session, ...)    -> GTResult  (breath-level BR from Flow)
-gt_sliding_rates(session, ...) -> dict with t_hr, resp_hz, card_hz arrays
+gt_heart_rate(session, ...)          -> GTResult  (beat-level HR from ECG)
+gt_resp_rate(session, ...)           -> GTResult  (breath-level BR from Flow)
+gt_resp_rate_consensus(label, ...)   -> dict      (consensus resp rate from parquet)
+gt_sliding_rates(session, ..., resp_method='consensus')
+                                     -> dict with t_hr, resp_hz, card_hz arrays
 """
 
 from __future__ import annotations
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Optional, Tuple
 
 import numpy as np
+import pandas as pd
 from scipy.signal import find_peaks
 
 from .config import FS, RESP_LO, RESP_HI, CARD_LO, CARD_HI
 from .filters import bandpass
 from .sessions import SleepSession
+
+_CONSENSUS_PARQUET = (
+    Path(__file__).resolve().parent.parent / 'artifacts' / 'consolidated_resp_gt.parquet'
+)
+_CONSENSUS_CACHE: dict = {}
 
 
 @dataclass
@@ -153,25 +163,82 @@ def gt_resp_rate(
     raise ValueError('No usable respiratory GT signal found')
 
 
+def gt_resp_rate_consensus(
+    session_label: str,
+    t_hr: Optional[np.ndarray] = None,
+) -> dict:
+    """
+    Load consensus respiratory GT from the consolidated multi-signal parquet.
+
+    The consensus is the per-epoch median of quality-gated PSG signals
+    (Flow + Thorax + Abdomen + RIPSum), built by build_consolidated_resp_gt.py.
+
+    Parameters
+    ----------
+    session_label : e.g. 'S1N1'
+    t_hr : if given, exact-sample consensus at these times (must lie on the
+           5 s grid).  If None, return the full 5 s grid.
+
+    Returns
+    -------
+    dict with 't_hr', 'resp_hz' (consensus rate in Hz), 'method'='consensus'
+    """
+    if 'df' not in _CONSENSUS_CACHE:
+        if not _CONSENSUS_PARQUET.exists():
+            raise FileNotFoundError(
+                f'Consensus resp GT not found: {_CONSENSUS_PARQUET}'
+            )
+        _CONSENSUS_CACHE['df'] = pd.read_parquet(_CONSENSUS_PARQUET)
+
+    sess_df = _CONSENSUS_CACHE['df']
+    sess_df = sess_df[sess_df['session'] == session_label]
+    if len(sess_df) == 0:
+        raise ValueError(f'No consensus GT for session {session_label}')
+
+    if t_hr is None:
+        return {
+            't_hr': sess_df['t_hr'].values,
+            'resp_hz': sess_df['rate_consensus'].values,
+            'method': 'consensus',
+        }
+
+    lookup = dict(zip(
+        np.round(sess_df['t_hr'].values, 8),
+        sess_df['rate_consensus'].values,
+    ))
+    rates = np.array([lookup.get(round(t, 8), np.nan) for t in t_hr])
+    return {
+        't_hr': t_hr,
+        'resp_hz': rates,
+        'method': 'consensus',
+    }
+
+
 def gt_sliding_rates(
     session: SleepSession,
     win_sec: float = 30.0,
     step_sec: float = 5.0,
+    resp_method: str = 'consensus',
 ) -> dict:
     """
     Compute GT respiratory and cardiac rates on a sliding window grid.
+
+    Parameters
+    ----------
+    resp_method : 'consensus' (default) uses the multi-signal consolidated GT
+        from ``artifacts/consolidated_resp_gt.parquet``.  Falls back to
+        Flow peak detection if the parquet is missing or the session is not
+        in it.  Pass 'flow' to force legacy Flow-only (then Thorax) GT.
 
     Returns dict with:
         t_hr        : (K,) window centre times in hours
         resp_hz     : (K,) respiratory rate in Hz
         card_hz     : (K,) cardiac rate in Hz
-        resp_gt     : GTResult for respiratory
+        resp_gt     : GTResult for respiratory (None when consensus is used)
         card_gt     : GTResult for cardiac
     """
-    resp_gt = gt_resp_rate(session)
     card_gt = gt_heart_rate(session)
 
-    duration_s = session.n_samples / session.fs
     win_n = int(round(win_sec * session.fs))
     step_n = max(1, int(round(step_sec * session.fs)))
     n_samples = session.n_samples
@@ -180,14 +247,27 @@ def gt_sliding_rates(
     for start in range(0, n_samples - win_n + 1, step_n):
         centres_s.append((start + win_n / 2.0) / session.fs)
     centres_s = np.array(centres_s)
+    t_hr = centres_s / 3600.0
 
-    resp_hz = _peaks_to_sliding_rate(
-        resp_gt.peak_times_s, centres_s, win_sec)
+    resp_gt = None
+    if resp_method == 'consensus':
+        try:
+            cons = gt_resp_rate_consensus(session.label, t_hr)
+            resp_hz = cons['resp_hz']
+        except (FileNotFoundError, ValueError):
+            resp_gt = gt_resp_rate(session)
+            resp_hz = _peaks_to_sliding_rate(
+                resp_gt.peak_times_s, centres_s, win_sec)
+    else:
+        resp_gt = gt_resp_rate(session)
+        resp_hz = _peaks_to_sliding_rate(
+            resp_gt.peak_times_s, centres_s, win_sec)
+
     card_hz = _peaks_to_sliding_rate(
         card_gt.peak_times_s, centres_s, win_sec)
 
     return {
-        't_hr': centres_s / 3600.0,
+        't_hr': t_hr,
         'resp_hz': resp_hz,
         'card_hz': card_hz,
         'resp_gt': resp_gt,

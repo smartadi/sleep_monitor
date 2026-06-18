@@ -4,6 +4,13 @@ Records all code changes to library modules, scripts, and notebooks.
 
 ---
 
+## 2026-06-18
+
+- **Added** `sleep_monitor/ground_truth.py:gt_resp_rate_consensus()` — loads consolidated multi-signal resp GT from `artifacts/consolidated_resp_gt.parquet`, returns consensus rate on any time grid (exact sampling). Module-level cache for repeated calls.
+- **Changed** `sleep_monitor/ground_truth.py:gt_sliding_rates()` — new `resp_method=` arg (default `'consensus'`). Uses multi-signal consensus for resp GT; falls back gracefully to Flow→Thorax peak detection when parquet missing or session absent (e.g. validation recordings).
+
+---
+
 ## 2026-06-17
 
 - **Added** `scripts/analyze_adaptive_k_and_oracle.py` — cache-only follow-up analysis (no raw reprocessing): self-supervised adaptive k(t), per-epoch oracle headroom (channel/method/full), channel-win distribution. Outputs CSVs in `reports/rates/mask/` + figs 7-9.
