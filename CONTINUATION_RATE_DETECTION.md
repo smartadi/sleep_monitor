@@ -137,16 +137,27 @@ mean-level / selection-bias effect, NOT realizable instantaneous tracking. A
 multi-channel fusion tracker is unlikely to work because the per-epoch selection
 signal isn't present in observable features.
 
-**Only remaining untested option:** the purpose-built CWT ridge tracker from the
-consolidation (Phase 3, `scripts/run_rate_consolidation.py`) — it uses temporal
-continuity and was never evaluated for within-session correlation. Measure its
-within-session r before any further fusion work. If it also ≈0, the honest paper
-conclusion is: **mask recovers mean rate + stage structure, but not instantaneous
-within-session rate** — and that biological/SNR limit becomes the finding.
+**UPDATE 2026-06-18 — CWT ridge tested, also fails (`scripts/test_cwt_ridge_tracking.py`):**
+- rate_cwt per-epoch: within-session r ≈ −0.03 to −0.07 (diff/avg/CRE).
+- Continuous night-long Viterbi ridge (STFT + frequency-continuity penalty, the
+  proper temporal tracker): within-session r ≈ 0 (best CRE +0.003).
+- Data: `reports/rates/mask/cwt_ridge_tracking.csv`, fig 13.
+
+**CONCLUSION (firm): within-session cardiac rate is NOT recoverable.** Six methods
+tested — peaks(loose/strict), hilbert, spectral, CWT ridge, continuous Viterbi
+ridge — × multiple channels, ALL within-session r ≈ 0. Resp likewise (and resp is
+genuinely stable so nothing to track). The mask recovers **mean rate + stage
+structure**, not instantaneous within-session rate. This negative result IS the
+finding: the capacitive BCG-like cardiac signal's per-window dominant frequency is
+governed by stable morphology/mechanics, not the wandering cardiac fundamental.
 
 ## Next-session priorities (highest value first)
-0. **(NEW, do first)** Measure within-session r of the CWT ridge cardiac tracker.
-   If ≈0, pivot the paper to the mean-rate + "tracking limited by signal" framing.
+0. **(NEW, do first) PAPER REFRAME.** Tracking is conclusively not achievable —
+   stop building trackers. Write the rate section around: (a) accurate per-session
+   MEAN rate recovery (resp 1.09 br/min, card 3.91 BPM) with calibration; (b) rate
+   statistics carry sleep-stage structure; (c) honest negative result: no method
+   tracks within-session rate (6 methods tested), a signal-SNR/morphology limit.
+   Frame (c) as a contribution, not a failure. Files: `writeup/paper/`.
 
 1. **Smart cardiac channel fusion** (biggest win: 3.91 → toward oracle 1.58 BPM).
    Our quality-weighting barely beats mean-fusion. Try, evaluated on cache Phase A:
