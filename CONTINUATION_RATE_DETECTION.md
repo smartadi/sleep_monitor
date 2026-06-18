@@ -114,7 +114,39 @@ Tested self-supervised adaptive `k(t)` = causal median(peaks/spectral), no GT ne
 
 ---
 
+## 🚧 TRACKING GATE RESULT (2026-06-18) — within-session cardiac tracking is BLOCKED
+
+User chose "push for real tracking first." Ran the gate diagnostic
+(`scripts/diagnose_cardiac_tracking.py`, cache-only). Verdict: **within-session
+cardiac HR is not trackable with any current estimator.**
+
+- 33% of raw GT variance is high-freq noise (smoothing removes it) — so there IS
+  ~67% real low-freq HR variation to track.
+- Within-session r (both smoothed) vs GT: every fixed channel −0.10 to −0.01,
+  mean-fusion −0.06. **All ≈ 0 or negative.** Tested r_peaks_loose, r_peaks_strict,
+  r_hilbert, r_spectral × 5 channels — best is r_spectral/CRE = −0.008.
+- Per-epoch oracle = +0.63 BUT oracle-vs-SHUFFLED-GT = +0.54 (selection-bias floor).
+  Genuine trackable signal ≈ 0.63 − 0.54 ≈ **0.09 ≈ nothing**. The oracle "tracking"
+  is ~85% artifact of picking the channel nearest GT.
+- Best FIXED channel per session: mean r = +0.02, inconsistent channel identity →
+  no realistic per-session channel pick recovers tracking either.
+- Data: `reports/rates/mask/cardiac_tracking_diagnostic.csv`, fig 12.
+
+**Implication:** the channel-diversity oracle headroom (1.58 BPM) is largely a
+mean-level / selection-bias effect, NOT realizable instantaneous tracking. A
+multi-channel fusion tracker is unlikely to work because the per-epoch selection
+signal isn't present in observable features.
+
+**Only remaining untested option:** the purpose-built CWT ridge tracker from the
+consolidation (Phase 3, `scripts/run_rate_consolidation.py`) — it uses temporal
+continuity and was never evaluated for within-session correlation. Measure its
+within-session r before any further fusion work. If it also ≈0, the honest paper
+conclusion is: **mask recovers mean rate + stage structure, but not instantaneous
+within-session rate** — and that biological/SNR limit becomes the finding.
+
 ## Next-session priorities (highest value first)
+0. **(NEW, do first)** Measure within-session r of the CWT ridge cardiac tracker.
+   If ≈0, pivot the paper to the mean-rate + "tracking limited by signal" framing.
 
 1. **Smart cardiac channel fusion** (biggest win: 3.91 → toward oracle 1.58 BPM).
    Our quality-weighting barely beats mean-fusion. Try, evaluated on cache Phase A:
