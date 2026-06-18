@@ -146,8 +146,27 @@ def main():
         rates = {sig: sliding_rate(breaths[sig] / fs, centres_s) for sig in SIGNALS}
         apnea = sess.apnea_at(t_hr) if sess.apnea_events is not None else np.zeros(len(t_hr))
 
-        # consensus: median of available signals; agreement count within tol
-        M = np.vstack([rates[s] for s in SIGNALS])           # (4, K)
+        # Per-session signal-quality gate: drop any reference signal whose rate is
+        # net anti-correlated with the median of the others (handles e.g. S3 Thorax
+        # polarity/paradox/contamination). Always keep >=2 best signals.
+        allM = np.vstack([rates[s] for s in SIGNALS])
+        keep_sigs = []
+        sig_corr = {}
+        for j, s in enumerate(SIGNALS):
+            others = np.delete(allM, j, axis=0)
+            med_others = np.nanmedian(others, axis=0)
+            sig_corr[s] = wcorr(rates[s], med_others)
+        ranked = sorted(SIGNALS, key=lambda s: (sig_corr[s] if np.isfinite(sig_corr[s]) else -1), reverse=True)
+        for s in SIGNALS:
+            c = sig_corr[s]
+            if np.isfinite(c) and c >= 0.10:
+                keep_sigs.append(s)
+        if len(keep_sigs) < 2:
+            keep_sigs = ranked[:2]   # fall back to 2 best
+        dropped = [s for s in SIGNALS if s not in keep_sigs]
+
+        # consensus: median of KEPT signals; agreement count within tol
+        M = np.vstack([rates[s] for s in keep_sigs])         # (>=2, K)
         consensus = np.nanmedian(M, axis=0)
         n_agree = np.array([
             np.sum(np.abs(M[:, i] - consensus[i]) <= AGREE_TOL_HZ)
@@ -177,9 +196,10 @@ def main():
             'r_flow_ripsum_fluct': wcorr(fr - roll_med(fr, 9), rr - roll_med(rr, 9)),
             'mean_n_agree': float(np.nanmean(n_agree)),
             'pct_apnea': float(np.mean(apnea > 0) * 100),
+            'dropped': ','.join(dropped) if dropped else '-',
         })
-        print(f'  {sess.label}: breaths Flow={len(breaths["Flow"])} '
-              f'RIPSum={len(breaths["RIPSum"])}  r(Flow,RIPSum)={agree_rows[-1]["r_flow_ripsum"]:+.3f}')
+        print(f'  {sess.label}: r(Flow,RIPSum)={agree_rows[-1]["r_flow_ripsum"]:+.3f}  '
+              f'kept={keep_sigs}  dropped={dropped if dropped else "none"}')
 
     df = pd.DataFrame(rows)
     df.to_parquet(ART / 'consolidated_resp_gt.parquet', index=False)

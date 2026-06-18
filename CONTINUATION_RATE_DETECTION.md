@@ -18,6 +18,44 @@ answers **reframe the next priorities** — see "What we learned" below.
 
 ---
 
+## ⭐ CONSOLIDATED RESPIRATORY GT (2026-06-18) — new canonical reference (resp only)
+
+Built `scripts/build_consolidated_resp_gt.py` → `artifacts/consolidated_resp_gt.parquet`
+(55,856 rows, 5s grid). Multi-signal consensus from Flow + Thorax + Abdomen + RIPSum,
+per-session signal-quality gate (drops net-anticorrelated signals; S3 drops Thorax),
+apnea epochs labelled. **Cardiac GT (ECG R-peaks) is unchanged — gold standard.**
+
+VALIDATED (same-grid, robust): Flow vs RIPSum (independent sensors) within-session
+r = **+0.48** raw / **+0.28** fluctuations-only → within-session resp variation is REAL
+physiology, not noise. Consensus removes ~0.65 br/min single-sensor jitter (std 2.26→1.61),
+gives 100% coverage, differs from Flow-only by >1 br/min in ~29% of epochs (median diff 0.08).
+
+⚠️ ALIGNMENT CAVEAT: within-session resp-rate correlations are FRAGILE to grid offset
+(resp is jittery; a few-second offset scrambles correlation while values stay within
+~0.7 br/min). Recomputed Flow GT vs cached gt_hz correlate only 0.079 for this reason.
+=> Any mask-vs-GT re-eval MUST put mask rate and GT on the IDENTICAL grid (recompute mask
+peaks on the consensus 5s grid, OR sample consensus only at exact mask epoch times — 30s
+is a multiple of 5s so exact sampling works). Do NOT trust merge_asof'd correlations.
+
+Directional finding (treat as provisional pending same-grid re-eval): cleaner consensus GT
+does NOT boost mask resp tracking (stays ~0-0.12). Likely the earlier 0.12-vs-Flow was
+partly shared mask/Flow measurement artifact, not real respiration. If confirmed, resp
+joins cardiac: no within-session tracking against the proper reference.
+
+### Re-run list for the paper (RESP ONLY — cardiac unaffected)
+Ordered command list (use `C:\Users\adity\anaconda3\python.exe`):
+1. `python scripts/build_consolidated_resp_gt.py`  # rebuild consensus GT (done; rerun if code changes)
+2. Wire consensus into `sleep_monitor/ground_truth.py`: add `gt_resp_rate_consensus()` +
+   make `gt_sliding_rates()` use it for resp (keep Flow-only as legacy fallback; the
+   validation loader lacks Flow/Abdomen → must fall back gracefully to Thorax).
+3. Refresh resp GT in caches WITHOUT recomputing CAP rates (CAP estimates are GT-independent):
+   re-attach consensus gt to `artifacts/mask_phase_a.parquet` resp rows on the SAME grid.
+4. Re-run resp evaluations: mask Bland-Altman/per-stage/per-session/traces (figs 2,3,14
+   resp), `scripts/analyze_window_size_spectral.py` (resp), `scripts/analyze_adaptive_k_and_oracle.py`
+   (resp), the resp tracking diagnostic, Detector B (resp) — all on the consensus GT, same-grid.
+5. Update `writeup/paper/{KEY_NUMBERS,TABLES,CLAIMS,FIGURES,DRAFT}.md` resp numbers.
+NOT needed: all cardiac analyses, staging, projections, slow_wave, thorax, swa_validation.
+
 ## DO NOT reprocess raw signals
 
 Everything needed is cached. Raw reprocessing is ~8 min/run; cache ops are seconds.
