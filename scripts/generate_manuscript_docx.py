@@ -123,7 +123,7 @@ def make_table(doc, headers, rows, col_widths=None):
 # ── Section writers ──────────────────────────────────────────────────────
 
 def write_placeholder_front(doc):
-    """Title, Abstract, Introduction — stubs only."""
+    """Title only — Abstract and Introduction omitted for now."""
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     run = p.add_run(
@@ -136,15 +136,6 @@ def write_placeholder_front(doc):
     doc.add_paragraph()
     add_para(doc, "[Authors]", italic=True)
     add_para(doc, "[Affiliations]", italic=True)
-    doc.add_page_break()
-
-    doc.add_heading("Abstract", level=1)
-    add_para(doc, "[TO BE WRITTEN — lead with honest characterization framing: "
-             "what the mask can and cannot measure.]", italic=True)
-
-    doc.add_heading("1. Introduction", level=1)
-    add_para(doc, "[TO BE WRITTEN — non-contact/wearable sleep sensing; capacitive temple "
-             "sensing concept; what is unknown; contributions of this paper.]", italic=True)
     doc.add_page_break()
 
 
@@ -570,12 +561,16 @@ def write_results(doc):
     # Table 4 — tracking battery
     add_para(doc, "Table 4. Within-session tracking battery summary.", bold=True)
     tracking_rows = [
-        ("Resp", "+0.058", "0.34", "4/12", "+0.024", "1.34"),
-        ("Cardiac", "−0.188", "0.85", "3/12", "−0.148", "4.31"),
+        ("Resp", "+0.058", "4/12", "+0.024", "1.34"),
+        ("Cardiac", "−0.188", "3/12", "−0.148", "4.31"),
     ]
     make_table(doc,
-        ["Band", "Median r", "Wilcoxon p", "Sessions > null", "Δ-tracking r", "FWD MAE"],
+        ["Band", "Median r", "Sessions > null", "Δ-tracking r", "FWD MAE"],
         tracking_rows)
+    add_para(doc,
+        "Wilcoxon signed-rank test for systematic tracking above zero: "
+        "respiratory p = 0.34, cardiac p = 0.85 (neither significant).",
+        italic=True, size=9)
     doc.add_paragraph()
 
     doc.add_heading("Two operating points", level=3)
