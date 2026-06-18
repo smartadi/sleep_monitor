@@ -4,6 +4,20 @@ Records all code changes to library modules, scripts, and notebooks.
 
 ---
 
+## 2026-06-17
+
+- **Added** `scripts/run_mask_rate_detection.py` — paper-ready mask rate detection pipeline (6 phases: raw rates, Smart Fusion + multi-channel SQI, k-calibration + smoothing, evaluation, failure analysis, multi-channel value). Checkpointed at each phase (parquet). Generates 9 paper figures + per-session CSV.
+- **Output** `writeup/figures/mask_rate_detection/` — 9 figures (pipeline progression, Bland-Altman, per-stage MAE, time series best/worst × 2 bands, failure analysis, multi-channel value)
+- **Output** `reports/rates/mask/` — per-session CSV, final_summary.json, pipeline log
+- **Output** `artifacts/mask_phase_{a,b,c}.parquet` — cached intermediate results (93k, 18k, 112k rows)
+- **Key results** Resp: MAE=1.09 br/min, bias=-0.3, LoA=[-4.7, 4.2]. Card: MAE=3.91 BPM, bias=-0.6, LoA=[-24.1, 22.9]. Best resp: diff/spectral (k≈0.97). Best card: multi-ch agreement fusion of peaks_loose (k≈1.95).
+- **Added** `writeup/paper/` — manuscript scaffold with OUTLINE.md, CLAIMS.md (28 claims with evidence chains), FIGURES.md (25 main + 48 supplementary), TABLES.md (10 tables), KEY_NUMBERS.md, DRAFT.md
+- **Added** `writeup/shared/SHARED_METHODS.md` — shared methods text (participants, preprocessing, ground truth)
+- **Added** `writeup/README.md` — writeup directory documentation with workflow instructions
+- **Superseded** `writeup/PAPER_TASK.md` — monolithic task spec replaced by structured paper/ directory (file kept for reference)
+
+---
+
 ## 2026-06-11 (cont.)
 
 ### Best-of-Both Rate Pipeline + Updated Documentation

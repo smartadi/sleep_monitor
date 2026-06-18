@@ -1,0 +1,489 @@
+
+======================================================================
+MASK RATE DETECTION PIPELINE — 2026-06-17 22:20
+======================================================================
+
+Loading all 12 sessions...
+  Loaded 12 sessions
+======================================================================
+PHASE A — Per-epoch rate computation
+======================================================================
+  S1N1: 954 epochs x 5 ch x 2 bands [37.2s]
+  S1N2: 916 epochs x 5 ch x 2 bands [35.8s]
+  S2N1: 928 epochs x 5 ch x 2 bands [37.1s]
+  S2N2: 812 epochs x 5 ch x 2 bands [39.0s]
+  S3N1: 832 epochs x 5 ch x 2 bands [37.7s]
+  S3N2: 1039 epochs x 5 ch x 2 bands [46.4s]
+  S4N1: 741 epochs x 5 ch x 2 bands [36.6s]
+  S4N2: 722 epochs x 5 ch x 2 bands [35.0s]
+  S5N1: 493 epochs x 5 ch x 2 bands [23.0s]
+  S5N2: 569 epochs x 5 ch x 2 bands [21.7s]
+  S6N1: 619 epochs x 5 ch x 2 bands [22.1s]
+  S6N2: 694 epochs x 5 ch x 2 bands [25.0s]
+  Phase A saved: 93190 rows -> C:\Users\adity\Documents\sleep monitor\code\artifacts\mask_phase_a.parquet
+
+======================================================================
+PHASE B — Smart Fusion (per-channel + cross-channel)
+======================================================================
+  Phase B saved: 18638 rows -> C:\Users\adity\Documents\sleep monitor\code\artifacts\mask_phase_b.parquet
+  resp        diff/spectral: MAE = 1.39 br/min
+  resp     diff/peaks_loose: MAE = 2.94 br/min
+  resp      diff/smart_fuse: MAE = 1.39 br/min
+  resp      best_quality_ch: MAE = 1.32 br/min
+  resp         multi-ch SQI: MAE = 1.27 br/min
+  resp       multi-ch agree: MAE = 1.27 br/min
+
+  card        diff/spectral: MAE = 20.40 BPM
+  card     diff/peaks_loose: MAE = 57.56 BPM
+  card      diff/smart_fuse: MAE = 20.43 BPM
+  card      best_quality_ch: MAE = 20.25 BPM
+  card         multi-ch SQI: MAE = 19.12 BPM
+  card       multi-ch agree: MAE = 16.92 BPM
+
+
+======================================================================
+PHASE C — k-calibration + temporal smoothing
+======================================================================
+  resp k-calibration done for 12 sessions
+  card k-calibration done for 12 sessions
+  Phase C saved: 111828 rows -> C:\Users\adity\Documents\sleep monitor\code\artifacts\mask_phase_c.parquet
+
+======================================================================
+PHASE D — Evaluation & paper figures
+======================================================================
+
+--- D1: Strategy comparison ---
+
+  RESP — all strategies (k_full + smooth):
+               fused_sqi: MAE=1.09 bias=-0.29 br/min
+             fused_agree: MAE=1.09 bias=-0.29 br/min
+             best_single: MAE=1.11 bias=-0.27 br/min
+           diff_spectral: MAE=1.09 bias=-0.27 br/min
+        diff_peaks_loose: MAE=1.71 bias=-0.12 br/min
+           diff_fused_ch: MAE=1.18 bias=-0.30 br/min
+  -> Best resp: diff_spectral (MAE=1.09 br/min)
+
+  CARD — all strategies (k_full + smooth):
+               fused_sqi: MAE=9.54 bias=-0.43 BPM
+             fused_agree: MAE=12.01 bias=+2.38 BPM
+             best_single: MAE=14.40 bias=+2.30 BPM
+           diff_spectral: MAE=15.08 bias=+2.85 BPM
+        diff_peaks_loose: MAE=4.07 bias=-0.63 BPM
+           diff_fused_ch: MAE=15.13 bias=+2.90 BPM
+  -> Best card: diff_peaks_loose (MAE=4.07 BPM)
+
+--- D2: Pipeline progression figure ---
+  Fig 1 (pipeline progression) saved
+
+--- D3: Bland-Altman ---
+  resp: MAE=1.1, bias=-0.3, LoA=[-4.7, 4.2], n=9260
+  card: MAE=4.1, bias=-0.6, LoA=[-24.1, 22.8], n=9318
+  Fig 2 (Bland-Altman) saved
+
+--- D4: Per-session summary ---
+
+  Per-session summary:
+band session       MAE      RMSE      bias             r        k    n
+resp    S1N1  0.961907  1.530770 -0.006802 -2.463209e-16 0.909464  954
+resp    S1N2  0.893686  1.483682  0.001775 -6.862043e-17 0.953869  916
+resp    S2N1  0.928434  2.078621 -0.106382           NaN 0.912187  928
+resp    S2N2  1.202350  2.225049 -0.069190  9.996435e-16 0.903326  812
+resp    S3N1  1.925487  3.621133 -0.922300           NaN 1.027917  831
+resp    S3N2  2.260423  3.720112 -0.690337 -1.774371e-16 1.021667 1027
+resp    S4N1  1.122625  1.815337 -0.167883 -2.486687e-17 0.900000  741
+resp    S4N2  1.181689  2.189703 -0.403752           NaN 0.946607  722
+resp    S5N1  0.617126  1.662246 -0.229035 -8.001771e-16 0.974643  493
+resp    S5N2  0.792949  1.700706 -0.392019           NaN 0.970714  569
+resp    S6N1  0.707763  1.481995 -0.175453           NaN 1.052500  585
+resp    S6N2  0.881416  1.407532 -0.031572           NaN 1.035833  682
+card    S1N1  3.430363  8.353394 -1.796346 -1.658305e-01 2.088831  954
+card    S1N2  2.891745  6.482934 -1.431889 -3.860542e-01 2.242865  916
+card    S2N1 11.440677 14.170891  0.264133 -2.163520e-02 1.636639  928
+card    S2N2  6.482196 10.913216 -2.220938  8.512057e-02 1.874253  812
+card    S3N1  4.411949  8.721446 -2.296202 -1.735999e-01 1.959530  832
+card    S3N2  2.805650  6.311974 -1.250518 -1.692938e-01 1.993335 1039
+card    S4N1  2.220792  7.826362 -1.375858  5.533224e-02 2.022248  740
+card    S4N2  2.412104  4.681778 -0.684200 -6.311061e-02 1.901057  722
+card    S5N1  3.410209  5.684598 -0.884337 -2.829837e-01 1.975164  493
+card    S5N2  2.707810  6.432821 -1.209179 -1.750990e-01 1.963563  569
+card    S6N1 17.067963 22.161558 -3.195167  1.104674e-01 1.358944  619
+card    S6N2 10.175980 25.261763  9.462826  3.989830e-01 0.954573  694
+
+--- D5: Per-stage MAE ---
+  Fig 3 (per-stage MAE) saved
+
+--- D6: Example time series ---
+  Fig 4 (resp best S5N1) saved
+  Fig 4 (resp worst S3N2) saved
+  Fig 4 (card best S4N1) saved
+  Fig 4 (card worst S6N1) saved
+
+======================================================================
+PHASE E — Failure analysis
+======================================================================
+
+  RESP failure analysis:
+    Quality Q1 (low): MAE=1.27 br/min (n=2315)
+    Quality Q2: MAE=1.13 br/min (n=2315)
+    Quality Q3: MAE=1.02 br/min (n=2315)
+    Quality Q4 (high): MAE=0.94 br/min (n=2315)
+    Low motion:  MAE=1.11 br/min (n=4630)
+    High motion: MAE=1.07 br/min (n=4630)
+    Error by GT rate quartile:
+      (2.575, 14.467]: MAE=1.69 br/min (n=2315)
+      (14.467, 15.713]: MAE=0.74 br/min (n=2316)
+      (15.713, 17.076]: MAE=0.49 br/min (n=2318)
+      (17.076, 27.629]: MAE=2.38 br/min (n=2311)
+    Error by sleep stage:
+      Wake : MAE=1.28 br/min (n=982)
+      N1   : MAE=1.14 br/min (n=1496)
+      N2   : MAE=1.05 br/min (n=5684)
+      N3   : MAE=0.85 br/min (n=783)
+      REM  : MAE=2.31 br/min (n=226)
+    Worst 10% of epochs (n=926):
+      Median quality: 0.854 vs overall 0.869
+      Median motion:  -60.8 vs overall -60.5 dB
+      Top stages: {np.str_('N2'): np.int64(481), np.str_('Wake'): np.int64(139), np.str_('N1'): np.int64(128)}
+
+  CARD failure analysis:
+    Quality Q1 (low): MAE=4.17 BPM (n=2330)
+    Quality Q2: MAE=3.72 BPM (n=2329)
+    Quality Q3: MAE=3.68 BPM (n=2329)
+    Quality Q4 (high): MAE=5.03 BPM (n=2330)
+    Low motion:  MAE=3.57 BPM (n=4659)
+    High motion: MAE=4.76 BPM (n=4659)
+    Error by GT rate quartile:
+      (16.805999999999997, 57.51]: MAE=3.94 BPM (n=2330)
+      (57.51, 61.412]: MAE=2.28 BPM (n=2329)
+      (61.412, 69.101]: MAE=3.43 BPM (n=2329)
+      (69.101, 150.457]: MAE=12.24 BPM (n=2330)
+    Error by sleep stage:
+      Wake : MAE=4.61 BPM (n=986)
+      N1   : MAE=2.90 BPM (n=1502)
+      N2   : MAE=4.47 BPM (n=5726)
+      N3   : MAE=3.72 BPM (n=783)
+      REM  : MAE=3.80 BPM (n=228)
+    Worst 10% of epochs (n=931):
+      Median quality: 0.648 vs overall 0.650
+      Median motion:  -51.6 vs overall -52.9 dB
+      Top stages: {np.str_('N2'): np.int64(682), np.str_('Wake'): np.int64(118), np.str_('N3'): np.int64(49)}
+  Fig 5 (failure analysis) saved
+
+======================================================================
+PHASE F — Multi-channel contribution
+======================================================================
+  Fig 6 (multi-channel value) saved
+
+======================================================================
+ALL PHASES COMPLETE in 8.0 min
+Figures: C:\Users\adity\Documents\sleep monitor\code\writeup\figures\mask_rate_detection
+Reports: C:\Users\adity\Documents\sleep monitor\code\reports\rates\mask
+======================================================================
+
+======================================================================
+MASK RATE DETECTION PIPELINE — 2026-06-17 22:30
+======================================================================
+
+Loading all 12 sessions...
+  Loaded 12 sessions
+Phase A: loading checkpoint C:\Users\adity\Documents\sleep monitor\code\artifacts\mask_phase_a.parquet
+
+======================================================================
+PHASE B — Smart Fusion (per-channel + cross-channel)
+======================================================================
+  Phase B saved: 18638 rows -> C:\Users\adity\Documents\sleep monitor\code\artifacts\mask_phase_b.parquet
+  resp        diff/spectral: MAE = 1.39 br/min
+  resp     diff/peaks_loose: MAE = 2.94 br/min
+  resp      diff/smart_fuse: MAE = 1.39 br/min
+  resp      best_quality_ch: MAE = 1.32 br/min
+  resp         multi-ch SQI: MAE = 1.27 br/min
+  resp       multi-ch agree: MAE = 1.27 br/min
+
+  card        diff/spectral: MAE = 20.40 BPM
+  card     diff/peaks_loose: MAE = 57.56 BPM
+  card      diff/smart_fuse: MAE = 57.56 BPM
+  card      best_quality_ch: MAE = 55.21 BPM
+  card         multi-ch SQI: MAE = 57.18 BPM
+  card       multi-ch agree: MAE = 57.30 BPM
+
+
+======================================================================
+PHASE C — k-calibration + temporal smoothing
+======================================================================
+  resp k-calibration done for 12 sessions
+  card k-calibration done for 12 sessions
+  Phase C saved: 111828 rows -> C:\Users\adity\Documents\sleep monitor\code\artifacts\mask_phase_c.parquet
+
+======================================================================
+PHASE D — Evaluation & paper figures
+======================================================================
+
+--- D1: Strategy comparison ---
+
+  RESP — all strategies (k_full + smooth):
+               fused_sqi: MAE=1.09 bias=-0.29 br/min
+             fused_agree: MAE=1.09 bias=-0.29 br/min
+             best_single: MAE=1.11 bias=-0.27 br/min
+           diff_spectral: MAE=1.09 bias=-0.27 br/min
+        diff_peaks_loose: MAE=1.71 bias=-0.12 br/min
+           diff_fused_ch: MAE=1.18 bias=-0.30 br/min
+  -> Best resp: diff_spectral (MAE=1.09 br/min)
+
+  CARD — all strategies (k_full + smooth):
+               fused_sqi: MAE=3.95 bias=-0.54 BPM
+             fused_agree: MAE=3.91 bias=-0.57 BPM
+             best_single: MAE=4.20 bias=-0.73 BPM
+           diff_spectral: MAE=15.08 bias=+2.85 BPM
+        diff_peaks_loose: MAE=4.07 bias=-0.63 BPM
+           diff_fused_ch: MAE=4.07 bias=-0.63 BPM
+  -> Best card: fused_agree (MAE=3.91 BPM)
+
+--- D2: Pipeline progression figure ---
+  Fig 1 (pipeline progression) saved
+
+--- D3: Bland-Altman ---
+  resp: MAE=1.1, bias=-0.3, LoA=[-4.7, 4.2], n=9260
+  card: MAE=3.9, bias=-0.6, LoA=[-24.1, 22.9], n=9318
+  Fig 2 (Bland-Altman) saved
+
+--- D4: Per-session summary ---
+
+  Per-session summary:
+band session       MAE      RMSE      bias             r        k    n
+resp    S1N1  0.961907  1.530770 -0.006802 -2.463209e-16 0.909464  954
+resp    S1N2  0.893686  1.483682  0.001775 -6.862043e-17 0.953869  916
+resp    S2N1  0.928434  2.078621 -0.106382           NaN 0.912187  928
+resp    S2N2  1.202350  2.225049 -0.069190  9.996435e-16 0.903326  812
+resp    S3N1  1.925487  3.621133 -0.922300           NaN 1.027917  831
+resp    S3N2  2.260423  3.720112 -0.690337 -1.774371e-16 1.021667 1027
+resp    S4N1  1.122625  1.815337 -0.167883 -2.486687e-17 0.900000  741
+resp    S4N2  1.181689  2.189703 -0.403752           NaN 0.946607  722
+resp    S5N1  0.617126  1.662246 -0.229035 -8.001771e-16 0.974643  493
+resp    S5N2  0.792949  1.700706 -0.392019           NaN 0.970714  569
+resp    S6N1  0.707763  1.481995 -0.175453           NaN 1.052500  585
+resp    S6N2  0.881416  1.407532 -0.031572           NaN 1.035833  682
+card    S1N1  3.456895  8.318796 -1.676106 -2.032774e-01 2.067167  954
+card    S1N2  2.751087  6.502920 -1.624483 -4.335367e-01 2.234975  916
+card    S2N1 11.665957 14.220656  0.267818  1.642693e-02 1.616134  928
+card    S2N2  5.968796 10.613199 -2.261475  1.500815e-01 1.844857  812
+card    S3N1  4.450723  8.727752 -2.196474 -1.754264e-01 1.942323  832
+card    S3N2  2.757214  6.444193 -1.416410 -3.755608e-01 1.987028 1039
+card    S4N1  2.072450  7.832304 -1.270795  4.571074e-02 2.018499  740
+card    S4N2  2.310612  4.646048 -0.553913 -2.064575e-01 1.883953  722
+card    S5N1  3.261080  5.438108 -0.981311 -3.422104e-01 1.972645  493
+card    S5N2  2.143285  6.393715 -1.576966 -3.129412e-01 1.964433  569
+card    S6N1 17.955905 22.309807 -3.048290  7.205472e-02 1.347212  619
+card    S6N2  8.567077 25.320936 10.448473  4.489038e-01 0.940815  694
+
+--- D5: Per-stage MAE ---
+  Fig 3 (per-stage MAE) saved
+
+--- D6: Example time series ---
+  Fig 4 (resp best S5N1) saved
+  Fig 4 (resp worst S3N2) saved
+  Fig 4 (card best S4N1) saved
+  Fig 4 (card worst S6N1) saved
+
+======================================================================
+PHASE E — Failure analysis
+======================================================================
+
+  RESP failure analysis:
+    Quality Q1 (low): MAE=1.27 br/min (n=2315)
+    Quality Q2: MAE=1.13 br/min (n=2315)
+    Quality Q3: MAE=1.02 br/min (n=2315)
+    Quality Q4 (high): MAE=0.94 br/min (n=2315)
+    Low motion:  MAE=1.11 br/min (n=4630)
+    High motion: MAE=1.07 br/min (n=4630)
+    Error by GT rate quartile:
+      (2.575, 14.467]: MAE=1.69 br/min (n=2315)
+      (14.467, 15.713]: MAE=0.74 br/min (n=2316)
+      (15.713, 17.076]: MAE=0.49 br/min (n=2318)
+      (17.076, 27.629]: MAE=2.38 br/min (n=2311)
+    Error by sleep stage:
+      Wake : MAE=1.28 br/min (n=982)
+      N1   : MAE=1.14 br/min (n=1496)
+      N2   : MAE=1.05 br/min (n=5684)
+      N3   : MAE=0.85 br/min (n=783)
+      REM  : MAE=2.31 br/min (n=226)
+    Worst 10% of epochs (n=926):
+      Median quality: 0.854 vs overall 0.869
+      Median motion:  -60.8 vs overall -60.5 dB
+      Top stages: {'N2': np.int64(481), 'Wake': np.int64(139), 'N1': np.int64(128)}
+
+  CARD failure analysis:
+    Quality Q1 (low): MAE=4.00 BPM (n=2330)
+    Quality Q2: MAE=3.65 BPM (n=2329)
+    Quality Q3: MAE=3.52 BPM (n=2329)
+    Quality Q4 (high): MAE=4.61 BPM (n=2330)
+    Low motion:  MAE=3.43 BPM (n=4659)
+    High motion: MAE=4.66 BPM (n=4659)
+    Error by GT rate quartile:
+      (16.805999999999997, 57.51]: MAE=3.95 BPM (n=2330)
+      (57.51, 61.412]: MAE=2.04 BPM (n=2329)
+      (61.412, 69.101]: MAE=3.26 BPM (n=2329)
+      (69.101, 150.457]: MAE=11.81 BPM (n=2330)
+    Error by sleep stage:
+      Wake : MAE=4.73 BPM (n=986)
+      N1   : MAE=2.92 BPM (n=1502)
+      N2   : MAE=4.17 BPM (n=5726)
+      N3   : MAE=3.40 BPM (n=783)
+      REM  : MAE=4.06 BPM (n=228)
+    Worst 10% of epochs (n=931):
+      Median quality: 0.646 vs overall 0.650
+      Median motion:  -51.5 vs overall -52.9 dB
+      Top stages: {'N2': np.int64(671), 'Wake': np.int64(123), 'N1': np.int64(50)}
+  Fig 5 (failure analysis) saved
+
+======================================================================
+PHASE F — Multi-channel contribution
+======================================================================
+  Fig 6 (multi-channel value) saved
+
+======================================================================
+ALL PHASES COMPLETE in 1.4 min
+Figures: C:\Users\adity\Documents\sleep monitor\code\writeup\figures\mask_rate_detection
+Reports: C:\Users\adity\Documents\sleep monitor\code\reports\rates\mask
+======================================================================
+
+======================================================================
+MASK RATE DETECTION PIPELINE — 2026-06-17 22:34
+======================================================================
+
+Loading all 12 sessions...
+  Loaded 12 sessions
+Phase A: loading checkpoint C:\Users\adity\Documents\sleep monitor\code\artifacts\mask_phase_a.parquet
+Phase B: loading checkpoint C:\Users\adity\Documents\sleep monitor\code\artifacts\mask_phase_b.parquet
+Phase C: loading checkpoint C:\Users\adity\Documents\sleep monitor\code\artifacts\mask_phase_c.parquet
+
+======================================================================
+PHASE D — Evaluation & paper figures
+======================================================================
+
+--- D1: Strategy comparison ---
+
+  RESP — all strategies (k_full + smooth):
+               fused_sqi: MAE=1.09 bias=-0.29 br/min
+             fused_agree: MAE=1.09 bias=-0.29 br/min
+             best_single: MAE=1.11 bias=-0.27 br/min
+           diff_spectral: MAE=1.09 bias=-0.27 br/min
+        diff_peaks_loose: MAE=1.71 bias=-0.12 br/min
+           diff_fused_ch: MAE=1.18 bias=-0.30 br/min
+  -> Best resp: diff_spectral (MAE=1.09 br/min)
+
+  CARD — all strategies (k_full + smooth):
+               fused_sqi: MAE=3.95 bias=-0.54 BPM
+             fused_agree: MAE=3.91 bias=-0.57 BPM
+             best_single: MAE=4.20 bias=-0.73 BPM
+           diff_spectral: MAE=15.08 bias=+2.85 BPM
+        diff_peaks_loose: MAE=4.07 bias=-0.63 BPM
+           diff_fused_ch: MAE=4.07 bias=-0.63 BPM
+  -> Best card: fused_agree (MAE=3.91 BPM)
+
+--- D2: Pipeline progression figure ---
+  Fig 1 (pipeline progression) saved
+
+--- D3: Bland-Altman ---
+  resp: MAE=1.1, bias=-0.3, LoA=[-4.7, 4.2], n=9260
+  card: MAE=3.9, bias=-0.6, LoA=[-24.1, 22.9], n=9318
+  Fig 2 (Bland-Altman) saved
+
+--- D4: Per-session summary ---
+
+  Per-session summary:
+band session       MAE      RMSE      bias             r        k    n
+resp    S1N1  0.961907  1.530770 -0.006802 -2.463209e-16 0.909464  954
+resp    S1N2  0.893686  1.483682  0.001775 -6.862043e-17 0.953869  916
+resp    S2N1  0.928434  2.078621 -0.106382           NaN 0.912187  928
+resp    S2N2  1.202350  2.225049 -0.069190  9.996435e-16 0.903326  812
+resp    S3N1  1.925487  3.621133 -0.922300           NaN 1.027917  831
+resp    S3N2  2.260423  3.720112 -0.690337 -1.774371e-16 1.021667 1027
+resp    S4N1  1.122625  1.815337 -0.167883 -2.486687e-17 0.900000  741
+resp    S4N2  1.181689  2.189703 -0.403752           NaN 0.946607  722
+resp    S5N1  0.617126  1.662246 -0.229035 -8.001771e-16 0.974643  493
+resp    S5N2  0.792949  1.700706 -0.392019           NaN 0.970714  569
+resp    S6N1  0.707763  1.481995 -0.175453           NaN 1.052500  585
+resp    S6N2  0.881416  1.407532 -0.031572           NaN 1.035833  682
+card    S1N1  3.456895  8.318796 -1.676106 -2.032774e-01 2.067167  954
+card    S1N2  2.751087  6.502920 -1.624483 -4.335367e-01 2.234975  916
+card    S2N1 11.665957 14.220656  0.267818  1.642693e-02 1.616134  928
+card    S2N2  5.968796 10.613199 -2.261475  1.500815e-01 1.844857  812
+card    S3N1  4.450723  8.727752 -2.196474 -1.754264e-01 1.942323  832
+card    S3N2  2.757214  6.444193 -1.416410 -3.755608e-01 1.987028 1039
+card    S4N1  2.072450  7.832304 -1.270795  4.571074e-02 2.018499  740
+card    S4N2  2.310612  4.646048 -0.553913 -2.064575e-01 1.883953  722
+card    S5N1  3.261080  5.438108 -0.981311 -3.422104e-01 1.972645  493
+card    S5N2  2.143285  6.393715 -1.576966 -3.129412e-01 1.964433  569
+card    S6N1 17.955905 22.309807 -3.048290  7.205472e-02 1.347212  619
+card    S6N2  8.567077 25.320936 10.448473  4.489038e-01 0.940815  694
+
+--- D5: Per-stage MAE ---
+  Fig 3 (per-stage MAE) saved
+
+--- D6: Example time series ---
+  Fig 4 (resp best S5N1) saved
+  Fig 4 (resp worst S3N2) saved
+  Fig 4 (card best S4N1) saved
+  Fig 4 (card worst S6N1) saved
+
+======================================================================
+PHASE E — Failure analysis
+======================================================================
+
+  RESP failure analysis:
+    Quality Q1 (low): MAE=1.27 br/min (n=2315)
+    Quality Q2: MAE=1.13 br/min (n=2315)
+    Quality Q3: MAE=1.02 br/min (n=2315)
+    Quality Q4 (high): MAE=0.94 br/min (n=2315)
+    Low motion:  MAE=1.11 br/min (n=4630)
+    High motion: MAE=1.07 br/min (n=4630)
+    Error by GT rate quartile:
+      (2.575, 14.467]: MAE=1.69 br/min (n=2315)
+      (14.467, 15.713]: MAE=0.74 br/min (n=2316)
+      (15.713, 17.076]: MAE=0.49 br/min (n=2318)
+      (17.076, 27.629]: MAE=2.38 br/min (n=2311)
+    Error by sleep stage:
+      Wake : MAE=1.28 br/min (n=982)
+      N1   : MAE=1.14 br/min (n=1496)
+      N2   : MAE=1.05 br/min (n=5684)
+      N3   : MAE=0.85 br/min (n=783)
+      REM  : MAE=2.31 br/min (n=226)
+    Worst 10% of epochs (n=926):
+      Median quality: 0.854 vs overall 0.869
+      Median motion:  -60.8 vs overall -60.5 dB
+      Top stages: {'N2': np.int64(481), 'Wake': np.int64(139), 'N1': np.int64(128)}
+
+  CARD failure analysis:
+    Quality Q1 (low): MAE=4.00 BPM (n=2330)
+    Quality Q2: MAE=3.65 BPM (n=2329)
+    Quality Q3: MAE=3.52 BPM (n=2329)
+    Quality Q4 (high): MAE=4.61 BPM (n=2330)
+    Low motion:  MAE=3.43 BPM (n=4659)
+    High motion: MAE=4.66 BPM (n=4659)
+    Error by GT rate quartile:
+      (16.805999999999997, 57.51]: MAE=3.95 BPM (n=2330)
+      (57.51, 61.412]: MAE=2.04 BPM (n=2329)
+      (61.412, 69.101]: MAE=3.26 BPM (n=2329)
+      (69.101, 150.457]: MAE=11.81 BPM (n=2330)
+    Error by sleep stage:
+      Wake : MAE=4.73 BPM (n=986)
+      N1   : MAE=2.92 BPM (n=1502)
+      N2   : MAE=4.17 BPM (n=5726)
+      N3   : MAE=3.40 BPM (n=783)
+      REM  : MAE=4.06 BPM (n=228)
+    Worst 10% of epochs (n=931):
+      Median quality: 0.646 vs overall 0.650
+      Median motion:  -51.5 vs overall -52.9 dB
+      Top stages: {'N2': np.int64(671), 'Wake': np.int64(123), 'N1': np.int64(50)}
+  Fig 5 (failure analysis) saved
+
+======================================================================
+PHASE F — Multi-channel contribution
+======================================================================
+  Fig 6 (multi-channel value) saved
+
+======================================================================
+ALL PHASES COMPLETE in 1.0 min
+Figures: C:\Users\adity\Documents\sleep monitor\code\writeup\figures\mask_rate_detection
+Reports: C:\Users\adity\Documents\sleep monitor\code\reports\rates\mask
+======================================================================
