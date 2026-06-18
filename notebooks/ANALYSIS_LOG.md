@@ -44,7 +44,53 @@ Each entry records the question asked, code written, parameters used, plots gene
 - **2026-06-11** — SWA Step 0 cont: fixed global staging misalignment in `loader.py`. Verified offsets via N3/delta separation sweep (12/12 match). Fixed `time_start` parsing bug (was always None due to `unit='ms'` on string). ~25 prior scripts affected. QA table + apnea loader flag.
 - **2026-06-11** — Hybrid rate pipeline Phase 3: formal evaluation with k-scaling and LOSO. **Resp: Kalman /k wins decisively** — per-session MAE 1.61 br/min (vs baseline peaks/k 2.58), **37% improvement**, 12/12 sessions, Wilcoxon p=0.0002. LOSO: 2.02 br/min, **22% improvement**, 10/12 wins, p=0.005. k_kalman_resp ≈ 0.97–1.19 (close to 1.0 = less overcounting). **Cardiac: baseline hilbert/k still wins** — baseline 4.84 BPM vs Kalman/k 8.67 (per-session) / 8.94 (LOSO). Hilbert inst. freq. with k≈1.67 is inherently better calibrated for BCG cardiac than spectral+adaptive fusion (k≈1.34). Conclusion: hybrid pipeline is the new best for respiratory; for cardiac, hilbert/k remains superior. A combined pipeline (Kalman for resp, hilbert/k for cardiac) would give best-of-both: 1.61/4.84. Outputs: `reports/rates/hybrid_phase3/` (30 PNGs, 3 CSVs).
 - **2026-06-11** — SWA Validation Steps 1-4 complete. **Negative result:** capacitive temple sensors (CLE-CRE) show zero SWA correlation with contact EEG (r=0.015 ± 0.045), coherence at noise floor (0.003 ± 0.005), N3 detection at chance (AUC=0.490 ± 0.040). Pipeline validated: EEG self-AUC=0.740 ± 0.056. Critical bug found and fixed: `firls` FIR design was catastrophically ill-conditioned (coefficients ±2794, amplification ×26M) — replaced with `firwin`. Outputs: `analysis/swa_validation/outputs/` (2 CSVs, 5 PNGs).
+- **2026-06-18** — SWA Validation: CAP low/high ratio diagnostic plots for all 12 sessions (`analysis/swa_validation/plot_diagnostic_ratio.py`). Z-scored comparison of gold EEG delta (1–4.5 Hz) vs CAP low/high ratio (0.5–2 Hz / 2–8 Hz) on three channels (CLE-CRE, CLE, CRE). **No session shows co-movement or anti-correlation between EEG delta and any CAP ratio trace.** 7/12 sessions (S1N1, S1N2, S2N1, S2N2, S3N2, S6N1, S6N2) are pure noise / motion-artifact spikes. 5/12 sessions (S3N1, S4N1, S4N2, S5N1, S5N2) show slow-modulation structure in CAP ratios but this is respiratory/mechanical in origin, not EEG-correlated. Confirms the negative SWA result (r≈0.015, coherence≈0.003). Outputs: `analysis/swa_validation/outputs/diagnostic_ratio_S*.png` (12 PNGs).
 - *(add new entries below this line)*
+
+---
+
+## 2026-06-18 — SWA Validation: CAP Low/High Ratio Diagnostic Plots
+
+**Question:** Does the CAP low-frequency/high-frequency power ratio (0.5–2 Hz / 2–8 Hz) visually co-move or anti-correlate with gold EEG delta power (1–4.5 Hz) in any session?
+
+**Script/Notebook:** `analysis/swa_validation/plot_diagnostic_ratio.py`
+**Outputs:** `analysis/swa_validation/outputs/diagnostic_ratio_S*.png` (12 PNGs)
+
+### Setup
+Ran `plot_diagnostic_ratio.py --session <i>` for all 12 sessions (0–11). Each plot contains:
+- Hypnogram + EEG delta power + CAP ratio (CLE-CRE) as standalone panels
+- Z-scored comparison row: gold EEG delta vs three CAP ratio traces (cyan=CLE-CRE, pink=CLE, orange-red=CRE)
+- Spectrograms with overlaid ratio traces for EEG, CLE-CRE, CLE, CRE
+
+CAP ratio = band power (0.5–2 Hz) / band power (2–8 Hz), 60s-smoothed, z-normalized for comparison.
+
+### Results — Per-Session Visual Assessment
+
+| Session | CAP Ratio Character | Co-movement with EEG Delta? |
+|---------|--------------------|-----------------------------|
+| S1N1 | Spike-dominated (motion artifacts) | No |
+| S1N2 | Spike-dominated | No |
+| S2N1 | Dense spiky transients | No |
+| S2N2 | Spike-dominated | No |
+| S3N1 | Some slow undulations | No — slow modulation is respiratory/mechanical, not EEG-correlated |
+| S3N2 | Flat/noisy (data gap in first half) | No |
+| S4N1 | Broad slow oscillations | No — drift-like, not tracking EEG delta |
+| S4N2 | Mixed spikes + broad humps | No |
+| S5N1 | Some broader modulations | No |
+| S5N2 | Broad slow oscillations | No — structured but not EEG-correlated |
+| S6N1 | Heavy artifact banding + spikes | No |
+| S6N2 | Horizontal banding + large spikes | No |
+
+### Key Findings
+
+1. **No session shows co-movement or anti-correlation** between gold EEG delta and any CAP ratio trace (CLE-CRE, CLE, or CRE).
+2. **7/12 sessions are pure noise/artifact:** S1N1, S1N2, S2N1, S2N2, S3N2, S6N1, S6N2 — CAP ratio traces dominated by sharp motion-artifact spikes with no slow structure.
+3. **5/12 sessions show slow-modulation structure** in CAP ratios (S3N1, S4N1, S4N2, S5N1, S5N2) — but this appears to be respiratory or mechanical coupling, not cortical EEG. The modulations do not track the EEG delta envelope.
+4. **S6 sessions (both nights) worst:** dominated by horizontal artifact banding in CAP spectrograms, consistent with prior findings of anomalous S6 behavior.
+5. **Confirms the negative SWA result** from the Lucey replication (r=0.015 ± 0.045, coherence=0.003 ± 0.005). Even with a ratio-based approach designed to normalize sensor gain differences, there is no visual evidence that the capacitive temple sensor picks up cortical delta activity.
+
+### Status
+Done. Further confirms the negative SWA validation result. No follow-up needed for this diagnostic.
 
 ---
 
