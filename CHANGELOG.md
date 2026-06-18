@@ -6,6 +6,11 @@ Records all code changes to library modules, scripts, and notebooks.
 
 ## 2026-06-18
 
+- **Added** `scripts/generate_manuscript_docx.py` — generates complete manuscript draft (Methods, Results, Discussion, Limitations, Conclusion + Open Items) as Word document. Embeds 14 key figures, 6 tables, reconciled against all post-consensus source CSVs. Title/Abstract/Intro are placeholders.
+- **Output** `writeup/CAP_sleep_mask_manuscript.docx` — 18 MB, 14 embedded figures, 6 data tables, OPEN-ITEMS section listing revised claims and unverified numbers
+- **Updated** `writeup/paper/KEY_NUMBERS.md` — reconciled all numbers against post-consensus GT, tracking-FAIL finding, LOSO harmonics. Deprecated pre-consensus k-biomarker and rate_consolidation numbers.
+- **Updated** `writeup/paper/CLAIMS.md` — reconciled 28 claims: 7 revised/deprecated (k-biomarker, rate pipeline numbers, multi-channel), 4 added (tracking FAIL, two operating points, ceiling, LOSO N3). Revision log appended.
+
 - **Added** `scripts/evaluate_symmetric_tracking.py` — symmetric resp+cardiac tracking evaluation from cached Phase A data. Detector B (peaks_loose + hilbert, 5-channel mean-fusion, k-calibrated, minimal smoothing) vs spectral baseline. Tracking battery: within-session r, delta-tracking, transient/steady split, 200-iteration temporal-shuffle null. Two operating points framing. Achievable ceiling (Flow vs RIPSum r=0.47).
 - **Output** `writeup/figures/mask_rate_detection/fig18_mae_heatmap.png` — multichannel x multimethod MAE heatmap with per-session IQR, resp + cardiac side by side
 - **Output** `writeup/figures/mask_rate_detection/fig19_tracking_r_bars.png` — per-session within-session r (DetB + spectral) with shuffle-null 5th-95th bands
