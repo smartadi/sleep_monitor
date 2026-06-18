@@ -170,21 +170,21 @@ def write_methods(doc):
     # Table 1 — session metadata
     add_para(doc, "Table 1. Recording sessions and demographics.", bold=True)
     sessions = [
-        ("S1N1", "OS001", "7.95", "214", "954"),
-        ("S1N2", "OS001", "7.63", "161", "916"),
-        ("S2N1", "OS002", "7.73", "496", "928"),
-        ("S2N2", "OS002", "6.77", "652", "812"),
-        ("S3N1", "OS003", "6.93", "308", "832"),
-        ("S3N2", "OS003", "8.66", "525", "1039"),
-        ("S4N1", "OS004", "6.18", "245", "741"),
-        ("S4N2", "OS004", "6.02", "286", "722"),
-        ("S5N1", "OS005", "4.11", "480", "493"),
-        ("S5N2", "OS005", "4.74", "230", "569"),
-        ("S6N1", "OS006", "5.16", "70", "619"),
-        ("S6N2", "OS006", "5.78", "248", "694"),
+        ("S1N1", "OS001", "7.95", "954"),
+        ("S1N2", "OS001", "7.63", "916"),
+        ("S2N1", "OS002", "7.73", "928"),
+        ("S2N2", "OS002", "6.77", "812"),
+        ("S3N1", "OS003", "6.93", "832"),
+        ("S3N2", "OS003", "8.66", "1039"),
+        ("S4N1", "OS004", "6.18", "741"),
+        ("S4N2", "OS004", "6.02", "722"),
+        ("S5N1", "OS005", "4.11", "493"),
+        ("S5N2", "OS005", "4.74", "569"),
+        ("S6N1", "OS006", "5.16", "619"),
+        ("S6N2", "OS006", "5.78", "694"),
     ]
     make_table(doc,
-        ["Session", "Subject", "Duration (h)", "N3 epochs (30s)", "Analysis epochs (60s)"],
+        ["Session", "Subject", "Duration (h)", "Analysis epochs (60s)"],
         sessions)
     doc.add_paragraph()
 
@@ -301,7 +301,7 @@ def write_methods(doc):
         "within-session rate variation, we designed a tracking evaluation battery."
     )
     add_para(doc,
-        "Detector B was constructed as a responsive tracker: peaks_loose and Hilbert "
+        "Fused Window Detection was constructed as a responsive tracker: peaks_loose and Hilbert "
         "instantaneous frequency were fused across all five channels (CLE, CRE, CH, avg, "
         "diff) via unweighted mean, k-calibrated per session, with minimal smoothing "
         "(rolling median, k = 3). This configuration was designed to maximize sensitivity "
@@ -544,7 +544,7 @@ def write_results(doc):
 
     doc.add_heading("Tracking battery results", level=3)
     add_para(doc,
-        "Detector B (the responsive tracker: peaks_loose + Hilbert mean-fusion across "
+        "Fused Window Detection (the responsive tracker: peaks_loose + Hilbert mean-fusion across "
         "five channels, k-calibrated, minimal smoothing) was compared against a "
         "200-iteration temporal-shuffle null for each session. Results:"
     )
@@ -563,7 +563,7 @@ def write_results(doc):
     )
 
     add_figure(doc, FIG_RATE / "fig19_tracking_r_bars.png",
-        "Figure 6. Per-session within-session correlation (Detector B vs. spectral "
+        "Figure 6. Per-session within-session correlation (Fused Window Detection vs. spectral "
         "baseline) with temporal-shuffle null bands (5th–95th percentile). Neither "
         "band systematically exceeds the null.")
 
@@ -574,7 +574,7 @@ def write_results(doc):
         ("Cardiac", "−0.188", "0.85", "3/12", "−0.148", "4.31"),
     ]
     make_table(doc,
-        ["Band", "Median r", "Wilcoxon p", "Sessions > null", "Δ-tracking r", "Det B MAE"],
+        ["Band", "Median r", "Wilcoxon p", "Sessions > null", "Δ-tracking r", "FWD MAE"],
         tracking_rows)
     doc.add_paragraph()
 
@@ -585,14 +585,14 @@ def write_results(doc):
         "but has exactly zero within-session tracking—at 30-second windows, the "
         "spectral resolution (df = 0.25 Hz) quantizes the 0.4 Hz-wide respiratory "
         "band into approximately 1.6 bins, producing a literal constant prediction of "
-        "≈15 br/min in 9,317 of 9,319 epochs. (2) Detector B achieves moderate "
+        "≈15 br/min in 9,317 of 9,319 epochs. (2) Fused Window Detection achieves moderate "
         "MAE (respiratory 1.34 br/min, cardiac 4.31 BPM) but still does not yield "
         "statistically significant tracking. Neither operating point captures "
         "within-session rate dynamics."
     )
     add_figure(doc, FIG_RATE / "fig21_operating_points.png",
         "Figure 7. MAE vs. within-session tracking correlation for each session and band, "
-        "showing the two operating points (spectral vs. Detector B).")
+        "showing the two operating points (spectral vs. Fused Window Detection).")
 
     doc.add_heading("Achievable tracking ceiling", level=3)
     add_para(doc,
@@ -611,7 +611,7 @@ def write_results(doc):
         "Flow–RIPSum agreement (independent PSG sensors).")
     add_figure(doc, FIG_RATE / "fig22_fullnight_traces.png",
         "Figure 9. Full-night rate traces for four representative sessions showing "
-        "ground truth vs. Detector B vs. spectral estimates for both bands.")
+        "ground truth vs. Fused Window Detection vs. spectral estimates for both bands.")
 
     # 3.4 ────────────────────────────────────────────
     doc.add_heading("3.4 Harmonic spectral structure and sleep-stage association", level=2)
@@ -785,7 +785,7 @@ def write_discussion(doc):
         "The most extensively tested negative finding is the inability to recover "
         "within-session rate variation. Despite testing six rate estimation methods "
         "across five channels—including a purpose-built responsive tracker "
-        "(Detector B) designed to maximize tracking sensitivity—within-session "
+        "(Fused Window Detection) designed to maximize tracking sensitivity—within-session "
         "correlation with ground truth was indistinguishable from a temporal-shuffle "
         "null for both respiratory and cardiac bands. This is not a methodological "
         "failure: it is a signal-to-noise limit of the capacitive sensing modality."
@@ -794,7 +794,7 @@ def write_discussion(doc):
         "The two operating points illustrate the tradeoff. The spectral estimator "
         "achieves the lowest MAE by predicting a nearly constant rate (the respiratory "
         "band spans only ≈1.6 spectral bins at 30-second resolution), effectively "
-        "reporting the session mean. Detector B allows more epoch-level variation but "
+        "reporting the session mean. Fused Window Detection allows more epoch-level variation but "
         "this variation is noise, not signal. Neither approach captures the "
         "within-session dynamics."
     )
@@ -1017,7 +1017,7 @@ def write_open_items(doc):
     doc.add_heading("C. Sections flagged as still-evolving", level=2)
     add_para(doc,
         "• Title / Abstract / Introduction: placeholders only — to be written.\n"
-        "• Detector B cardiac: channel-diversity oracle (1.58 BPM) suggests realizable "
+        "• Fused Window Detection cardiac: channel-diversity oracle (1.58 BPM) suggests realizable "
         "headroom with better channel selection. A learning-based per-epoch channel "
         "selector may improve cardiac accuracy in future work.\n"
         "• Resp consensus GT: alignment caveat (correlations fragile to grid offset). "

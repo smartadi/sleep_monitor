@@ -251,7 +251,7 @@ def phase2_detector_b(df):
         mae_b = np.median(np.abs(detb.loc[v, 'detB_hz'] - detb.loc[v, 'gt_hz'])) * scale
         v2 = np.isfinite(detb.spectral_hz) & np.isfinite(detb.gt_hz)
         mae_s = np.median(np.abs(detb.loc[v2, 'spectral_hz'] - detb.loc[v2, 'gt_hz'])) * scale
-        print(f'    Pooled MAE — DetB: {mae_b:.2f}, Spectral: {mae_s:.2f}')
+        print(f'    Pooled MAE — FWD: {mae_b:.2f}, Spectral: {mae_s:.2f}')
 
     return results
 
@@ -366,12 +366,12 @@ def phase3_tracking(detb_results):
                     for s in null_dists if np.isfinite(null_dists[s]).sum() > 0]
 
         print(f'\n  {band.upper()}:')
-        print(f'    Within-session r (DetB):  median={r_med:+.3f}, '
+        print(f'    Within-session r (FWD):  median={r_med:+.3f}, '
               f'mean={r_mean:+.3f}')
         print(f'    Delta-tracking r:           median={dr_med:+.3f}')
-        print(f'    Transient r (DetB):       median='
+        print(f'    Transient r (FWD):       median='
               f'{sess_df["r_transient_detB"].median():+.3f}')
-        print(f'    Steady r (DetB):          median='
+        print(f'    Steady r (FWD):          median='
               f'{sess_df["r_steady_detB"].median():+.3f}')
         print(f'    Wilcoxon p (r > 0):       {p_wilc:.4f}')
         print(f'    Shuffle null:             mean null r={np.nanmean(null_means):+.3f}, '
@@ -510,7 +510,7 @@ def fig19_tracking_r_bars(tracking_df, null_dists):
 
         # Real r
         r_vals = b['r_detB'].values
-        ax.bar(x - 0.15, r_vals, 0.3, label='Detector B',
+        ax.bar(x - 0.15, r_vals, 0.3, label='Fused Window Detection',
                color='#2ECC71', alpha=0.85, zorder=3)
         ax.bar(x + 0.15, b['r_spectral'].values, 0.3, label='Spectral',
                color='#E74C3C', alpha=0.85, zorder=3)
@@ -553,7 +553,7 @@ def fig20_delta_transient(tracking_df):
         ax = axes[0, col]
         sessions = b['session'].values
         x = np.arange(len(sessions))
-        ax.bar(x - 0.15, b['dr_detB'].values, 0.3, label='DetB dr',
+        ax.bar(x - 0.15, b['dr_detB'].values, 0.3, label='FWD dr',
                color='#3498DB', alpha=0.85)
         ax.bar(x + 0.15, b['dr_spectral'].values, 0.3, label='Spectral dr',
                color='#E74C3C', alpha=0.85)
@@ -568,9 +568,9 @@ def fig20_delta_transient(tracking_df):
         # Row 1: Transient vs steady
         ax = axes[1, col]
         w = 0.2
-        ax.bar(x - w, b['r_transient_detB'].values, w * 2, label='DetB transient',
+        ax.bar(x - w, b['r_transient_detB'].values, w * 2, label='FWD transient',
                color='#E67E22', alpha=0.85)
-        ax.bar(x + w, b['r_steady_detB'].values, w * 2, label='DetB steady',
+        ax.bar(x + w, b['r_steady_detB'].values, w * 2, label='FWD steady',
                color='#9B59B6', alpha=0.85)
         ax.axhline(0, color='black', lw=0.5)
         ax.set_xticks(x)
@@ -592,16 +592,19 @@ def fig21_operating_points(tracking_df):
 
     for idx, band in enumerate(BANDS):
         ax = axes[idx]
-        b = tracking_df[tracking_df.band == band]
+        b = tracking_df[tracking_df.band == band].copy()
+        # Resp spectral r is NaN (constant predictor) — fill with 0.0
+        b['r_spectral'] = b['r_spectral'].fillna(0.0)
 
         # Each session is a point, colored by detector type
         for _, row in b.iterrows():
             ax.scatter(row['mae_detB'], row['r_detB'],
-                       c='#2ECC71', s=50, zorder=3, alpha=0.7,
+                       c='#2ECC71', s=60, zorder=3, alpha=0.8,
                        edgecolors='black', linewidth=0.5)
-            ax.scatter(row['mae_spectral'], row['r_spectral'],
-                       c='#E74C3C', s=50, zorder=3, alpha=0.7,
-                       edgecolors='black', linewidth=0.5)
+            if pd.notna(row['mae_spectral']):
+                ax.scatter(row['mae_spectral'], row['r_spectral'],
+                           c='#E74C3C', s=60, zorder=4, alpha=0.8,
+                           edgecolors='black', linewidth=0.5)
             ax.annotate(row['session'],
                         (row['mae_detB'], row['r_detB']),
                         fontsize=5, ha='left', va='bottom', color='#27AE60')
@@ -609,8 +612,10 @@ def fig21_operating_points(tracking_df):
         # Summary markers (medians)
         ax.scatter(b['mae_detB'].median(), b['r_detB'].median(),
                    c='#2ECC71', s=200, marker='*', zorder=5,
-                   edgecolors='black', linewidth=1.5, label='DetB (median)')
-        ax.scatter(b['mae_spectral'].median(), b['r_spectral'].median(),
+                   edgecolors='black', linewidth=1.5, label='FWD (median)')
+        spec_mae = b['mae_spectral'].dropna()
+        spec_r = b.loc[spec_mae.index, 'r_spectral']
+        ax.scatter(spec_mae.median(), spec_r.median(),
                    c='#E74C3C', s=200, marker='*', zorder=5,
                    edgecolors='black', linewidth=1.5, label='Spectral (median)')
 
@@ -653,7 +658,7 @@ def fig22_fullnight_traces(detb_results):
             sp = g['spectral_hz'].values * scale
 
             ax.plot(t, gt, 'k-', lw=0.8, alpha=0.6, label='GT')
-            ax.plot(t, db, '-', color='#2ECC71', lw=0.7, alpha=0.8, label='DetB')
+            ax.plot(t, db, '-', color='#2ECC71', lw=0.7, alpha=0.8, label='FWD')
             ax.plot(t, sp, '-', color='#E74C3C', lw=0.5, alpha=0.6, label='Spectral')
 
             unit = 'br/min' if band == 'resp' else 'BPM'
@@ -695,7 +700,7 @@ def fig23_ceiling(ceil_df, tracking_df):
     for s in sessions:
         r = resp_t.loc[resp_t.session == s, 'r_detB']
         resp_vals.append(r.values[0] if len(r) else np.nan)
-    ax.bar(x, resp_vals, 0.25, label='Mask resp (DetB)',
+    ax.bar(x, resp_vals, 0.25, label='Mask resp (FWD)',
            color='#2ECC71', alpha=0.85)
 
     # Mask cardiac DetB
@@ -704,7 +709,7 @@ def fig23_ceiling(ceil_df, tracking_df):
     for s in sessions:
         r = card_t.loc[card_t.session == s, 'r_detB']
         card_vals.append(r.values[0] if len(r) else np.nan)
-    ax.bar(x + 0.25, card_vals, 0.25, label='Mask cardiac (DetB)',
+    ax.bar(x + 0.25, card_vals, 0.25, label='Mask cardiac (FWD)',
            color='#3498DB', alpha=0.85)
 
     ax.set_xticks(x)
@@ -753,14 +758,14 @@ def main():
     for band in BANDS:
         b = tracking_df[tracking_df.band == band]
         print(f'\n  {band.upper()}:')
-        print(f'    DetB MAE (median across sessions): '
+        print(f'    FWD MAE (median across sessions): '
               f'{b["mae_detB"].median():.2f}')
         print(f'    Spectral MAE:                      '
               f'{b["mae_spectral"].median():.2f}')
-        print(f'    DetB within-session r:              '
+        print(f'    FWD within-session r:              '
               f'{b["r_detB"].median():+.3f} '
               f'[{b["r_detB"].min():+.3f}, {b["r_detB"].max():+.3f}]')
-        print(f'    DetB Delta-tracking r:                  '
+        print(f'    FWD Delta-tracking r:                  '
               f'{b["dr_detB"].median():+.3f}')
         n_pass = 0
         for _, row in b.iterrows():
