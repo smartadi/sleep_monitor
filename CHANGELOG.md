@@ -6,6 +6,17 @@ Records all code changes to library modules, scripts, and notebooks.
 
 ## 2026-06-18
 
+- **Added** `scripts/evaluate_symmetric_tracking.py` — symmetric resp+cardiac tracking evaluation from cached Phase A data. Detector B (peaks_loose + hilbert, 5-channel mean-fusion, k-calibrated, minimal smoothing) vs spectral baseline. Tracking battery: within-session r, delta-tracking, transient/steady split, 200-iteration temporal-shuffle null. Two operating points framing. Achievable ceiling (Flow vs RIPSum r=0.47).
+- **Output** `writeup/figures/mask_rate_detection/fig18_mae_heatmap.png` — multichannel x multimethod MAE heatmap with per-session IQR, resp + cardiac side by side
+- **Output** `writeup/figures/mask_rate_detection/fig19_tracking_r_bars.png` — per-session within-session r (DetB + spectral) with shuffle-null 5th-95th bands
+- **Output** `writeup/figures/mask_rate_detection/fig20_delta_transient.png` — delta-tracking r + transient vs steady segment analysis
+- **Output** `writeup/figures/mask_rate_detection/fig21_operating_points.png` — MAE vs tracking r tradeoff, per session and band
+- **Output** `writeup/figures/mask_rate_detection/fig22_fullnight_traces.png` — full-night GT vs DetB vs spectral traces (4 sessions x 2 bands)
+- **Output** `writeup/figures/mask_rate_detection/fig23_ceiling_comparison.png` — mask tracking r vs achievable ceiling (Flow vs RIPSum)
+- **Output** `reports/rates/mask/symmetric_tracking_{mae_table,battery,ceiling}.csv` — detailed per-session results
+- **Output** `artifacts/detB_{resp,card}.parquet` — Detector B fused rate estimates per epoch
+- **Key results** RESP: FAIL (r=+0.058, p=0.34, 4/12 beat null). CARD: FAIL (r=-0.188, p=0.85, 3/12 beat null). Ceiling: Flow vs RIPSum r=+0.47. Mask recovers mean rate only.
+
 - **Added** `analysis/slow_wave/paper_ridge_demo.py` — paper-ready harmonic ridge demo: (A) per-session spectrogram + ridge overlay with hypnogram, (B) pooled quantification (violin, heatmap, ROC, KW/MW-U), (C) Stage 4 LOSO N3 classifier (RF, 4 ridge features). Completes all 4 stages of the harmonic structure detection plan.
 - **Output** `writeup/figures/harmonics/paper_overlay_*.png` — 12 per-session spectrogram + ridge overlay figures (CRE channel)
 - **Output** `writeup/figures/harmonics/paper_quantification.png` — 6-panel pooled quantification figure
