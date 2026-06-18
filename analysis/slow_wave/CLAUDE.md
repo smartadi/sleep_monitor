@@ -1,15 +1,16 @@
 # Slow Wave Sleep Analysis
 
 ## Status
-Ridge overlay v1 complete — `run_ridge_overlay.py` processes all 12 sessions with tuned
-persistent ridge detection + continuous harmonic scoring. CRE dominant channel (9/12 sessions).
-Pooled: REM/N1 have highest harmonic scores, N3 reduced — consistent with Stage 3.
+All 4 stages complete. Ridge features are statistically significant (KW p<1e-16) but
+practically weak standalone N3 discriminators (LOSO AUC=0.534). Direction is subject-dependent
+(some subjects N3↑, others N3↓), explaining near-chance pooled performance.
 
-**Completed**: Ridge overlay v2 (2026-06-11) — see `NEXT_RIDGE_OVERLAY.md` for spec.
-High-res spectrogram, 5-min min ridge, median-filter smooth traces, 3-channel stacked 6-row layout.
+**Completed**: Stage 4 paper demo (2026-06-18) — `paper_ridge_demo.py` produces paper-ready
+spectrogram + ridge overlays, pooled quantification (6-panel), and LOSO N3 classifier.
+Outputs -> `writeup/figures/harmonics/paper_*.png`, `reports/slow_wave/paper_*.csv`
 
-Artifacts: `reports/slow_wave/ridge_overlay_epochs.parquet` (55,878 rows), per-session PNG overlays
-Outputs -> `reports/slow_wave/`
+**Completed**: Ridge overlay v2 (2026-06-11) — `run_ridge_overlay.py`, 3-channel stacked layout.
+Artifacts: `reports/slow_wave/overlay/ridge_overlay_epochs.parquet` (55,878 rows)
 
 Detect slow wave sleep (N3/SWS) signatures in CAP temple sensors without EEG.
 

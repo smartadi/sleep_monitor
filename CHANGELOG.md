@@ -6,6 +6,12 @@ Records all code changes to library modules, scripts, and notebooks.
 
 ## 2026-06-18
 
+- **Added** `analysis/slow_wave/paper_ridge_demo.py` — paper-ready harmonic ridge demo: (A) per-session spectrogram + ridge overlay with hypnogram, (B) pooled quantification (violin, heatmap, ROC, KW/MW-U), (C) Stage 4 LOSO N3 classifier (RF, 4 ridge features). Completes all 4 stages of the harmonic structure detection plan.
+- **Output** `writeup/figures/harmonics/paper_overlay_*.png` — 12 per-session spectrogram + ridge overlay figures (CRE channel)
+- **Output** `writeup/figures/harmonics/paper_quantification.png` — 6-panel pooled quantification figure
+- **Output** `writeup/figures/harmonics/paper_n3_loso.png` — LOSO N3 classification results (ROC, metrics, feature importance)
+- **Output** `reports/slow_wave/paper_n3_loso_metrics.csv` — per-fold LOSO metrics
+- **Key result** Ridge features are statistically significant (KW p<1e-16) but near-chance N3 classifiers (LOSO AUC=0.534, mean F1=0.095). Subject-dependent direction confirmed.
 - **Added** `writeup/figures/signal_validation/generate_band_energy.py` — generates fig5/6/7 demonstrating CAP mask energy in resp (0.1–0.5 Hz) and cardiac (0.5–3.0 Hz) bands. Uses `sleep_monitor/spectral.py` Welch PSD + `sleep_monitor/viz.py` for spectrograms. Three panels: annotated spectrograms (3 sessions), band-power time course vs PSG GT rate, in-band SNR summary (boxplots + time course + mean PSD).
 - **Output** `writeup/figures/signal_validation/fig5_cap_spectrogram_bands.png` — CLE−CRE spectrograms (0–5 Hz) with resp/cardiac band overlays
 - **Output** `writeup/figures/signal_validation/fig6_bandpower_vs_psg_rate.png` — sliding 60s band power vs PSG GT rate, dual-axis
