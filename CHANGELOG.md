@@ -6,6 +6,10 @@ Records all code changes to library modules, scripts, and notebooks.
 
 ## 2026-06-17
 
+- **Added** `scripts/analyze_adaptive_k_and_oracle.py` — cache-only follow-up analysis (no raw reprocessing): self-supervised adaptive k(t), per-epoch oracle headroom (channel/method/full), channel-win distribution. Outputs CSVs in `reports/rates/mask/` + figs 7-9.
+- **Added** `CONTINUATION_RATE_DETECTION.md` — handoff doc for next CLI session (cache locations, findings, prioritized next steps)
+- **Output** `writeup/figures/mask_rate_detection/fig{7,8,9}*.png` — oracle headroom, adaptive k, channel diversity
+- **Key finding** Cardiac channel-diversity oracle = 1.58 BPM (vs fused 3.91) — large untapped headroom; resp headroom is method-diversity not channel (oracle-method 0.54). Self-sup adaptive k fails for cardiac (no good anchor).
 - **Added** `scripts/run_mask_rate_detection.py` — paper-ready mask rate detection pipeline (6 phases: raw rates, Smart Fusion + multi-channel SQI, k-calibration + smoothing, evaluation, failure analysis, multi-channel value). Checkpointed at each phase (parquet). Generates 9 paper figures + per-session CSV.
 - **Output** `writeup/figures/mask_rate_detection/` — 9 figures (pipeline progression, Bland-Altman, per-stage MAE, time series best/worst × 2 bands, failure analysis, multi-channel value)
 - **Output** `reports/rates/mask/` — per-session CSV, final_summary.json, pipeline log
