@@ -1837,6 +1837,39 @@ Findings (strengthen original verdict):
    not stage — dominates the raw signal; "ordering" is an artifact of the detrend choice.
 Conclusion unchanged: no channel (CAP or acc) yields a universal mean-value stage marker.
 
+### Extension 2 — full raw per-window statistic battery (`raw_stats_vs_stage.py`)
+Beyond the DC mean, computed 10 time-domain statistics per 30 s epoch per channel:
+mean, std, iqr, slope_win (within-epoch OLS slope of 1 Hz block-avg), slope_vlf
+(gradient of the <0.05 Hz baseline), linelen (mean |Δ|), Hjorth mobility & complexity,
+skew, kurt. Same z-score / detrend / KW / per-subject-direction / LOSO protocol, plus a
+LOSO-AUC overview grid (stat × channel) per contrast.
+
+**This is the first CAP feature with a cross-subject-CONSISTENT stage signal.**
+- **Wake vs sleep** is robustly and 6/6-consistently detected by *dispersion* and
+  *complexity* statistics: std LOSO AUC 0.72–0.77 (CLE 0.77, CLE+CRE 0.77, CLE-CRE 0.75),
+  Hjorth mobility/complexity 0.72–0.76, iqr 0.69–0.74, all with unanimous per-subject
+  direction (std higher in Wake 6/6; mobility lower in Wake 6/6). Accelerometer std/linelen
+  also work (0.62–0.71). Interpretation: an **arousal/movement detector** — awake epochs
+  carry more signal amplitude and different complexity — that GENERALIZES across subjects,
+  unlike the DC mean (Wake AUC 0.55, subject-dependent).
+- **N3 vs rest** is weak but consistent for Hjorth mobility/complexity (AUC 0.60–0.66, 6/6
+  direction) — deep sleep is slightly smoother/lower-mobility. Not standalone-usable but a
+  real, direction-stable trend (contrast with the DC mean, which was subject-dependent).
+- **REM vs rest** stays near chance for all statistics (best ~0.57).
+- **Slope** (both slope_win and slope_vlf) is NOT stage-discriminative: per-stage medians
+  ≈0 for all stages (Wake only widens the *spread*, i.e. more baseline movement — captured
+  by std, not by the slope median). skew/kurt near chance.
+
+Figures: `loso_grid_{Wake_vs_sleep,N3_vs_rest,REM_vs_rest}.png` (overview),
+`boxplot_std_CLE_CRE.png` (Wake clearly elevated), `subject_direction_std_CLE_CRE.png`
+(Wake column highest for all 6 subjects), `boxplot_slope_vlf_CLE_CRE.png` (flat medians).
+
+**Verdict:** For the manuscript, the raw-signal-vs-stage story is now two-part and honest:
+(1) the DC *level* is drift-dominated and only subject-dependently stage-modulated (negative
+for a universal marker), but (2) per-window *amplitude/complexity* gives a real,
+cross-subject-consistent Wake-vs-sleep signal (LOSO AUC ~0.77) plus a weak-but-consistent N3
+trend. This is a stronger and more defensible Results opener than the mean alone.
+
 ---
 
 ## Next Steps

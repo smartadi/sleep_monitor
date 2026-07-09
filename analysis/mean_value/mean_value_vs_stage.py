@@ -272,7 +272,7 @@ def fig_boxplot(df, feat, out):
     ax.set_xticklabels(labels)
     ax.axhline(0, color='gray', ls=':', lw=0.8)
     ax.set_ylabel(f'{feat}', fontsize=10)
-    ax.set_title(f'Raw mean value by stage — {feat} (12 sessions pooled)',
+    ax.set_title(f'Per-window {feat} by stage (12 sessions pooled)',
                  fontsize=11, fontweight='bold')
     ax.grid(True, alpha=0.15, axis='y')
     fig.tight_layout()
