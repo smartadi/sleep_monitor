@@ -39,8 +39,9 @@ def main():
         fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04, label='dB vs baseline')
     axes[0].set_ylabel('Frequency (Hz)')
     fig.suptitle('Spindle-triggered ERSP (activity minus its own baseline) — EEG shows the sigma '
-                 'blob at t=0; no CAP channel shows any transient at any frequency',
-                 y=1.03, fontsize=12)
+                 'blob (11–16 Hz); CAP shows NO sigma but a spindle-locked 0–3 Hz bump '
+                 '(validated: flat for random-N2, survives arousal removal — see control fig)',
+                 y=1.03, fontsize=11)
     fig.tight_layout()
     p1 = os.path.join(OUT, 'fig_spindle_ersp_maps.png')
     fig.savefig(p1, dpi=150, bbox_inches='tight'); plt.close(fig)
@@ -72,7 +73,8 @@ def main():
     axes[1].legend(fontsize=8); axes[1].grid(alpha=0.25)
 
     fig.suptitle('Core (|t|<1 s) vs baseline (|t|>5 s) spectral change per channel — '
-                 'EEG: +dB at sigma; CAP: flat at 0 dB across 0–45 Hz', y=1.02, fontsize=12)
+                 'EEG: +dB at sigma; CAP: flat except a real +0.5 dB 0–3 Hz spindle-locked bump',
+                 y=1.02, fontsize=11)
     fig.tight_layout()
     p2 = os.path.join(OUT, 'fig_spindle_ersp_spectra.png')
     fig.savefig(p2, dpi=150, bbox_inches='tight'); plt.close(fig)
