@@ -506,6 +506,10 @@ def detect_persistent_ridges(
                                     max_freq_jump, max_gap_windows * 3)
 
     # ── Step 5c: Smooth ridge frequency traces ──
+    # Keep the pre-smoothing peak trace so flatness/jitter can be measured on it;
+    # the median filter would otherwise erase exactly the wander we want to score.
+    for ridge in ridges:
+        ridge['freq_trace_raw'] = ridge['freq_trace'].copy()
     for ridge in ridges:
         valid = ~np.isnan(ridge['freq_trace'])
         if valid.sum() < 7:
@@ -553,6 +557,33 @@ def detect_persistent_ridges(
         ridge['prominence_trace'] = prom_trace
         ridge['median_prominence'] = float(np.nanmedian(prom_trace))
         ridge['peak_prominence'] = float(np.nanmax(prom_trace)) if valid.sum() > 0 else 0.0
+
+    # ── Step 5e: Flatness / consistency metrics per ridge ──
+    # A "flat" ridge holds a near-constant frequency for its whole lifetime.
+    # freq_std      : Hz standard deviation of the (smoothed) frequency trace
+    # freq_cv       : dimensionless std / median_freq (scale-free flatness)
+    # drift_slope   : |linear slope| of freq vs window index, Hz per window
+    # coverage      : fraction of the ridge span actually present (anti-fragmentation)
+    # flatness      : 1 / (1 + freq_cv) in [0,1], 1 = perfectly flat
+    for ridge in ridges:
+        # measure jitter on the RAW (pre-smoothing) peak trace
+        ft = ridge.get('freq_trace_raw', ridge['freq_trace'])
+        valid = np.isfinite(ft)
+        nv = int(valid.sum())
+        fv = ft[valid]
+        span = ridge['end_idx'] - ridge['start_idx'] + 1
+        mf = ridge['median_freq'] if ridge['median_freq'] > 1e-9 else np.nan
+        freq_std = float(np.std(fv)) if nv >= 2 else 0.0
+        if nv >= 3:
+            x = np.arange(nv, dtype=float)
+            drift = abs(float(np.polyfit(x, fv, 1)[0]))
+        else:
+            drift = 0.0
+        ridge['freq_std'] = freq_std
+        ridge['freq_cv'] = float(freq_std / mf) if np.isfinite(mf) else np.nan
+        ridge['drift_slope'] = drift
+        ridge['coverage'] = float(nv / span) if span > 0 else 0.0
+        ridge['flatness'] = float(1.0 / (1.0 + (freq_std / mf))) if np.isfinite(mf) else np.nan
 
     # ── Step 6: Group into harmonic sets ──
     harmonic_groups = _find_harmonic_groups(ridges, t_hr)
