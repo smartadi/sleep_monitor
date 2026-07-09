@@ -6,6 +6,9 @@ Records all code changes to library modules, scripts, and notebooks.
 
 ## 2026-07-09
 
+- **Added** `analysis/slow_wave/harmonic_rigor.py` — harmonic rigor (Workstream B). Shared `best_ladder()` scorer; per-session per-k surrogate null (random ridge frequencies) with 95th-pct threshold; strong-ladder criterion (≥3 members, ratio_tol 0.06) that beats the null; calibrated confidence (ratio_quality × amplitude-decay-monotonicity); non-ladder window classification (motion/quiet/single-tone/broadband/multi-non-harmonic) cross-tabbed against sleep stage; survival + confidence + otherwise-by-stage summary figure.
+- **Output** `reports/slow_wave/harmonic_rigor/{ladder_windows.parquet, null_summary.csv, otherwise_crosstab.csv, harmonic_rigor.png}`.
+
 - **Changed** `sleep_monitor/harmonics.py` — `detect_persistent_ridges()` now stashes the pre-smoothing peak trace (`freq_trace_raw`) and computes per-ridge flatness/consistency metrics (`freq_std`, `freq_cv`, `drift_slope`, `coverage`, `flatness`) in a new Step 5e. Additive keys only; existing consumers unaffected (test suite: 90 pass, 1 pre-existing unrelated preprocessing failure).
 - **Added** `analysis/slow_wave/ridge_consolidation.py` — ridge consolidation (Workstream A). Baseline-vs-flat-favoring config comparison (flat-ridge yield + cross-session reproducibility); per-ridge table with flatness + dominant stage; per-window ridge features vs ALL five stages (KW + one-vs-rest AUC + per-subject direction); flatness-by-stage + AUC-heatmap summary figure.
 - **Output** `reports/slow_wave/ridge_consolidation/{per_ridge.csv, per_epoch_features.parquet, stage_association.csv, retune_comparison.csv, ridge_consolidation.png}`.
