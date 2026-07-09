@@ -56,7 +56,7 @@ REPORT_DIR.mkdir(parents=True, exist_ok=True)
 _LABEL_TO_IDX = {m['label']: m['idx'] for m in SESSION_META}
 
 # comb-fit parameters
-DF_MIN, DF_MAX, DF_STEP = 0.15, 1.2, 0.01
+DF_MIN, DF_MAX, DF_STEP = 0.15, 1.6, 0.01
 COMB_TOL = 0.04          # Hz — how close a ridge must sit to a comb line
 MIN_RUNGS = 3
 PROM_MIN = 2.0           # keep only ridges >= 2x local spectral floor (drop clutter)
