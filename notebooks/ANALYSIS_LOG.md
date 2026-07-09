@@ -1756,6 +1756,62 @@ These Jupyter notebooks were created as the interactive analysis/viewing layer. 
 
 ---
 
+## 2026-07-09 — Raw CAP mean value (DC baseline) vs sleep stage (professor Results-opener directive)
+
+**Question:** Professor directive at top of Results: "Start with mean value (raw
+signal changes) in comparison to sleep stages." Does the raw capacitive temple-sensor
+DC level / slow baseline (mean of CLE, CRE, CLE-CRE per 30 s epoch) vary systematically
+with PSG stage, and — crucially — consistently across the 6 subjects? Memory note flagged
+that CLE/CRE DC means drift over the night independent of motion; is that drift stage-linked?
+
+**Script/Notebook:** `analysis/mean_value/mean_value_vs_stage.py`
+**Outputs:** `reports/mean_value/mean_value_epochs.csv` (9,312 epochs),
+`mean_value_stage_stats.csv`, `mean_value_subject_direction.csv`;
+`notebooks/plots/mean_value/{spectrogram_hypno_*, meanvalue_hypno_*, boxplot_by_stage*, subject_direction}.png`
+
+### Setup
+- 12 sessions, 6 subjects, all PSG-scored epochs (9,312 epochs pooled).
+- Per 30 s epoch, per channel (CLE, CRE, CLE-CRE = CLE−CRE): `mean_raw` (DC level =
+  mean of raw samples) and `vlf` (<0.05 Hz baseline via 1 Hz block-average + Butterworth LP).
+- Per-session z-score (removes cross-subject offset/scale). Also a slow-trend-removed
+  variant (`_detr_z`, ~30 min rolling-median subtracted) to control the time-of-night
+  drift confound, and a motion-clean variant (drop top-decile acc-std epochs).
+- Stats: Kruskal-Wallis across 5 stages; per-subject Wake/N3/REM contrast direction;
+  LOSO logistic AUC (single feature).
+
+### Results
+- **Pooled KW highly significant for every feature** (mean_CLE-CRE_z: H=51.6, p=1.7e-10;
+  detrended still H=122, p=2e-25; motion-clean H=38.8, p=8e-8). The effect is NOT a pure
+  time-of-night or motion artifact — genuine stage-locked variation survives both controls.
+- **But direction is subject-dependent (make-or-break failure).** Per-subject sign of the
+  CLE-CRE mean contrast: Wake-vs-sleep high=1/low=5; N3-vs-rest high=5/low=1; REM-vs-rest
+  high=2/low=4. No contrast is unanimous. Heatmap `subject_direction.png` shows e.g. REM
+  median z = −1.50 (OS001) vs +0.54 (OS002) vs −0.66 (OS005): sign flips across subjects.
+- **LOSO AUC near chance** for all contrasts/channels: Wake-vs-sleep ≤0.55, REM-vs-rest
+  ≤0.57, N3-vs-rest 0.40 (below chance — the one contrarian subject breaks generalization).
+- Time-series (`meanvalue_hypno_S1N1.png`) shows the mean value is dominated by a slow
+  monotonic overnight drift (z −2.5 → +1); stage bands ride on top but don't cleanly
+  separate. This is the previously-logged DC-drift phenomenon.
+
+### Key findings
+1. Raw CAP mean value IS statistically associated with sleep stage (KW p up to 1e-25),
+   and the association is robust to detrending and motion masking.
+2. The association is **subject-dependent in direction** — same pattern as the harmonic
+   ridge / HER result (slow_wave). No universal "stage X → higher/lower mean" rule holds.
+3. LOSO discriminability is at/below chance (0.40–0.57): mean value alone does not
+   generalize to a held-out subject as a stage classifier.
+4. Verdict: real effect, honest to *describe* as context (signal drifts, weakly and
+   idiosyncratically stage-modulated), but **not strong enough to open Results as a
+   biomarker headline**. If used as the opener it must be framed as within-subject /
+   descriptive, explicitly noting the direction is not consistent across subjects.
+
+### Status
+Done (negative for a universal biomarker; positive for a within-subject descriptive effect).
+Recommend against leading Results with it as a discriminator; suitable only as descriptive
+motivation with the subject-dependence stated. Manuscript not edited per instructions.
+
+---
+
 ## Next Steps
 
 - Validation of cardiac and resp rates with our data
