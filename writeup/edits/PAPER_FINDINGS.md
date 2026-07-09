@@ -24,6 +24,14 @@ displacement morphology shifts the capacitive-to-breath ratio. Motivates a large
 
 Neither band related to PSQI (both p > 0.19).
 
+**Finding 5 — The biphasic pulse behind k≈2 is directly demonstrated (population level).**
+ECG R-peak-triggered averaging of the CAP cardiac signal shows a clear beat-locked pulse
+(two-bump/biphasic in several well-coupled sessions), and CAP produces a mean of 1.78 peaks
+per heartbeat vs mean cardiac k = 1.89, with 8/10 sessions near the identity line — so k is
+the pulse-overcount ratio (~2 capacitive peaks/beat → k≈2). Converts the k≈2 "systolic +
+dicrotic" claim from asserted to shown. Honest caveat: morphology/coupling vary across
+subjects; S4N1 (poor coupling) is an outlier. See `rpeak_waveform_section_draft.md`.
+
 **Finding 4 — k's reproducibility is age-independent, and no other CAP feature tracks
 age (bounding null).** Night-to-night k variability shows no age relationship (ρ = −0.03,
 p = 0.96 both bands). A scan of 8 CAP-derived per-session features (band fractions, in-band
