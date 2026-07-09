@@ -62,7 +62,14 @@ MIN_RUNGS = 3
 PROM_MIN = 2.0           # keep only ridges >= 2x local spectral floor (drop clutter)
 
 
-def comb_fit(freqs, tol=COMB_TOL):
+def comb_fit(freqs, tol=COMB_TOL, df_lo=DF_MIN, df_hi=DF_MAX, max_min_k=99):
+    """See below. max_min_k caps the lowest rung index so a comb cannot be fit
+    to high harmonics only (the ladder must include a k<=max_min_k rung, i.e. a
+    real low fundamental); set to 2 for band-isolated respiratory/cardiac fits."""
+    return _comb_fit(freqs, tol, df_lo, df_hi, max_min_k)
+
+
+def _comb_fit(freqs, tol=COMB_TOL, df_lo=DF_MIN, df_hi=DF_MAX, max_min_k=99):
     """
     Best equally-spaced comb through a set of ridge frequencies.
 
@@ -71,6 +78,11 @@ def comb_fit(freqs, tol=COMB_TOL):
     positions spanned. This rewards a comb whose rungs occupy most of the grid
     slots between its lowest and highest member, and penalises dense small-Δf
     combs that only catch scattered ridges by chance.
+
+    ``df_lo``/``df_hi`` restrict the rung spacing Δf — use the respiratory band
+    (~0.12–0.5 Hz) to isolate breathing-harmonic ladders and the cardiac band
+    (~0.5–1.6 Hz) to isolate heartbeat-harmonic ladders. Rungs themselves may
+    still extend across the full 0–5 Hz range.
 
     Returns dict(df, base, n_rungs, coverage, regularity, harmonic, members, ks).
     Δf is data-driven; integer-harmonic is the special case base≈0.
@@ -82,7 +94,7 @@ def comb_fit(freqs, tol=COMB_TOL):
     if len(freqs) < MIN_RUNGS:
         return out
     best_score = 0.0
-    df_grid = np.arange(DF_MIN, DF_MAX + 1e-9, DF_STEP)
+    df_grid = np.arange(df_lo, df_hi + 1e-9, DF_STEP)
     for dfc in df_grid:
         residuals = np.mod(freqs, dfc)              # candidate offsets = ridge residuals
         for off in residuals:
@@ -92,6 +104,10 @@ def comb_fit(freqs, tol=COMB_TOL):
             if n < MIN_RUNGS:
                 continue
             ks = np.round((freqs[on] - off) / dfc).astype(int)
+            # reject high-harmonic-only fits: the ladder must include a low rung
+            # (else a resp-band spacing can spuriously fit cardiac ridges at k>>1)
+            if ks.min() > max_min_k:
+                continue
             span_slots = int(ks.max() - ks.min()) + 1     # grid positions spanned
             coverage = n / span_slots                       # 1.0 = every rung present
             score = n * coverage
