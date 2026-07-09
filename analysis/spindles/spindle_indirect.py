@@ -35,6 +35,7 @@ FS = 100.0
 CARD_LO, CARD_HI = 0.5, 3.0
 SIGMA_LO, SIGMA_HI = 11.0, 16.0
 N2_CODE = 2
+CAP_CHANNELS = ['CLE-CRE', 'CLE', 'CRE', 'CH']
 HR_HALF = 15.0          # +/- s for HR triggered average
 HR_GRID = 4.0           # Hz, resampled HR grid
 OUT = os.path.join(os.path.dirname(__file__), 'outputs')
@@ -70,12 +71,18 @@ def instantaneous_hr(peak_t_s, t_grid_s):
     return hr
 
 
-def cap_pulse_peaks(cle_cre):
-    card = bp(cle_cre, CARD_LO, CARD_HI)
+def cap_pulse_peaks(sig):
+    card = bp(sig, CARD_LO, CARD_HI)
     min_dist = int(FS / CARD_HI * 0.6)
     prom = 0.3 * np.std(card)
     pk, _ = find_peaks(card, distance=min_dist, prominence=prom)
     return pk / FS
+
+
+def cap_channel(s, ch):
+    if ch == 'CLE-CRE':
+        return s.cap['CLE'].astype(np.float64) - s.cap['CRE'].astype(np.float64)
+    return s.cap[ch].astype(np.float64)
 
 
 def triggered_hr(hr, t_grid_s, centers_s, half_s):
@@ -99,7 +106,9 @@ def triggered_hr(hr, t_grid_s, centers_s, half_s):
 
 def run_hr_route():
     rng = np.random.default_rng(7)
-    ecg_curves, cap_curves, ecg_null, cap_null = [], [], [], []
+    ecg_curves, ecg_null = [], []
+    cap_curves = {ch: [] for ch in CAP_CHANNELS}   # spindle-triggered per channel
+    cap_null = {ch: [] for ch in CAP_CHANNELS}
     tax = None
     rows = []
     for idx in range(len(SESSION_META)):
@@ -121,48 +130,50 @@ def run_hr_route():
             ecg_gt = gt_heart_rate(s)
             hr_ecg = instantaneous_hr(ecg_gt.peak_times_s, t_grid)
 
-            cle_cre = s.cap['CLE'].astype(np.float64) - s.cap['CRE'].astype(np.float64)
-            hr_cap = instantaneous_hr(cap_pulse_peaks(cle_cre), t_grid)
-
             # random N2 control centers (same count)
             n2_starts = s.sleep_profile['t_ep_hr'][s.sleep_profile['codes'] == N2_CODE]
             null_s = (rng.choice(n2_starts, size=min(len(cen_s), len(n2_starts)),
                                  replace=len(n2_starts) < len(cen_s))
                       + 0.5 * 30.0 / 3600.0) * 3600.0
 
-            tax, m_ecg, _ = triggered_hr(hr_ecg, t_grid, cen_s, HR_HALF)
-            _,   m_cap, _ = triggered_hr(hr_cap, t_grid, cen_s, HR_HALF)
-            _,   n_ecg, _ = triggered_hr(hr_ecg, t_grid, null_s, HR_HALF)
-            _,   n_cap, _ = triggered_hr(hr_cap, t_grid, null_s, HR_HALF)
-
-            # express as delta-bpm from window mean
             def dz(m):
                 return m - np.nanmean(m)
-            ecg_curves.append(dz(m_ecg)); cap_curves.append(dz(m_cap))
-            ecg_null.append(dz(n_ecg));   cap_null.append(dz(n_cap))
 
-            # peak-to-trough of the ECG-HR response in [-2,10]s
+            tax, m_ecg, _ = triggered_hr(hr_ecg, t_grid, cen_s, HR_HALF)
+            _,   n_ecg, _ = triggered_hr(hr_ecg, t_grid, null_s, HR_HALF)
+            ecg_curves.append(dz(m_ecg)); ecg_null.append(dz(n_ecg))
             band = (tax >= -2) & (tax <= 10)
             ecg_pp = np.nanmax(dz(m_ecg)[band]) - np.nanmin(dz(m_ecg)[band])
-            cap_pp = np.nanmax(dz(m_cap)[band]) - np.nanmin(dz(m_cap)[band])
-            rows.append({'session': meta['label'], 'n_spindles_N2': len(cen_s),
-                         'ecg_hr_ptp_bpm': ecg_pp, 'cap_hr_ptp_bpm': cap_pp})
-            print(f"{meta['label']}: HR route  ECG ptp={ecg_pp:.2f} bpm  CAP ptp={cap_pp:.2f} bpm")
+
+            row = {'session': meta['label'], 'n_spindles_N2': len(cen_s),
+                   'ecg_hr_ptp_bpm': ecg_pp}
+            for ch in CAP_CHANNELS:
+                hr_cap = instantaneous_hr(cap_pulse_peaks(cap_channel(s, ch)), t_grid)
+                _, m_cap, _ = triggered_hr(hr_cap, t_grid, cen_s, HR_HALF)
+                _, nc, _ = triggered_hr(hr_cap, t_grid, null_s, HR_HALF)
+                cap_curves[ch].append(dz(m_cap)); cap_null[ch].append(dz(nc))
+                cap_pp = np.nanmax(dz(m_cap)[band]) - np.nanmin(dz(m_cap)[band])
+                row[f'cap_hr_ptp_bpm_{ch}'] = cap_pp
+            rows.append(row)
+            print(f"{meta['label']}: HR route  ECG ptp={ecg_pp:.2f} bpm  "
+                  + '  '.join(f"{ch}={row[f'cap_hr_ptp_bpm_{ch}']:.2f}" for ch in CAP_CHANNELS))
         except Exception as e:
             print(f'[{idx}] HR route failed: {e}')
             continue
 
-    np.savez(os.path.join(OUT, 'spindle_hr_triggered.npz'),
-             tax=tax,
-             ecg=np.array(ecg_curves), cap=np.array(cap_curves),
-             ecg_null=np.array(ecg_null), cap_null=np.array(cap_null))
+    save = {'tax': tax, 'ecg': np.array(ecg_curves), 'ecg_null': np.array(ecg_null)}
+    for ch in CAP_CHANNELS:
+        save[f'cap_{ch}'] = np.array(cap_curves[ch])
+        save[f'capnull_{ch}'] = np.array(cap_null[ch])
+    np.savez(os.path.join(OUT, 'spindle_hr_triggered.npz'), **save)
     pd.DataFrame(rows).to_csv(os.path.join(OUT, 'spindle_hr_route.csv'), index=False)
     return rows
 
 
 def run_coherence_route():
     freqs = None
-    coh_eeg_cap, coh_cle_cre = [], []
+    coh_eeg_cap = {ch: [] for ch in CAP_CHANNELS}   # EEG vs each CAP channel
+    coh_cle_cre = []                                # CLE vs CRE (same-source anchor)
     rows = []
     for idx in range(len(SESSION_META)):
         meta = SESSION_META[idx]
@@ -171,32 +182,34 @@ def run_coherence_route():
             eeg = s.psg['EEG'].astype(np.float64)
             cle = s.cap['CLE'].astype(np.float64)
             cre = s.cap['CRE'].astype(np.float64)
-            cle_cre = cle - cre
 
             nper = 2048
-            f, c1 = coherence(eeg, cle_cre, fs=FS, nperseg=nper)
-            _, c2 = coherence(cle, cre, fs=FS, nperseg=nper)
-            freqs = f
-            coh_eeg_cap.append(c1); coh_cle_cre.append(c2)
+            _, c_anchor = coherence(cle, cre, fs=FS, nperseg=nper)
+            coh_cle_cre.append(c_anchor)
 
-            sig = (f >= SIGMA_LO) & (f <= SIGMA_HI)
-            rows.append({
-                'session': meta['label'],
-                'eeg_cap_coh_sigma': float(np.mean(c1[sig])),
-                'cle_cre_coh_sigma': float(np.mean(c2[sig])),
-                'cle_cre_coh_resp': float(np.mean(c2[(f >= 0.1) & (f <= 0.5)])),
-                'cle_cre_coh_card': float(np.mean(c2[(f >= 0.8) & (f <= 2.0)])),
-            })
-            print(f"{meta['label']}: coh  EEG-CAP sigma={rows[-1]['eeg_cap_coh_sigma']:.3f}  "
-                  f"CLE-CRE sigma={rows[-1]['cle_cre_coh_sigma']:.3f}  "
-                  f"card={rows[-1]['cle_cre_coh_card']:.3f}")
+            sig_mask = None
+            row = {'session': meta['label']}
+            for ch in CAP_CHANNELS:
+                f, c = coherence(eeg, cap_channel(s, ch), fs=FS, nperseg=nper)
+                freqs = f
+                sig_mask = (f >= SIGMA_LO) & (f <= SIGMA_HI)
+                coh_eeg_cap[ch].append(c)
+                row[f'eeg_cap_coh_sigma_{ch}'] = float(np.mean(c[sig_mask]))
+            row['cle_cre_coh_sigma'] = float(np.mean(c_anchor[sig_mask]))
+            row['cle_cre_coh_resp'] = float(np.mean(c_anchor[(freqs >= 0.1) & (freqs <= 0.5)]))
+            row['cle_cre_coh_card'] = float(np.mean(c_anchor[(freqs >= 0.8) & (freqs <= 2.0)]))
+            rows.append(row)
+            print(f"{meta['label']}: coh sigma  "
+                  + '  '.join(f"EEG-{ch}={row[f'eeg_cap_coh_sigma_{ch}']:.3f}" for ch in CAP_CHANNELS)
+                  + f"  | anchor CLE-CRE card={row['cle_cre_coh_card']:.3f}")
         except Exception as e:
             print(f'[{idx}] coherence failed: {e}')
             continue
 
-    np.savez(os.path.join(OUT, 'spindle_coherence.npz'),
-             freqs=freqs,
-             eeg_cap=np.array(coh_eeg_cap), cle_cre=np.array(coh_cle_cre))
+    save = {'freqs': freqs, 'cle_cre': np.array(coh_cle_cre)}
+    for ch in CAP_CHANNELS:
+        save[f'eeg_cap_{ch}'] = np.array(coh_eeg_cap[ch])
+    np.savez(os.path.join(OUT, 'spindle_coherence.npz'), **save)
     pd.DataFrame(rows).to_csv(os.path.join(OUT, 'spindle_coherence.csv'), index=False)
     return rows
 

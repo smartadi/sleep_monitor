@@ -6,11 +6,10 @@ The aggregate triggered-average figures show CAP is flat *on average*. This
 script zooms into single spindle events so we can look for anything the average
 would wash out (phase-varying bursts, transient morphology). For each of the
 strongest N2 spindles in a session it plots, in a shared time window:
-    row 1 : EEG raw           (spindle span shaded)
-    row 2 : EEG 11-16 Hz      (the spindle, unmistakable)
-    row 3 : CAP CLE-CRE raw
-    row 4 : CAP CLE-CRE 11-16 Hz
-    row 5 : CAP CLE-CRE sigma spectrogram (is there ANY transient sigma power?)
+    row 1     : EEG raw           (spindle span shaded)
+    row 2     : EEG 11-16 Hz      (the spindle, unmistakable)
+    rows 3-6  : CAP 11-16 Hz for every channel (CLE-CRE, CLE, CRE, CH)
+    row 7     : CAP CLE-CRE sigma spectrogram (is there ANY transient sigma power?)
 
 Usage:  python -m analysis.spindles.plot_spindle_windows [session_idx] [n_examples]
 Outputs -> analysis/spindles/outputs/fig_spindle_windows_<label>.png
@@ -32,6 +31,8 @@ FS = 100.0
 SIGMA_LO, SIGMA_HI = 11.0, 16.0
 N2_CODE = 2
 WIN_HALF = 3.0          # +/- s plotted around each spindle center
+CAP_CHANNELS = ['CLE-CRE', 'CLE', 'CRE', 'CH']
+CHAN_COLORS = {'CLE-CRE': '#E67E22', 'CLE': '#27AE60', 'CRE': '#8E44AD', 'CH': '#2980B9'}
 OUT = os.path.join(os.path.dirname(__file__), 'outputs')
 os.makedirs(OUT, exist_ok=True)
 
@@ -67,9 +68,10 @@ def main(idx=2, n_examples=6):
     freq = sp['freq_hz'][n2]
 
     eeg = s.psg['EEG'].astype(np.float64)
-    cle_cre = s.cap['CLE'].astype(np.float64) - s.cap['CRE'].astype(np.float64)
+    cap = {ch: (s.cap['CLE'].astype(np.float64) - s.cap['CRE'].astype(np.float64)) if ch == 'CLE-CRE'
+           else s.cap[ch].astype(np.float64) for ch in CAP_CHANNELS}
     eeg_sig = bp(eeg, SIGMA_LO, SIGMA_HI)
-    cap_sig = bp(cle_cre, SIGMA_LO, SIGMA_HI)
+    cap_sig = {ch: bp(cap[ch], SIGMA_LO, SIGMA_HI) for ch in CAP_CHANNELS}
     eeg_env = np.abs(hilbert(eeg_sig))
 
     # rank spindles by EEG sigma amplitude at center -> pick the clearest ones
@@ -80,8 +82,9 @@ def main(idx=2, n_examples=6):
     amp = eeg_env[cen_samp]
     pick = np.argsort(amp)[::-1][:n_examples]
 
+    nrow = 3 + len(CAP_CHANNELS)   # EEG raw, EEG sigma, 4 CAP sigma, 1 spectrogram
     ncol = n_examples
-    fig, axes = plt.subplots(5, ncol, figsize=(3.1 * ncol, 11), squeeze=False)
+    fig, axes = plt.subplots(nrow, ncol, figsize=(3.1 * ncol, 2.0 * nrow), squeeze=False)
     t = np.arange(-half, half + 1) / FS
 
     for col, p in enumerate(pick):
@@ -90,15 +93,13 @@ def main(idx=2, n_examples=6):
         sl = slice(a, b)
         span = 0.5 * dur_s[p]
 
-        # normalise each CAP window to its own std so morphology is visible
-        cap_raw = cle_cre[sl] - np.mean(cle_cre[sl])
-
         rows = [
             (eeg[sl] - np.mean(eeg[sl]), 'EEG raw', '#2C3E50'),
             (eeg_sig[sl], 'EEG 11-16 Hz', '#2C3E50'),
-            (cap_raw, 'CAP CLE-CRE raw', '#E67E22'),
-            (cap_sig[sl], 'CAP CLE-CRE 11-16 Hz', '#E67E22'),
         ]
+        for ch in CAP_CHANNELS:
+            rows.append((cap_sig[ch][sl], f'{ch}\n11-16 Hz', CHAN_COLORS[ch]))
+
         for r, (y, lab, color) in enumerate(rows):
             ax = axes[r][col]
             ax.plot(t, y, color=color, lw=0.7)
@@ -108,12 +109,11 @@ def main(idx=2, n_examples=6):
             if col == 0:
                 ax.set_ylabel(lab, fontsize=8)
             ax.tick_params(labelsize=7)
-            if r < 4:
-                ax.set_xticklabels([])
+            ax.set_xticklabels([])
 
-        # sigma spectrogram of the CAP window (0-20 Hz)
-        axg = axes[4][col]
-        f, tt, Sxx = spectrogram(cle_cre[sl], fs=FS, nperseg=128, noverlap=112)
+        # sigma spectrogram of the CAP CLE-CRE window (0-20 Hz)
+        axg = axes[nrow - 1][col]
+        f, tt, Sxx = spectrogram(cap['CLE-CRE'][sl], fs=FS, nperseg=128, noverlap=112)
         band = f <= 20
         axg.pcolormesh(tt - WIN_HALF, f[band], np.log10(Sxx[band] + 1e-12),
                        shading='auto', cmap='magma')
@@ -129,9 +129,9 @@ def main(idx=2, n_examples=6):
         axes[0][col].set_title(f'{cen_hr[p]:.2f} h\n{freq[p]:.1f} Hz, {dur_s[p]*1000:.0f} ms',
                                fontsize=8)
 
-    fig.suptitle(f'{meta["label"]}: individual N2 spindle windows — EEG shows the '
-                 f'spindle, CAP (raw / sigma / spectrogram) shows nothing at 11-16 Hz',
-                 fontsize=11, y=0.995)
+    fig.suptitle(f'{meta["label"]}: individual N2 spindle windows — EEG shows the spindle; '
+                 f'no CAP channel (CLE-CRE / CLE / CRE / CH) shows anything at 11-16 Hz',
+                 fontsize=11, y=0.997)
     fig.tight_layout(rect=[0, 0, 1, 0.99])
     out = os.path.join(OUT, f'fig_spindle_windows_{meta["label"]}.png')
     fig.savefig(out, dpi=140, bbox_inches='tight')
