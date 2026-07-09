@@ -4,6 +4,11 @@ Records all code changes to library modules, scripts, and notebooks.
 
 ---
 
+## 2026-07-09
+
+- **Added** `analysis/slow_wave/cap_swa_definition.py` — CAP-SWA operational definition (Workstream C). Per-epoch mechanical/physiology/validation feature extraction; graded SWA score (percentile geometric mean of slow-DC + slow-thorax + quiescence sub-scores); binary sustained-bout candidate label; movement-initiation precursor test with matched-random null (H2); per-subject SWA-vs-non-SWA contrast for the professor's autonomic hypotheses (H4 HR, H5 RR, H6 CAP/thorax k-deviation, H7 PPG-vs-CAP cardiac freq, H8 EEG delta) with Bonferroni; SWA-score N3 AUC.
+- **Output** `reports/slow_wave/cap_swa/<session>/epoch_features.csv` + `night_overview.png` (12 sessions), `all_epoch_features.parquet`, `hypothesis_summary.csv`, `movement_initiation.csv`.
+
 ## 2026-06-18
 
 - **Added** `scripts/generate_manuscript_docx.py` — generates complete manuscript draft (Methods, Results, Discussion, Limitations, Conclusion + Open Items) as Word document. Embeds 14 key figures, 6 tables, reconciled against all post-consensus source CSVs. Title/Abstract/Intro are placeholders.
