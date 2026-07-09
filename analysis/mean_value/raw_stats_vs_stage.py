@@ -296,8 +296,15 @@ def main():
     for cname in CONTRASTS:
         fig_loso_grid(auc_grids[cname], cname, PLOT_DIR / f'loso_grid_{cname}.png')
         print(f'  loso_grid_{cname}.png')
-    # detailed figures for the two user-requested stats on the primary channel
-    for stat in ['std', 'slope_vlf']:
+    # per-window variance (std) detailed figures for EVERY channel
+    for ch in CHANNELS:
+        safe = ch.replace('+', 'plus').replace('-', '_')
+        feat = f'std_{ch}_z'
+        fig_boxplot(df, feat, PLOT_DIR / f'boxplot_std_{safe}.png')
+        fig_subject_direction(df, feat, PLOT_DIR / f'subject_direction_std_{safe}.png')
+        print(f'  boxplot_std_{safe}.png + subject_direction_std_{safe}.png')
+    # slope on the primary channel (representative — near chance everywhere)
+    for stat in ['slope_vlf']:
         feat = f'{stat}_CLE-CRE_z'
         fig_boxplot(df, feat, PLOT_DIR / f'boxplot_{stat}_CLE_CRE.png')
         fig_subject_direction(df, feat, PLOT_DIR / f'subject_direction_{stat}_CLE_CRE.png')
