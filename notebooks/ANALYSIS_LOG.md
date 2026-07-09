@@ -1810,6 +1810,30 @@ Done (negative for a universal biomarker; positive for a within-subject descript
 Recommend against leading Results with it as a discriminator; suitable only as descriptive
 motivation with the subject-dependence stated. Manuscript not edited per instructions.
 
+### Extension — all channels + accelerometer (same day)
+Extended to 5 mean-value channels: CLE, CRE, CLE-CRE, CLE+CRE (average), and acc (acc_mag).
+Per-channel boxplots, per-subject direction heatmaps, and per-channel LOSO AUC added.
+Outputs: `reports/mean_value/mean_value_loso_auc.csv`;
+`notebooks/plots/mean_value/{boxplot_<ch>[_detr], subject_direction_<ch>}.png` for
+ch ∈ {CLE, CRE, CLE_CRE, CLEplusCRE, acc}.
+
+Findings (strengthen original verdict):
+1. Every channel is significant when pooled — KW p ranges 1e-4 (acc detr) to 3.6e-31
+   (CRE detr). Significance is universal and therefore uninformative on its own (large N).
+2. Per-subject direction is **subject-dependent for all contrasts on all 5 channels**,
+   with a single exception: CLE+CRE Wake-vs-sleep is 6/6 subjects "lower in Wake" —
+   yet its LOSO AUC is only 0.55 (near chance), so the one consistent-direction contrast
+   still does not discriminate (heavy overlap; tiny effect).
+3. LOSO AUC across all channels × contrasts spans 0.29–0.61 (chance band). No channel or
+   channel-combination rescues generalization.
+4. acc *mean* (magnitude incl. gravity vector) tracks head **posture**, not activity —
+   Wake is NOT the highest-acc stage (order N3<REM<N1<Wake<N2), and its Wake contrast is
+   3/3 subject-split. So acc mean is a posture proxy, not a wake detector.
+5. Per-stage *ordering* flips between raw and detrended for CRE and CLE+CRE (e.g. CRE raw
+   N2<Wake<N1<REM<N3 vs detr N2<N1<N3<Wake<REM), confirming the slow overnight drift —
+   not stage — dominates the raw signal; "ordering" is an artifact of the detrend choice.
+Conclusion unchanged: no channel (CAP or acc) yields a universal mean-value stage marker.
+
 ---
 
 ## Next Steps

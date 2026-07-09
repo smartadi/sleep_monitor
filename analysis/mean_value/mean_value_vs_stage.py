@@ -72,7 +72,9 @@ PLOT_DIR.mkdir(parents=True, exist_ok=True)
 REPORT_DIR.mkdir(parents=True, exist_ok=True)
 
 EPOCH_SEC = 30.0
-CHANNELS = ['CLE', 'CRE', 'CLE-CRE']
+# All CAP channels + the accelerometer magnitude, treated as mean-value channels.
+CHANNELS = ['CLE', 'CRE', 'CLE-CRE', 'CLE+CRE', 'acc']
+CAP_CH = ['CLE', 'CRE', 'CLE-CRE']       # channels drawn in the spectrogram overlay
 VLF_HZ = 0.05           # slow baseline cutoff (below respiratory band 0.1-0.5 Hz)
 DETREND_WIN_EPOCHS = 61  # ~30 min rolling-median trend to remove (odd -> centred)
 REPRESENTATIVE = ['S1N1', 'S3N1', 'S5N1']  # sessions for time-series/spectrogram figs
@@ -116,7 +118,9 @@ def extract_session(idx):
         'CRE': s.cap['CRE'].astype(np.float64),
     }
     raw['CLE-CRE'] = raw['CLE'] - raw['CRE']
+    raw['CLE+CRE'] = 0.5 * (raw['CLE'] + raw['CRE'])
     acc = s.cap['acc_mag'].astype(np.float64)
+    raw['acc'] = acc
 
     # VLF baselines (1 Hz series) per channel, interpolated onto epoch centres.
     vlf = {}
@@ -209,7 +213,7 @@ def fig_spectrogram_hypno(s, df, out):
     ax.set_ylabel('Frequency (Hz)', fontsize=10); ax.set_ylim(0, 1.0)
 
     ax = axes[2]
-    for ch in CHANNELS:
+    for ch in CAP_CH:
         ax.plot(df['t_hr'], df[f'mean_{ch}_z'], lw=1.1,
                 color=CAP_COLORS.get(ch, None), label=f'{ch} mean (z)')
     ax.axhline(0, color='gray', ls=':', lw=0.8)
@@ -402,8 +406,8 @@ def main():
     Hd, pd_, medd = stage_stats(df, 'mean_CLE-CRE_detr_z')
     print(f'Trend-removed confound check: mean_CLE-CRE_detr_z H={Hd:.1f} p={pd_:.2e}')
 
-    # ── Per-subject direction consistency ──
-    print('\nPer-subject direction consistency:')
+    # ── Per-subject direction consistency (every channel) ──
+    print('\nPer-subject direction consistency (mean_<ch>_z):')
     d = df[df['stage_code'] >= 0]
     subs = sorted(d['subject'].unique())
     dir_rows = []
@@ -412,27 +416,33 @@ def main():
         'N3_vs_rest':    lambda x: x['stage_code'] == 1,
         'REM_vs_rest':   lambda x: x['stage_code'] == 0,
     }
-    for cname, cfun in contrasts.items():
-        signs = []
-        for sub in subs:
-            ds = d[d['subject'] == sub]
-            auc, sign = contrast_auc(ds, prim, cfun(ds))
-            signs.append(sign)
-            dir_rows.append({'contrast': cname, 'subject': sub,
-                             'feature': prim, 'auc': auc, 'direction': sign})
-        highs = signs.count('high'); lows = signs.count('low')
-        print(f'  {cname:16s} [{prim}]: high={highs} low={lows} '
-              f'-> {"CONSISTENT" if 0 in (highs, lows) else "SUBJECT-DEPENDENT"}')
+    for ch in CHANNELS:
+        feat = f'mean_{ch}_z'
+        for cname, cfun in contrasts.items():
+            signs = []
+            for sub in subs:
+                ds = d[d['subject'] == sub]
+                auc, sign = contrast_auc(ds, feat, cfun(ds))
+                signs.append(sign)
+                dir_rows.append({'channel': ch, 'contrast': cname, 'subject': sub,
+                                 'feature': feat, 'auc': auc, 'direction': sign})
+            highs = signs.count('high'); lows = signs.count('low')
+            verdict = 'CONSISTENT' if 0 in (highs, lows) else 'SUBJECT-DEPENDENT'
+            print(f'  {ch:8s} {cname:16s}: high={highs} low={lows} -> {verdict}')
     dir_df = pd.DataFrame(dir_rows)
     dir_df.to_csv(REPORT_DIR / 'mean_value_subject_direction.csv', index=False)
 
-    # ── LOSO AUC for promising contrasts on primary feature ──
+    # ── LOSO AUC for each contrast, every channel ──
     print('\nLOSO AUC (single mean-value feature, logistic):')
+    loso_rows = []
     for cname, cfun in contrasts.items():
-        for feat in ['mean_CLE-CRE_z', 'mean_CLE-CRE_detr_z',
-                     'mean_CLE_z', 'mean_CRE_z']:
-            auc = loso_auc(df, feat, cfun)
-            print(f'  {cname:16s} {feat:22s} AUC={auc:.3f}')
+        for ch in CHANNELS:
+            for feat in [f'mean_{ch}_z', f'mean_{ch}_detr_z']:
+                auc = loso_auc(df, feat, cfun)
+                loso_rows.append({'contrast': cname, 'channel': ch,
+                                  'feature': feat, 'loso_auc': auc})
+                print(f'  {cname:16s} {feat:22s} AUC={auc:.3f}')
+    pd.DataFrame(loso_rows).to_csv(REPORT_DIR / 'mean_value_loso_auc.csv', index=False)
 
     # ── Figures ──
     print('\nWriting figures...')
@@ -440,10 +450,12 @@ def main():
         fig_spectrogram_hypno(s, sdf, PLOT_DIR / f'spectrogram_hypno_{lbl}.png')
         fig_meanvalue_hypno(s, sdf, PLOT_DIR / f'meanvalue_hypno_{lbl}.png')
         print(f'  {lbl}: spectrogram + mean-value overlays')
-    fig_boxplot(df, prim, PLOT_DIR / 'boxplot_by_stage.png')
-    fig_boxplot(df, 'mean_CLE-CRE_detr_z', PLOT_DIR / 'boxplot_by_stage_detr.png')
-    fig_subject_direction(df, prim, PLOT_DIR / 'subject_direction.png')
-    print('  boxplots + subject-direction heatmap')
+    for ch in CHANNELS:
+        safe = ch.replace('+', 'plus').replace('-', '_')
+        fig_boxplot(df, f'mean_{ch}_z', PLOT_DIR / f'boxplot_{safe}.png')
+        fig_boxplot(df, f'mean_{ch}_detr_z', PLOT_DIR / f'boxplot_{safe}_detr.png')
+        fig_subject_direction(df, f'mean_{ch}_z', PLOT_DIR / f'subject_direction_{safe}.png')
+        print(f'  {ch}: boxplot + detr boxplot + subject-direction heatmap')
 
     print('\nDone. Reports -> reports/mean_value/  Figures -> notebooks/plots/mean_value/')
 
