@@ -7,13 +7,15 @@ so you can see what leads into and out of the state. The trial span is shaded; t
 onset (t=0) and offset are marked.
 
 Per example trial, stacked panels (shared x = minutes from trial onset):
-  1. sleep stage strip (PSG)
-  2. the three definition criteria as sub-scores (D1 slow-DC / D3 slow-thorax /
-     Dq quiescent) with the q "holds" line
-  3. mean capacitance CLE-CRE (dc_mean) — the actual slow-DC quantity (D1)
+  1. sleep stage strip (PSG) + head-movement ticks
+  2. the hold criteria as sub-scores (C1 single-channel slow-drift / C3 slow-thorax)
+     with the q "holds" line
+  3. single-channel capacitive means CLE / CRE / CH, demeaned over the window
+     (the actual C1 slow-drift signal — flat inside the trial)
   4. heart rate (BPM, from ECG)
   5. EEG delta ratio
-  6. thorax amplitude (RMS) + accelerometer RMS (twin axis)
+  6. thorax amplitude (RMS) + accelerometer RMS (twin), with the INITIATING head
+     movement marked (orange) — C2
 
 Reads:  reports/slow_wave/cap_swa/trials/trial_epochs.parquet  (from cap_swa_trials.py)
         reports/slow_wave/cap_swa/trials/trials.csv
@@ -68,10 +70,17 @@ def plot_trial(axes, g_sess, trial, col):
     x_on = 0.0
     x_off = (g['t_hr'].iloc[b - 1] - onset_hr) * 60.0 + EPOCH_SEC / 60.0
 
-    def shade(ax):
+    # head-movement x positions within the window
+    move_x = ((w.loc[w['head_move'], 't_hr'].values - onset_hr) * 60.0
+              if 'head_move' in w else np.array([]))
+
+    def shade(ax, marks=True):
         ax.axvspan(x_on, x_off, color='#2ECC71', alpha=0.16)
         ax.axvline(x_on, color='#27AE60', lw=1.0)
         ax.axvline(x_off, color='#27AE60', lw=1.0, ls='--')
+        if marks:
+            for mx in move_x:
+                ax.axvline(mx, color='#E67E22', lw=0.7, alpha=0.5)
 
     # ── 1. stage strip ──
     ax = axes[0]
@@ -81,28 +90,31 @@ def plot_trial(axes, g_sess, trial, col):
                    color=STAGE_COLORS.get(int(r['stage_code']), '#AAA'),
                    alpha=0.9 if r['stage_code'] == N3_CODE else 0.45)
     ax.axvline(x_on, color='k', lw=0.8); ax.axvline(x_off, color='k', lw=0.8, ls='--')
+    for mx in move_x:
+        ax.axvline(mx, color='#E67E22', lw=1.2, alpha=0.8)
     ax.set_yticks([])
-    stages_present = [STAGE_LABELS.get(int(s), '?') for s in w['stage_code'].unique()]
     ax.set_title(f"trial {int(tid)} · {trial['duration_min']:.1f} min · "
-                 f"dom {trial['dom_stage']} · N3 {trial['frac_N3']*100:.0f}%",
-                 fontsize=9)
+                 f"dom {trial['dom_stage']} · N3 {trial['frac_N3']*100:.0f}% "
+                 f"(orange = head move)", fontsize=9)
 
-    # ── 2. criteria sub-scores ──
+    # ── 2. hold criteria sub-scores ──
     ax = axes[1]; shade(ax)
-    ax.plot(x, w['swa_s_dc'], lw=1.0, label='D1 slow-DC', color='#2980B9')
-    ax.plot(x, w['swa_s_thorax'], lw=1.0, label='D3 slow-thorax', color='#E67E22')
-    ax.plot(x, w['swa_s_still'], lw=1.0, label='Dq quiescent', color='#16A085')
+    ax.plot(x, w['c1_slow_drift'], lw=1.0, label='C1 slow single-ch drift', color='#2980B9')
+    ax.plot(x, w['c3_slow_thorax'], lw=1.0, label='C3 slow thorax', color='#E67E22')
     ax.axhline(Q_HOLD, color='k', ls=':', alpha=0.6)
     ax.set_ylim(0, 1.02)
     if col == 0:
-        ax.set_ylabel('criteria\nsub-scores')
+        ax.set_ylabel('hold criteria\nsub-scores')
         ax.legend(fontsize=6, loc='lower left', ncol=1)
 
-    # ── 3. mean capacitance CLE-CRE ──
+    # ── 3. single-channel means (demeaned over window) ──
     ax = axes[2]; shade(ax)
-    ax.plot(x, w['dc_mean'], lw=1.0, color='#34495E')
+    for ch, c in [('cle_mean', '#2980B9'), ('cre_mean', '#C0392B'), ('ch_mean', '#16A085')]:
+        v = w[ch].values.astype(float)
+        ax.plot(x, v - np.nanmean(v), lw=1.0, color=c, label=ch.split('_')[0].upper())
     if col == 0:
-        ax.set_ylabel('CLE-CRE\nmean (D1)')
+        ax.set_ylabel('single-ch mean\n(demeaned, C1)')
+        ax.legend(fontsize=6, loc='lower left', ncol=3)
 
     # ── 4. heart rate ──
     ax = axes[3]; shade(ax)
