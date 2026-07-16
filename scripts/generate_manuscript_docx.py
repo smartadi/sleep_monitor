@@ -389,19 +389,32 @@ def write_results(doc):
         "The capacitive temple sensor signal contained sustained energy in both the "
         "respiratory (0.1–0.5 Hz) and cardiac (0.5–3.0 Hz) bands across all "
         "twelve recordings (Figure 1). The respiratory band carried 29–48% of total "
-        "signal power (0–5 Hz), with in-band SNR of +11 to +27 dB relative to the "
-        "3.5–5 Hz noise floor. The cardiac band carried 8–48% of total power, "
-        "with SNR of +4 to +13 dB. Cross-subject variation was substantial: S6N1 was "
-        "resp-dominated (48% respiratory, 8% cardiac), while S3N1 was cardiac-heavy "
-        "(48% cardiac), reflecting real inter-individual differences in sensor coupling "
-        "rather than noise."
+        "signal power (0–5 Hz) and the cardiac band 8–48%. Cross-subject variation "
+        "was substantial: S6N1 was resp-dominated (48% respiratory, 8% cardiac), while "
+        "S3N1 was cardiac-heavy (48% cardiac), reflecting real inter-individual "
+        "differences in sensor coupling rather than noise."
+    )
+    add_para(doc,
+        "To quantify how far the physiological content sits above the sensor's noise "
+        "floor without assuming any baseline model, we computed a single broadband "
+        "signal-to-noise ratio per session directly on the raw CLE−CRE signal. All "
+        "physiological content (respiration, cardiac, movement) is confined below "
+        "10 Hz; above 10 Hz the sensor carries only its electronic noise floor. We "
+        "therefore defined the signal as the full-night power below 10 Hz and the "
+        "noise as the power from 10 Hz to the Nyquist frequency (50 Hz), with "
+        "SNR = 10·log10(P_signal / P_noise). SNR was positive in eleven of twelve "
+        "recordings (mean +12.6 dB, median +11.8 dB, range −0.3 to +22.4 dB), "
+        "confirming that the sub-10 Hz band dominates the sensor noise floor "
+        "(Figure 2)."
     )
     add_figure(doc, FIG_SV / "fig5_cap_spectrogram_bands.png",
         "Figure 1. CLE−CRE spectrograms (0–5 Hz) with respiratory and cardiac "
         "band annotations for three representative sessions.")
-    add_figure(doc, FIG_SV / "fig7_inband_snr.png",
-        "Figure 2. In-band SNR analysis. (A) Per-session boxplots, (B) SNR time course, "
-        "(C) Mean PSD with band annotations. All sessions show positive SNR in both bands.")
+    add_figure(doc, FIG_SV / "fig2_inband_snr.png",
+        "Figure 2. Broadband in-band SNR per session (CLE−CRE). Signal is the "
+        "full-night power below 10 Hz; noise is the power from 10 Hz to Nyquist "
+        "(50 Hz). Inset: 12-session mean PSD showing the signal/noise split at 10 Hz. "
+        "SNR is positive in eleven of twelve sessions (mean +12.6 dB).")
 
     add_para(doc,
         "Cross-spectral coherence at the ground-truth rate frequency confirmed "
@@ -756,8 +769,9 @@ def write_discussion(doc):
     doc.add_heading("Physiological band energy", level=3)
     add_para(doc,
         "Both respiratory and cardiac bands carry substantial energy (29–48% and "
-        "8–48% of total power respectively) with positive in-band SNR in all "
-        "twelve recordings. The cross-spectral coherence and surrogate analyses confirm "
+        "8–48% of total power respectively), and the sub-10 Hz physiological band "
+        "sits above the sensor noise floor with positive broadband SNR in eleven of "
+        "twelve recordings (mean +12.6 dB). The cross-spectral coherence and surrogate analyses confirm "
         "that this energy represents genuine physiological coupling rather than "
         "broadband noise. This establishes the foundational signal quality for any "
         "downstream analysis."
@@ -1030,7 +1044,7 @@ def write_open_items(doc):
     add_para(doc,
         "Figures embedded in this document:\n"
         "Fig 1: fig5_cap_spectrogram_bands.png (signal validation spectrograms)\n"
-        "Fig 2: fig7_inband_snr.png (SNR analysis)\n"
+        "Fig 2: fig2_inband_snr.png (broadband SNR per session)\n"
         "Fig 3: fig18_mae_heatmap.png (multichannel × multimethod MAE)\n"
         "Fig 4: fig2_bland_altman.png (Bland–Altman)\n"
         "Fig 5: fig3_per_stage_mae.png (per-stage accuracy)\n"
