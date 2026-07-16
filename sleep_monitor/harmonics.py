@@ -337,6 +337,7 @@ def detect_persistent_ridges(
     win_sec: float = 30.0,
     step_sec: float = 30.0,
     max_freq: float = 5.0,
+    min_freq: float = 0.0,
     smooth_windows: int = 5,
     min_persistence_sec: float = 120.0,
     max_freq_jump: float = 0.08,
@@ -383,7 +384,7 @@ def detect_persistent_ridges(
         sig[:win_n].astype(np.float64), fs=fs, nperseg=nperseg,
         noverlap=nperseg // 2, scaling='density',
     )
-    f_mask = sample_freqs <= max_freq
+    f_mask = (sample_freqs <= max_freq) & (sample_freqs >= min_freq)
     freqs = sample_freqs[f_mask]
     n_f = len(freqs)
 
@@ -480,14 +481,14 @@ def detect_persistent_ridges(
     # ── Step 5: Filter by minimum persistence and frequency ──
     min_windows = max(1, int(min_persistence_sec / step_sec))
     df_freq = freqs[1] - freqs[0] if len(freqs) > 1 else 0.1
-    min_freq = 2 * df_freq
+    min_ridge_freq_floor = max(min_freq, 2 * df_freq)
     ridges = []
     for r in finished_ridges:
         n_present = np.sum(~np.isnan(r['freq_trace']))
         duration = (r['end_idx'] - r['start_idx'] + 1) * step_sec
         median_freq = float(np.nanmedian(r['freq_trace']))
         if (n_present >= min_windows and duration >= min_persistence_sec
-                and median_freq >= min_freq):
+                and median_freq >= min_ridge_freq_floor):
             ridges.append({
                 'freq_trace': r['freq_trace'],
                 'amp_trace': r['amp_trace'],
