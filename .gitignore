@@ -95,3 +95,6 @@ notebooks/.cache/
 
 # Archive (superseded code)
 archive/
+
+# Signal characterization cache (regenerable derived artifact)
+writeup/figures/signal_validation/signal_characterization_cache.pkl
