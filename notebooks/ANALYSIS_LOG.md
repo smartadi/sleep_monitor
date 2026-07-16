@@ -1911,3 +1911,41 @@ trend. This is a stronger and more defensible Results opener than the mean alone
     - sleep apnea::
     Flow: gives types on apnea
     effort1
+
+---
+
+## 2026-07-16 — Fultz-style EEG→CAP lead-lag / impulse-response (prof suggestion)
+
+**Motivation.** Fultz et al. (Science 2019): slow-delta EEG (0.2–4 Hz) envelope does
+NOT correlate with CSF inflow at zero lag but LEADS it by ~6.4 s via a best-fit
+impulse response. Our prior SWA-validation tested only *zero-lag* spectral agreement
+(r≈0.015) and could not detect a delayed downstream coupling. Prof asked us to look
+for the same "early signature / impulse" in EEG. Target signal = slow CAP (CSF role).
+
+**Method.** `analysis/swa_validation/fultz_eeg_cap_impulse.py`. Per session, NREM only:
+EEG 0.2–4 Hz → Hilbert envelope → smooth → decimate to 5 Hz (continuous);
+CAP channel decimated to 5 Hz → slow bandpass 0.01–0.1 Hz (Butterworth, continuous).
+Slice contiguous NREM runs (≥120 s). FFT cross-correlation over ±40 s (positive lag =
+EEG leads CAP), circular-shift null (500×, 95%), ridge impulse response, peak-locked
+average at slow-CAP peaks.
+
+**First pass — S2N2 (390 min NREM, 18 runs):**
+| CAP | peak |r| | lag (s) | null95 | IR r | n_peaks |
+|-----|--------|---------|--------|------|---------|
+| CLE | 0.084 | +6.6 (EEG leads) | 0.050 | 0.12 | 433 |
+| CRE | 0.146 | +2.0 (EEG leads) | 0.049 | 0.22 | 466 |
+| CH  | 0.100 | −2.4 (EEG lags)  | 0.046 | 0.11 | 491 |
+| CLE-CRE | 0.076 | −1.0 (EEG lags) | 0.047 | 0.11 | 488 |
+
+**Read.** Peak-locked averages (all 4 channels) clearly show slow-delta EEG envelope
+elevated around the slow-CAP peak with tight CIs → a real within-session coupling.
+BUT effect sizes are weak (r²<2%), lag SIGN is inconsistent across channels, cross-corr
+shapes are dispersive (derivative-like) for CLE/CH/CLE-CRE, and CAP-slow shows no
+discrete ~0.05 Hz peak (unlike CSF). CRE is cleanest (near-0 to +2 s, IR r=0.22 ≈
+Fultz's cross-validated 0.22); CLE's +6.6 s echoes Fultz's 6.4 s but is weak.
+NOT yet a clean replication — needs motion/arousal confound control and cohort test.
+
+**Next.** (1) cohort across NREM-rich sessions (S2N2,S3N2,S2N1,S5N1); (2) regress out
+accelerometer / restrict low-motion, since arousals co-modulate delta and CAP drift;
+(3) sub-band refinement (SO 0.5–1 vs delta) and slow-band choice. Figure:
+`analysis/swa_validation/outputs/fultz_eeg_cap_S2N2.png`.
