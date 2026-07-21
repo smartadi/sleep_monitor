@@ -4,6 +4,12 @@ Records all code changes to library modules, scripts, and notebooks.
 
 ---
 
+## 2026-07-21
+
+- **Added** `analysis/mean_value/abs_mean_vs_stage.py` — absolute (native a.u.) CAP mean-value vs sleep-stage analysis, the complement to the z-scored slow-mean scripts. Consumes the raw a.u. columns already in `reports/mean_value/mean_value_epochs.csv` (no raw reload for stats); controls the between-session DC offset by subtracting each channel's per-session Wake median (preserves a.u. scale, unlike z-score). Computes: between-session offset spread, within-night drift (last-30min − first-30min), per-session-centered per-stage medians + Kruskal–Wallis, and per-subject Wake/N3 sign consistency. Loads the 3 representative sessions (S1N1/S3N1/S5N1) for a raw-a.u. trace + low-freq spectrogram figure. Outputs `reports/mean_value/abs_mean_{scale, stage_au, subject_direction}.csv` and figs `notebooks/plots/mean_value/abs_{baseline_by_session, stage_boxplot_au, scale_comparison, trace_<SESSION>}.png`. Run: `.venv/Scripts/python.exe analysis/mean_value/abs_mean_vs_stage.py`.
+
+---
+
 ## 2026-07-16
 
 - **Added** `writeup/figures/signal_validation/psd_db_per_session.py` — simple frequency-vs-dB power-spectrum plot of the CAP signal, per session. x = frequency (Hz, 0–20), y = power in dB (`10*log10` of the full-night Welch PSD); CLE−CRE differential bold + CH/CLE/CRE faint; resp (0.1–0.5) and cardiac (0.5–3.0 Hz) bands shaded. Reuses the cached PSDs in `signal_characterization_cache.pkl` (no raw reload). Outputs a 4×3 all-sessions grid `psd_db_all_sessions.png` + one PNG per session under `psd_db/`. Run: `.venv/Scripts/python.exe writeup/figures/signal_validation/psd_db_per_session.py`.
