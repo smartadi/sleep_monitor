@@ -39,7 +39,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
-from scipy.signal import butter, filtfilt, spectrogram as sp_spectrogram
+from scipy.signal import butter, sosfiltfilt, spectrogram as sp_spectrogram
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from sleep_monitor import load_session, load_sleep_profile
@@ -61,7 +61,7 @@ CH_LONG = {'CLE': 'left temple (CLE)', 'CRE': 'right temple (CRE)',
 BLOCK_SEC = 10.0            # window for mean / variance / motion (display rows)
 LP_CAP_HZ = 10.0           # low-pass cap applied to raw signal before mean/variance
 VEL_BLOCK_SEC = 1.0        # finer block for the velocity baseline (1 Hz series)
-VEL_LP_HZ = 0.05           # low-pass cap applied to the velocity (Butterworth-4)
+VEL_LP_HZ = 0.01           # low-pass cap on the velocity -> slow drift rate (~100 s)
 SPEC_FMAX = 5.0            # spectrogram top frequency (Hz)
 
 # ── Journal styling ───────────────────────────────────────────────────────────
@@ -118,8 +118,8 @@ def block_reduce(x, n, fn):
 
 
 def lowpass(x, fs, fc):
-    b, a = butter(4, fc / (0.5 * fs), btype='low')
-    return filtfilt(b, a, x)
+    sos = butter(4, fc / (0.5 * fs), btype='low', output='sos')
+    return sosfiltfilt(sos, x)
 
 
 def regress_out(y, regressors):
@@ -233,7 +233,7 @@ def plot_channel(s, ch, feats, raw, out):
     ax.plot(feats['t_vel'], f['vel'], lw=0.7, color='#2980B9')
     ax.set_ylabel('Baseline velocity\n(a.u./hr)')
     ax.set_ylim(*robust_ylim(f['vel'], symmetric=True))
-    ax.text(0.006, 0.92, 'motion regressed out · 0.05 Hz low-pass',
+    ax.text(0.006, 0.92, 'slow drift rate · motion regressed out · 0.01 Hz low-pass',
             transform=ax.transAxes, fontsize=8, style='italic', color='#555', va='top')
     ax.grid(True, alpha=0.15); panel_letter(ax, 3)
 
