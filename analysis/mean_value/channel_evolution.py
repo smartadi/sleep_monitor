@@ -39,7 +39,6 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
-from scipy.ndimage import uniform_filter1d
 from scipy.signal import butter, filtfilt, spectrogram as sp_spectrogram
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
@@ -59,10 +58,10 @@ CH_COLOR = {'CLE': CAP_COLORS['CLE'], 'CRE': CAP_COLORS['CRE'], 'CH': CAP_COLORS
 CH_LONG = {'CLE': 'left temple (CLE)', 'CRE': 'right temple (CRE)',
            'CH': 'differential (CH)'}
 
-BLOCK_SEC = 10.0            # window for mean / variance / motion
+BLOCK_SEC = 10.0            # window for mean / variance / motion (display rows)
 LP_CAP_HZ = 10.0           # low-pass cap applied to raw signal before mean/variance
-BASELINE_SMOOTH_MIN = 3.0  # smoothing of the mean before differentiating (velocity)
-VEL_SMOOTH_MIN = 2.0       # extra smoothing of the velocity trace
+VEL_BLOCK_SEC = 1.0        # finer block for the velocity baseline (1 Hz series)
+VEL_LP_HZ = 0.05           # low-pass cap applied to the velocity (Butterworth-4)
 SPEC_FMAX = 5.0            # spectrogram top frequency (Hz)
 
 # ── Journal styling ───────────────────────────────────────────────────────────
@@ -94,6 +93,25 @@ def robust_ylim(y, pad=0.08, symmetric=False, floor0=False):
     return (lo, hi)
 
 
+def adaptive_ylim(y, k=5.0, pad=0.08):
+    """Mean-centred robust limits: median +/- k*MAD, but never zoomed OUT past the
+    data. Sessions with huge coupling swings zoom in to show the bulk around the
+    mean (extreme excursions clip); clean sessions show their full range."""
+    y = np.asarray(y, float)
+    y = y[np.isfinite(y)]
+    if y.size < 3:
+        return (-1, 1)
+    med = np.median(y)
+    mad = np.median(np.abs(y - med)) * 1.4826
+    spread = max(k * mad, 1e-6)
+    lo = max(med - spread, float(y.min()))
+    hi = min(med + spread, float(y.max()))
+    if hi <= lo:
+        lo, hi = float(y.min()), float(y.max())
+    span = hi - lo
+    return (lo - pad * span, hi + pad * span)
+
+
 def block_reduce(x, n, fn):
     m = len(x) // n
     return fn(x[: m * n].reshape(m, n), axis=1)
@@ -122,36 +140,39 @@ def compute_features(s):
     acc = s.cap['acc_mag'].astype(np.float64)
     aXYZ = {a: s.cap[a].astype(np.float64) for a in ('aX', 'aY', 'aZ')}
 
+    # ── Display rows (mean / variance / motion) at 10 s blocks ──
     n = int(round(fs * BLOCK_SEC))
     m = min(min(len(v) for v in raw.values()), len(acc)) // n
     t_hr = (np.arange(m) + 0.5) * BLOCK_SEC / 3600.0
-
-    hop_per_min = 60.0 / BLOCK_SEC
-    base_win = max(3, int(round(BASELINE_SMOOTH_MIN * hop_per_min)))
-    vel_win = max(3, int(round(VEL_SMOOTH_MIN * hop_per_min)))
-    dt_hr = BLOCK_SEC / 3600.0
-
     motion = block_reduce(acc[: m * n], n, np.std)
-    # Motion regressors: per-axis accelerometer MEAN (gravity vector = head
-    # orientation, which drives the sensor-coupling baseline steps) + the
-    # movement magnitude (accel std). Regressing these out of the baseline yields
-    # a CONTINUOUS motion-suppressed velocity (no gaps), rather than cutting.
-    axm = block_reduce(aXYZ['aX'][: m * n], n, np.mean)
-    aym = block_reduce(aXYZ['aY'][: m * n], n, np.mean)
-    azm = block_reduce(aXYZ['aZ'][: m * n], n, np.mean)
-    regs = [axm, aym, azm, motion]
 
-    feats = {'t_hr': t_hr, 'motion': motion}
+    # ── Velocity baseline at a finer 1 Hz block so the 0.15 Hz low-pass is valid ──
+    nv = int(round(fs * VEL_BLOCK_SEC))
+    mv = min(min(len(v) for v in raw.values()), len(acc)) // nv
+    t_vel = (np.arange(mv) + 0.5) * VEL_BLOCK_SEC / 3600.0
+    fs_v = 1.0 / VEL_BLOCK_SEC
+    dt_v_hr = VEL_BLOCK_SEC / 3600.0
+    # Motion regressors at 1 Hz: per-axis accel MEAN (gravity vector = head
+    # orientation, which drives the sensor-coupling baseline) + movement magnitude.
+    motion_v = block_reduce(acc[: mv * nv], nv, np.std)
+    regs_v = [block_reduce(aXYZ['aX'][: mv * nv], nv, np.mean),
+              block_reduce(aXYZ['aY'][: mv * nv], nv, np.mean),
+              block_reduce(aXYZ['aZ'][: mv * nv], nv, np.mean),
+              motion_v]
+
+    feats = {'t_hr': t_hr, 't_vel': t_vel, 'motion': motion}
     for ch, sig in raw.items():
         filt = lowpass(sig, fs, LP_CAP_HZ)          # <10 Hz cap before mean/var
         mean_b = block_reduce(filt[: m * n], n, np.mean)
         var_b = block_reduce(filt[: m * n], n, np.var)
-        # Motion-regressed baseline -> continuous velocity (accelerometer motion
-        # and orientation-driven coupling drift removed by OLS, nothing cut).
-        resid = regress_out(mean_b, regs)
-        base = uniform_filter1d(resid, base_win, mode='nearest')
-        vel = np.gradient(base, dt_hr)
-        vel = uniform_filter1d(vel, vel_win, mode='nearest')
+        # Continuous, motion-suppressed velocity: regress the accelerometer out of
+        # the 1 Hz baseline (nothing cut), low-pass the baseline at 0.15 Hz
+        # (Butterworth-4, zero-phase), then differentiate. The velocity is thus the
+        # rate of change of the sub-0.15 Hz baseline.
+        mean_v = block_reduce(filt[: mv * nv], nv, np.mean)
+        resid = regress_out(mean_v, regs_v)
+        base = lowpass(resid, fs_v, VEL_LP_HZ)
+        vel = np.gradient(base, dt_v_hr)
         feats[ch] = {'mean': mean_b, 'var': var_b, 'vel': vel}
     return feats, raw
 
@@ -192,10 +213,11 @@ def plot_channel(s, ch, feats, raw, out):
                  fontsize=13, fontweight='bold')
     panel_letter(ax, 0)
 
-    # B — mean value
+    # B — mean value (adaptive, mean-centred y-axis: huge coupling swings clip so
+    # the structure around the baseline stays visible)
     ax = axes[1]; stage_shading(ax, sp)
     ax.plot(t, f['mean'], lw=0.9, color=col)
-    ax.set_ylabel('Mean value\n(a.u.)'); ax.set_ylim(*robust_ylim(f['mean']))
+    ax.set_ylabel('Mean value\n(a.u.)'); ax.set_ylim(*adaptive_ylim(f['mean']))
     ax.grid(True, alpha=0.15); panel_letter(ax, 1)
 
     # C — variance
@@ -205,14 +227,14 @@ def plot_channel(s, ch, feats, raw, out):
     ax.set_ylim(*robust_ylim(f['var'], floor0=True))
     ax.grid(True, alpha=0.15); panel_letter(ax, 2)
 
-    # D — smoothed velocity (motion epochs removed before differentiation)
+    # D — baseline velocity: motion regressed out, low-passed at 0.15 Hz (1 Hz base)
     ax = axes[3]; stage_shading(ax, sp)
     ax.axhline(0, color='gray', ls=':', lw=0.8)
-    ax.plot(t, f['vel'], lw=0.9, color='#2980B9')
+    ax.plot(feats['t_vel'], f['vel'], lw=0.7, color='#2980B9')
     ax.set_ylabel('Baseline velocity\n(a.u./hr)')
     ax.set_ylim(*robust_ylim(f['vel'], symmetric=True))
-    ax.text(0.006, 0.9, 'accelerometer motion regressed out', transform=ax.transAxes,
-            fontsize=8, style='italic', color='#555', va='top')
+    ax.text(0.006, 0.92, 'motion regressed out · 0.05 Hz low-pass',
+            transform=ax.transAxes, fontsize=8, style='italic', color='#555', va='top')
     ax.grid(True, alpha=0.15); panel_letter(ax, 3)
 
     # E — motion
