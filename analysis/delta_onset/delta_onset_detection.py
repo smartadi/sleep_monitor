@@ -64,11 +64,15 @@ K_HIGH = 2.0                                # burst threshold  = med + K_HIGH*MA
 K_LOW = 0.5                                 # onset threshold  = med + K_LOW*MAD
 MIN_BURST_S = 4.0                           # burst must stay above `high` this long
 MIN_IEI_S = 25.0                            # refractory: min gap between onsets
-PRE_S = 30.0                                # pre-onset window checked for motion
+PRE_S = 30.0                                # pre-onset window checked for motion + gallery display
 POST_S = 15.0                               # post-onset window (for gallery only)
 MAX_MOTION_FRAC = 0.10                      # max fraction of motion samples in pre-window
-REQUIRE_QUIET_PRE = True                    # EEG-quiescence gate: pre-window delta must be quiet
-                                            # (mean pre-window env < `low` -> true quiet->delta onset)
+# EEG-quiescence gate: mean EEG delta env over the last QUIET_PRE_S s must be < `low`
+# (near baseline) -> the onset is a true quiet->delta transition. Reported for each
+# window in QUIET_PRE_DEFAULT so the count-vs-cleanliness tradeoff is visible.
+# A shorter window recovers n (a separate slow-wave earlier in the pre-window no longer
+# disqualifies the trial); the full 30 s is the strictest. Set 0 to disable the gate.
+QUIET_PRE_DEFAULT = [15.0, 30.0]
 NREM_CODES = (1, 2)                         # 1=N3, 2=N2
 
 # Motion: rolling std of acc_mag over MOTION_WIN_S, flagged above MOTION_PCTL.
@@ -157,10 +161,13 @@ def load_features(idx):
 
 
 # ── Onset detection ──────────────────────────────────────────────────────────────
-def detect_onsets(env, codes, motion, fs):
+def detect_onsets(env, codes, motion, fs, quiet_pre_s):
     """
     Returns a DataFrame of accepted delta-burst onsets with metadata, plus the
     (low, high) thresholds used (for plotting).
+
+    quiet_pre_s : length (s) of the immediate pre-onset window whose mean EEG delta
+                  env must be below `low` (EEG-quiescence gate). 0 disables the gate.
     """
     is_nrem = np.isin(codes, NREM_CODES)
     nrem_env = env[is_nrem]
@@ -180,6 +187,7 @@ def detect_onsets(env, codes, motion, fs):
 
     min_burst = int(MIN_BURST_S * fs)
     pre = int(PRE_S * fs)
+    quiet = int(quiet_pre_s * fs)
     n = len(env)
 
     rows = []
@@ -206,9 +214,9 @@ def detect_onsets(env, codes, motion, fs):
         mfrac = motion[onset - pre:onset].mean()
         if mfrac > MAX_MOTION_FRAC:
             continue
-        # EEG-quiescence gate: pre-window delta must be quiet (near baseline)
-        pre_env_mean = float(env[onset - pre:onset].mean())
-        if REQUIRE_QUIET_PRE and pre_env_mean >= low:
+        # EEG-quiescence gate: immediate pre-onset delta must be quiet (near baseline)
+        pre_env_mean = float(env[onset - quiet:onset].mean()) if quiet > 0 else 0.0
+        if quiet > 0 and pre_env_mean >= low:
             continue
 
         last_onset = onset
@@ -226,14 +234,14 @@ def detect_onsets(env, codes, motion, fs):
 
 
 # ── Figures ──────────────────────────────────────────────────────────────────────
-def fig_overview(label, env, codes, motion, onsets, thr, fs):
+def fig_overview(label, env, codes, motion, onsets, thr, fs, tag):
     low, high = thr
     n = len(env)
     t_hr = np.arange(n) / fs / 3600.0
     ds = max(1, int(fs))                       # decimate to ~1 Hz for plotting
     fig, ax = plt.subplots(3, 1, figsize=(14, 8), sharex=True)
     fig.suptitle(f'{label}: delta-onset detection overview  '
-                 f'(n={len(onsets)} onsets)', fontsize=13)
+                 f'(n={len(onsets)} onsets, {tag})', fontsize=13)
 
     # hypnogram
     ax[0].step(t_hr[::ds], codes[::ds], where='post', color='#2C3E50', lw=0.6)
@@ -260,13 +268,13 @@ def fig_overview(label, env, codes, motion, onsets, thr, fs):
     ax[2].set_title('motion flag', fontsize=9)
 
     fig.tight_layout(rect=[0, 0, 1, 0.96])
-    out = OUT / f'fig_onsets_overview_{label}.png'
+    out = OUT / f'fig_onsets_overview_{label}_{tag}.png'
     fig.savefig(out, dpi=110)
     plt.close(fig)
     return out
 
 
-def fig_gallery(label, env, eeg, onsets, fs, n_show, rng):
+def fig_gallery(label, env, eeg, onsets, fs, n_show, quiet_pre_s, tag):
     if len(onsets) == 0:
         return None
     pick = onsets.sort_values('peak_env', ascending=False)
@@ -275,8 +283,8 @@ def fig_gallery(label, env, eeg, onsets, fs, n_show, rng):
     ncol = 3
     nrow = int(np.ceil(len(idx) / ncol))
     fig, axes = plt.subplots(nrow, ncol, figsize=(4.6 * ncol, 2.6 * nrow), squeeze=False)
-    fig.suptitle(f'{label}: strongest delta onsets — raw EEG (grey) + delta env (red)\n'
-                 f'onset at t=0 (green); shaded = pre-window checked in precursor test',
+    fig.suptitle(f'{label}: strongest delta onsets ({tag}) — raw EEG (grey) + delta env (red)\n'
+                 f'onset at t=0 (green); shaded = {quiet_pre_s:.0f}s quiescence-gated window',
                  fontsize=12)
     tax = np.arange(-pre, post) / fs
     for a, c in enumerate(idx):
@@ -285,22 +293,24 @@ def fig_gallery(label, env, eeg, onsets, fs, n_show, rng):
         ax.plot(tax, _zscore(eeg[seg]), color='#95A5A6', lw=0.4)
         ax.plot(tax, _zscore(env[seg]), color='#C0392B', lw=1.2)
         ax.axvline(0, color='#27AE60', lw=1.2)
-        ax.axvspan(-PRE_S, 0, color='#27AE60', alpha=0.06)
+        ax.axvspan(-quiet_pre_s, 0, color='#27AE60', alpha=0.06)
         ax.set_title(f't={c/fs/3600:.2f} hr', fontsize=8)
         ax.set_xlabel('s from onset', fontsize=8)
     for a in range(len(idx), nrow * ncol):
         axes[a // ncol][a % ncol].axis('off')
     fig.tight_layout(rect=[0, 0, 1, 0.94])
-    out = OUT / f'fig_onset_gallery_{label}.png'
+    out = OUT / f'fig_onset_gallery_{label}_{tag}.png'
     fig.savefig(out, dpi=110)
     plt.close(fig)
     return out
 
 
 # ── Runner ───────────────────────────────────────────────────────────────────────
-def run_session(idx, n_show, rng):
+def run_session(idx, n_show, quiet_pre_s):
+    """Detect onsets for one session at one quiescence window; write npz + figs."""
     label, env, codes, motion, eeg = load_features(idx)
-    onsets, thr = detect_onsets(env, codes, motion, FS)
+    tag = f'q{int(quiet_pre_s)}'
+    onsets, thr = detect_onsets(env, codes, motion, FS, quiet_pre_s)
 
     dur_hr = len(env) / FS / 3600.0
     nrem_hr = np.isin(codes, NREM_CODES).sum() / FS / 3600.0
@@ -308,25 +318,24 @@ def run_session(idx, n_show, rng):
     iei = np.diff(np.sort(onsets['onset_hr'].to_numpy())) * 3600.0 if len(onsets) > 1 else np.array([])
 
     np.savez_compressed(
-        OUT / f'delta_onsets_{label}.npz',
+        OUT / f'delta_onsets_{label}_{tag}.npz',
         onset_samp=onsets['onset_samp'].to_numpy() if len(onsets) else np.array([]),
         onset_hr=onsets['onset_hr'].to_numpy() if len(onsets) else np.array([]),
         stage_code=onsets['stage_code'].to_numpy() if len(onsets) else np.array([]),
-        low=thr[0], high=thr[1], fs=FS,
+        low=thr[0], high=thr[1], fs=FS, quiet_pre_s=quiet_pre_s,
     )
-    ov = fig_overview(label, env, codes, motion, onsets, thr, FS)
-    ga = fig_gallery(label, env, eeg, onsets, FS, n_show, rng)
+    fig_overview(label, env, codes, motion, onsets, thr, FS, tag)
+    fig_gallery(label, env, eeg, onsets, FS, n_show, quiet_pre_s, tag)
 
     n = len(onsets)
     n_nrem = int(onsets['stage_code'].isin(NREM_CODES).sum()) if n else 0
-    print(f'{label}: {n:4d} onsets  ({n / max(nrem_hr, 1e-6):.1f}/hr NREM)  '
-          f'stages={stage_mix}  '
-          f'median IEI={np.median(iei):.0f}s' if len(iei) else
-          f'{label}: {n:4d} onsets')
-    print(f'   overview: {ov.name}' + (f'   gallery: {ga.name}' if ga else ''))
+    med_iei = f'{np.median(iei):.0f}s' if len(iei) else 'n/a'
+    print(f'{label} [{tag}]: {n:4d} onsets  ({n / max(nrem_hr, 1e-6):5.1f}/hr NREM)  '
+          f'N2={stage_mix.get("N2", 0):3d} N3={stage_mix.get("N3", 0):3d}  '
+          f'median IEI={med_iei}')
 
     return {
-        'session': label, 'n_onsets': n,
+        'session': label, 'quiet_pre_s': int(quiet_pre_s), 'n_onsets': n,
         'dur_hr': round(dur_hr, 2), 'nrem_hr': round(nrem_hr, 2),
         'onsets_per_nrem_hr': round(n / max(nrem_hr, 1e-6), 2),
         'pct_in_nrem': round(100.0 * n_nrem / max(n, 1), 1),
@@ -340,23 +349,34 @@ def main():
     ap.add_argument('-s', '--session', type=int, default=None,
                     help='session index 0-11 (default: all)')
     ap.add_argument('--show', type=int, default=9, help='gallery panels per session')
+    ap.add_argument('--quiet-pre', default=None,
+                    help='comma-separated quiescence-window lengths in s '
+                         f'(default: {QUIET_PRE_DEFAULT}; 0 disables the gate)')
     args = ap.parse_args()
 
+    quiet_windows = ([float(x) for x in args.quiet_pre.split(',')]
+                     if args.quiet_pre else QUIET_PRE_DEFAULT)
+
     OUT.mkdir(parents=True, exist_ok=True)
-    rng = np.random.default_rng(0)
     indices = [args.session] if args.session is not None else list(range(len(SESSION_META)))
 
     summary = []
-    for i in indices:
-        try:
-            summary.append(run_session(i, args.show, rng))
-        except Exception as e:
-            print(f'[{i}] FAILED: {e}')
+    for q in quiet_windows:
+        print(f'\n=== quiescence window = {q:.0f} s ===')
+        for i in indices:
+            try:
+                summary.append(run_session(i, args.show, q))
+            except Exception as e:
+                print(f'[{i}] FAILED: {e}')
 
     if summary:
-        df = pd.DataFrame(summary)
+        df = pd.DataFrame(summary).sort_values(['session', 'quiet_pre_s'])
         df.to_csv(OUT / 'delta_onsets_summary.csv', index=False)
-        print('\n' + df.to_string(index=False))
+        # side-by-side count comparison across windows
+        pivot = df.pivot(index='session', columns='quiet_pre_s', values='n_onsets')
+        pivot.columns = [f'n@{int(c)}s' for c in pivot.columns]
+        print('\n-- onset counts by quiescence window --')
+        print(pivot.to_string())
         print(f'\nSaved summary -> {OUT / "delta_onsets_summary.csv"}')
 
 

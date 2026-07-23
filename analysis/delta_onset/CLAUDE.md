@@ -25,8 +25,10 @@ instead of a spindle, and we look in a window that **precedes** t=0.
   significance, per-subject reporting.
 
 ## Status
-- [x] Trigger built + eyeballed (2026-07-23). 11–197 onsets/session, N2-dominant,
-      100% NREM by construction. Clean quiet→burst transitions in most events;
-      **open issue:** low-SWA sessions (S5N1 n=11) show pre-window delta
-      contamination → consider a pre-window EEG-quiescence gate before precursor test.
-- [ ] Precursor / lead-lag analysis.
+- [x] Trigger built + eyeballed (2026-07-23). N2-dominant, 100% NREM by construction.
+- [x] EEG-quiescence gate added (`--quiet-pre`, default sweeps 15 & 30 s; outputs
+      tagged `q15`/`q30`, side-by-side count pivot in the summary CSV). Gate yields
+      clean quiet→delta trials but removes N3 (sustained delta has no quiet baseline)
+      and thins low-SWA nights; 15 s recovers only modest n over 30 s and does not
+      rescue S5 (genuine low-SWA/noisy-EEG). Run the precursor test on both sets.
+- [ ] Precursor / lead-lag analysis (`delta_cap_precursor.py`).
