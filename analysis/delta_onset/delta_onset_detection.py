@@ -67,6 +67,8 @@ MIN_IEI_S = 25.0                            # refractory: min gap between onsets
 PRE_S = 30.0                                # pre-onset window checked for motion
 POST_S = 15.0                               # post-onset window (for gallery only)
 MAX_MOTION_FRAC = 0.10                      # max fraction of motion samples in pre-window
+REQUIRE_QUIET_PRE = True                    # EEG-quiescence gate: pre-window delta must be quiet
+                                            # (mean pre-window env < `low` -> true quiet->delta onset)
 NREM_CODES = (1, 2)                         # 1=N3, 2=N2
 
 # Motion: rolling std of acc_mag over MOTION_WIN_S, flagged above MOTION_PCTL.
@@ -204,6 +206,10 @@ def detect_onsets(env, codes, motion, fs):
         mfrac = motion[onset - pre:onset].mean()
         if mfrac > MAX_MOTION_FRAC:
             continue
+        # EEG-quiescence gate: pre-window delta must be quiet (near baseline)
+        pre_env_mean = float(env[onset - pre:onset].mean())
+        if REQUIRE_QUIET_PRE and pre_env_mean >= low:
+            continue
 
         last_onset = onset
         rows.append({
@@ -213,6 +219,7 @@ def detect_onsets(env, codes, motion, fs):
             'stage': STAGE_LABELS.get(int(codes[onset]), '?'),
             'peak_env': float(env[hs:e].max()),
             'pre_motion_frac': float(mfrac),
+            'pre_env_mean': pre_env_mean,
         })
 
     return pd.DataFrame(rows), (low, high)
