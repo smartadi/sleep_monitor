@@ -39,7 +39,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
-from scipy.ndimage import uniform_filter1d, binary_dilation
+from scipy.ndimage import uniform_filter1d
 from scipy.signal import butter, filtfilt, spectrogram as sp_spectrogram
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
@@ -64,11 +64,6 @@ LP_CAP_HZ = 10.0           # low-pass cap applied to raw signal before mean/vari
 BASELINE_SMOOTH_MIN = 3.0  # smoothing of the mean before differentiating (velocity)
 VEL_SMOOTH_MIN = 2.0       # extra smoothing of the velocity trace
 SPEC_FMAX = 5.0            # spectrogram top frequency (Hz)
-MOTION_PCTL = 90.0         # accel blocks above this per-session pct are removed
-MOTION_DILATE = 2          # dilate the accel-motion mask by +/- this many blocks
-JUMP_K = 8.0               # robust (MAD) threshold for a baseline step artifact
-JUMP_DILATE = 18           # blank velocity +/- this many blocks around a big step
-                           # (covers the smoothing spread of the step, ~3 min)
 
 # ── Journal styling ───────────────────────────────────────────────────────────
 plt.rcParams.update({
@@ -109,10 +104,23 @@ def lowpass(x, fs, fc):
     return filtfilt(b, a, x)
 
 
+def regress_out(y, regressors):
+    """Return y with the (intercept + standardized regressors) OLS fit removed.
+    Continuous — no gaps. Regressors are z-scored for conditioning."""
+    cols = [np.ones_like(y)]
+    for r in regressors:
+        r = np.asarray(r, float)
+        cols.append((r - np.nanmean(r)) / (np.nanstd(r) + 1e-9))
+    R = np.column_stack(cols)
+    beta, *_ = np.linalg.lstsq(R, y, rcond=None)
+    return y - R @ beta
+
+
 def compute_features(s):
     fs = s.fs
     raw = {ch: s.cap[ch].astype(np.float64) for ch in CHANNELS}
     acc = s.cap['acc_mag'].astype(np.float64)
+    aXYZ = {a: s.cap[a].astype(np.float64) for a in ('aX', 'aY', 'aZ')}
 
     n = int(round(fs * BLOCK_SEC))
     m = min(min(len(v) for v in raw.values()), len(acc)) // n
@@ -124,29 +132,26 @@ def compute_features(s):
     dt_hr = BLOCK_SEC / 3600.0
 
     motion = block_reduce(acc[: m * n], n, np.std)
-    # accel-motion mask: top-decile per session, lightly dilated.
-    accel_mask = binary_dilation(motion > np.nanpercentile(motion, MOTION_PCTL),
-                                 iterations=MOTION_DILATE)
+    # Motion regressors: per-axis accelerometer MEAN (gravity vector = head
+    # orientation, which drives the sensor-coupling baseline steps) + the
+    # movement magnitude (accel std). Regressing these out of the baseline yields
+    # a CONTINUOUS motion-suppressed velocity (no gaps), rather than cutting.
+    axm = block_reduce(aXYZ['aX'][: m * n], n, np.mean)
+    aym = block_reduce(aXYZ['aY'][: m * n], n, np.mean)
+    azm = block_reduce(aXYZ['aZ'][: m * n], n, np.mean)
+    regs = [axm, aym, azm, motion]
 
-    feats = {'t_hr': t_hr, 'motion': motion, 'motion_flag': accel_mask}
+    feats = {'t_hr': t_hr, 'motion': motion}
     for ch, sig in raw.items():
         filt = lowpass(sig, fs, LP_CAP_HZ)          # <10 Hz cap before mean/var
         mean_b = block_reduce(filt[: m * n], n, np.mean)
         var_b = block_reduce(filt[: m * n], n, np.var)
-        base = uniform_filter1d(mean_b, base_win, mode='nearest')
+        # Motion-regressed baseline -> continuous velocity (accelerometer motion
+        # and orientation-driven coupling drift removed by OLS, nothing cut).
+        resid = regress_out(mean_b, regs)
+        base = uniform_filter1d(resid, base_win, mode='nearest')
         vel = np.gradient(base, dt_hr)
         vel = uniform_filter1d(vel, vel_win, mode='nearest')
-        # Non-artifact velocity: blank both accel-motion epochs AND large baseline
-        # STEP artifacts (electrode coupling loss/regain — NOT accelerometer motion,
-        # so they must be detected from the mean itself). A robust MAD threshold on
-        # the block-to-block mean change flags the steps; dilate widely so the
-        # smoothing bump around each step is fully removed from the display.
-        dmean = np.abs(np.diff(mean_b, prepend=mean_b[:1]))
-        mad = np.median(np.abs(dmean - np.median(dmean))) + 1e-9
-        jump_mask = binary_dilation(dmean > JUMP_K * 1.4826 * mad,
-                                    iterations=JUMP_DILATE)
-        vel = vel.copy()
-        vel[accel_mask | jump_mask] = np.nan
         feats[ch] = {'mean': mean_b, 'var': var_b, 'vel': vel}
     return feats, raw
 
@@ -206,7 +211,7 @@ def plot_channel(s, ch, feats, raw, out):
     ax.plot(t, f['vel'], lw=0.9, color='#2980B9')
     ax.set_ylabel('Baseline velocity\n(a.u./hr)')
     ax.set_ylim(*robust_ylim(f['vel'], symmetric=True))
-    ax.text(0.006, 0.9, 'motion & step artifacts removed', transform=ax.transAxes,
+    ax.text(0.006, 0.9, 'accelerometer motion regressed out', transform=ax.transAxes,
             fontsize=8, style='italic', color='#555', va='top')
     ax.grid(True, alpha=0.15); panel_letter(ax, 3)
 
