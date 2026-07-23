@@ -61,7 +61,7 @@ CH_LONG = {'CLE': 'left temple (CLE)', 'CRE': 'right temple (CRE)',
 BLOCK_SEC = 10.0            # window for mean / variance / motion (display rows)
 LP_CAP_HZ = 10.0           # low-pass cap applied to raw signal before mean/variance
 VEL_BLOCK_SEC = 1.0        # finer block for the velocity baseline (1 Hz series)
-VEL_LP_HZ = 0.01           # low-pass cap on the velocity -> slow drift rate (~100 s)
+VEL_LP_HZ = 0.002          # low-pass cap on the velocity -> slow drift rate (~500 s)
 SPEC_FMAX = 5.0            # spectrogram top frequency (Hz)
 
 # ── Journal styling ───────────────────────────────────────────────────────────
@@ -110,6 +110,20 @@ def adaptive_ylim(y, k=5.0, pad=0.08):
         lo, hi = float(y.min()), float(y.max())
     span = hi - lo
     return (lo - pad * span, hi + pad * span)
+
+
+def tight_sym_ylim(y, k=4.0, pad=0.1):
+    """Tight window symmetric about 0 for the velocity: +/- k*MAD, so the small
+    slow drift-rate fills the axis while big coupling-step pulses clip. Never
+    zoomed out past the data."""
+    y = np.asarray(y, float)
+    y = y[np.isfinite(y)]
+    if y.size < 3:
+        return (-1, 1)
+    mad = np.median(np.abs(y - np.median(y))) * 1.4826
+    half = min(max(k * mad, 1e-6), float(np.max(np.abs(y))))
+    half *= (1 + pad)
+    return (-half, half)
 
 
 def block_reduce(x, n, fn):
@@ -232,8 +246,9 @@ def plot_channel(s, ch, feats, raw, out):
     ax.axhline(0, color='gray', ls=':', lw=0.8)
     ax.plot(feats['t_vel'], f['vel'], lw=0.7, color='#2980B9')
     ax.set_ylabel('Baseline velocity\n(a.u./hr)')
-    ax.set_ylim(*robust_ylim(f['vel'], symmetric=True))
-    ax.text(0.006, 0.92, 'slow drift rate · motion regressed out · 0.01 Hz low-pass',
+    ax.set_ylim(*tight_sym_ylim(f['vel']))
+    ax.text(0.006, 0.92, f'slow drift rate · motion regressed out · '
+            f'{VEL_LP_HZ:g} Hz low-pass · y-axis zoomed (pulses clip)',
             transform=ax.transAxes, fontsize=8, style='italic', color='#555', va='top')
     ax.grid(True, alpha=0.15); panel_letter(ax, 3)
 
