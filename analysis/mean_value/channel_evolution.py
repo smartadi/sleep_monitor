@@ -39,12 +39,15 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
-from scipy.ndimage import uniform_filter1d
+from scipy.ndimage import uniform_filter1d, binary_dilation
 from scipy.signal import butter, filtfilt, spectrogram as sp_spectrogram
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from sleep_monitor import load_session, load_sleep_profile
-from sleep_monitor.config import STAGE_LABELS, STAGE_COLORS, STAGE_ORDER, CAP_COLORS
+from sleep_monitor.config import (
+    STAGE_LABELS, STAGE_COLORS, STAGE_ORDER, CAP_COLORS,
+    RESP_LO, RESP_HI, CARD_LO, CARD_HI,
+)
 from sleep_monitor.sessions import SESSION_META
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -61,6 +64,11 @@ LP_CAP_HZ = 10.0           # low-pass cap applied to raw signal before mean/vari
 BASELINE_SMOOTH_MIN = 3.0  # smoothing of the mean before differentiating (velocity)
 VEL_SMOOTH_MIN = 2.0       # extra smoothing of the velocity trace
 SPEC_FMAX = 5.0            # spectrogram top frequency (Hz)
+MOTION_PCTL = 90.0         # accel blocks above this per-session pct are removed
+MOTION_DILATE = 2          # dilate the accel-motion mask by +/- this many blocks
+JUMP_K = 8.0               # robust (MAD) threshold for a baseline step artifact
+JUMP_DILATE = 18           # blank velocity +/- this many blocks around a big step
+                           # (covers the smoothing spread of the step, ~3 min)
 
 # ── Journal styling ───────────────────────────────────────────────────────────
 plt.rcParams.update({
@@ -115,7 +123,12 @@ def compute_features(s):
     vel_win = max(3, int(round(VEL_SMOOTH_MIN * hop_per_min)))
     dt_hr = BLOCK_SEC / 3600.0
 
-    feats = {'t_hr': t_hr}
+    motion = block_reduce(acc[: m * n], n, np.std)
+    # accel-motion mask: top-decile per session, lightly dilated.
+    accel_mask = binary_dilation(motion > np.nanpercentile(motion, MOTION_PCTL),
+                                 iterations=MOTION_DILATE)
+
+    feats = {'t_hr': t_hr, 'motion': motion, 'motion_flag': accel_mask}
     for ch, sig in raw.items():
         filt = lowpass(sig, fs, LP_CAP_HZ)          # <10 Hz cap before mean/var
         mean_b = block_reduce(filt[: m * n], n, np.mean)
@@ -123,8 +136,18 @@ def compute_features(s):
         base = uniform_filter1d(mean_b, base_win, mode='nearest')
         vel = np.gradient(base, dt_hr)
         vel = uniform_filter1d(vel, vel_win, mode='nearest')
+        # Non-artifact velocity: blank both accel-motion epochs AND large baseline
+        # STEP artifacts (electrode coupling loss/regain — NOT accelerometer motion,
+        # so they must be detected from the mean itself). A robust MAD threshold on
+        # the block-to-block mean change flags the steps; dilate widely so the
+        # smoothing bump around each step is fully removed from the display.
+        dmean = np.abs(np.diff(mean_b, prepend=mean_b[:1]))
+        mad = np.median(np.abs(dmean - np.median(dmean))) + 1e-9
+        jump_mask = binary_dilation(dmean > JUMP_K * 1.4826 * mad,
+                                    iterations=JUMP_DILATE)
+        vel = vel.copy()
+        vel[accel_mask | jump_mask] = np.nan
         feats[ch] = {'mean': mean_b, 'var': var_b, 'vel': vel}
-    feats['motion'] = block_reduce(acc[: m * n], n, np.std)
     return feats, raw
 
 
@@ -177,12 +200,14 @@ def plot_channel(s, ch, feats, raw, out):
     ax.set_ylim(*robust_ylim(f['var'], floor0=True))
     ax.grid(True, alpha=0.15); panel_letter(ax, 2)
 
-    # D — smoothed velocity
+    # D — smoothed velocity (motion epochs removed before differentiation)
     ax = axes[3]; stage_shading(ax, sp)
     ax.axhline(0, color='gray', ls=':', lw=0.8)
     ax.plot(t, f['vel'], lw=0.9, color='#2980B9')
     ax.set_ylabel('Baseline velocity\n(a.u./hr)')
     ax.set_ylim(*robust_ylim(f['vel'], symmetric=True))
+    ax.text(0.006, 0.9, 'motion & step artifacts removed', transform=ax.transAxes,
+            fontsize=8, style='italic', color='#555', va='top')
     ax.grid(True, alpha=0.15); panel_letter(ax, 3)
 
     # E — motion
@@ -204,6 +229,15 @@ def plot_channel(s, ch, feats, raw, out):
                         cmap='inferno', vmin=vmin, vmax=vmax, rasterized=True)
     ax.set_ylabel('Frequency\n(Hz)'); ax.set_ylim(0, SPEC_FMAX)
     ax.set_xlabel('Time (hours)')
+    # band annotations: respiratory 0.1-0.5 Hz, cardiac 0.5-3.0 Hz
+    trans = ax.get_yaxis_transform()
+    for yb in (RESP_LO, RESP_HI, CARD_HI):
+        ax.axhline(yb, color='white', ls='--', lw=0.6, alpha=0.55)
+    bbox = dict(facecolor='black', alpha=0.4, edgecolor='none', pad=1.2)
+    ax.text(0.012, (RESP_LO + RESP_HI) / 2, 'Resp', transform=trans, color='white',
+            fontsize=8, fontweight='bold', va='center', ha='left', bbox=bbox)
+    ax.text(0.012, (CARD_LO + CARD_HI) / 2, 'Cardiac', transform=trans, color='white',
+            fontsize=8, fontweight='bold', va='center', ha='left', bbox=bbox)
     panel_letter(ax, 5)
     cax = inset_axes(ax, width='1.4%', height='85%', loc='center left',
                      bbox_to_anchor=(1.005, 0., 1, 1), bbox_transform=ax.transAxes,

@@ -4,6 +4,10 @@ Records all code changes to library modules, scripts, and notebooks.
 
 ---
 
+## 2026-07-23
+
+- **Changed** `analysis/mean_value/channel_evolution.py` — (1) baseline-velocity row (D) now reports a **non-artifact velocity**: both accelerometer-motion epochs (top-decile) AND large baseline **step** artifacts (electrode coupling loss/regain, detected from the mean via a robust MAD threshold since the accelerometer does NOT flag them) are blanked (NaN) before autoscaling, so the row shows the slow physiological drift instead of ±20,000 a.u./hr motion/coupling spikes (esp. poor-contact S6). Step mask dilated ±18 blocks (~3 min) to cover the smoothing bump. (2) Spectrogram row (F) now annotates the **respiratory (0.1–0.5 Hz)** and **cardiac (0.5–3.0 Hz)** bands with dashed lines + labels.
+
 ## 2026-07-21
 
 - **Added** `analysis/mean_value/channel_evolution.py` — per-session, per-channel journal figure of overnight signal evolution. One stacked panel per channel (CLE, CRE, CH) with rows A–F: hypnogram strip, mean value, variance, smoothed baseline velocity, motion (accelerometer std), and a 0–5 Hz spectrogram with dB colorbar. The raw channel is zero-phase low-pass filtered at 10 Hz (Butterworth-4) before mean/variance so those reflect physiological-band content, not the >10 Hz electronic floor. Mean/variance/motion from 10 s blocks; velocity = smoothed d(mean)/dt (3-min baseline smooth, 2-min velocity smooth); every data row autoscaled to robust 1–99th-pct limits so evolution isn't squished; faint per-stage shading behind line rows. CLI `--session <label>` or `--all`. Outputs `writeup/figures/channel_evolution/<SESSION>_<channel>.png` (12 sessions × 3 channels = 36). Run: `.venv/Scripts/python.exe analysis/mean_value/channel_evolution.py --all`.
