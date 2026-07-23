@@ -31,4 +31,11 @@ instead of a spindle, and we look in a window that **precedes** t=0.
       clean quiet→delta trials but removes N3 (sustained delta has no quiet baseline)
       and thins low-SWA nights; 15 s recovers only modest n over 30 s and does not
       rescue S5 (genuine low-SWA/noisy-EEG). Run the precursor test on both sets.
-- [ ] Precursor / lead-lag analysis (`delta_cap_precursor.py`).
+- [x] Precursor / lead-lag analysis (`delta_cap_precursor.py`, 2026-07-23).
+      **Result: hypothesis NOT supported — direction reversed.** No CAP precursor
+      before delta onset (lead-window amp at/below baseline; forecasting AUC ≈ chance).
+      Instead a strong CAP band-power RESPONSE after onset (all 3 bands × 3 channels,
+      peak +2→+5 s, >> random-NREM null, CH>CRE>CLE); xcorr peaks at lag ≈0 with the
+      shoulder on the EEG-leads side → CAP follows delta. Robust to q15/q30. A genuine
+      slow-wave/K-complex-locked mechanical–hemodynamic co-activation, but *following*,
+      not *preceding*. Figs `outputs/fig_precursor_{grid,xcorr,auc}_{q15,q30}.png`.
