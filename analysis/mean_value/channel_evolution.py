@@ -2,14 +2,21 @@
 Per-session, per-channel "evolution" panel (journal figure): mean value,
 variance, smoothed velocity, motion, and a spectrogram — one figure per channel.
 
-Reporting figure for the manuscript. For each session and each recorded channel
-(CLE, CRE, CH) we draw a stacked multi-row panel so the slow evolution of the
-baseline and its dynamics is visible across the night:
+Reporting figure for the manuscript. For each session and each channel
+(CLE, CRE, CH, and the CLE−CRE differential = directional CSF flow) we draw a
+stacked multi-row panel so the slow evolution of the baseline and its dynamics is
+visible across the night:
 
     A  hypnogram strip (PSG stage colour band)
-    B  mean value        low-pass (<10 Hz) DC level (a.u.), 10 s windows
+    B  mean value        low-pass (<10 Hz) DC level (a.u.), 10 s windows.
+                         For CLE−CRE this is the directional CSF flow (L−R):
+                         two-colour fill about neutral + a balance readout.
     C  variance          low-pass (<10 Hz) within-window variance (a.u.^2)
-    D  smoothed velocity d(mean)/dt of the smoothed baseline (a.u./hour)
+    D  drift rate        super-slow rate of change of the mean: local linear slope
+                         over a long window (Savitzky-Golay derivative), after the
+                         accelerometer is regressed out. Oscillations faster than
+                         the window average out, so this is the drift trend, not
+                         the wiggles. y-axis zoomed tight so big coupling pulses clip.
     E  motion            accelerometer activity (within-window std)
     F  spectrogram       0-5 Hz spectrogram of that channel + dB colorbar
 
@@ -39,7 +46,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
-from scipy.signal import butter, sosfiltfilt, spectrogram as sp_spectrogram
+from scipy.signal import butter, sosfiltfilt, savgol_filter, spectrogram as sp_spectrogram
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from sleep_monitor import load_session, load_sleep_profile
@@ -53,15 +60,17 @@ ROOT = Path(__file__).resolve().parents[2]
 PLOT_DIR = ROOT / 'writeup' / 'figures' / 'channel_evolution'
 PLOT_DIR.mkdir(parents=True, exist_ok=True)
 
-CHANNELS = ['CLE', 'CRE', 'CH']
-CH_COLOR = {'CLE': CAP_COLORS['CLE'], 'CRE': CAP_COLORS['CRE'], 'CH': CAP_COLORS['CH']}
+CHANNELS = ['CLE', 'CRE', 'CH', 'CLE-CRE']
+CH_COLOR = {'CLE': CAP_COLORS['CLE'], 'CRE': CAP_COLORS['CRE'],
+            'CH': CAP_COLORS['CH'], 'CLE-CRE': CAP_COLORS['CLE-CRE']}
 CH_LONG = {'CLE': 'left temple (CLE)', 'CRE': 'right temple (CRE)',
-           'CH': 'differential (CH)'}
+           'CH': 'differential (CH)', 'CLE-CRE': 'CSF flow (CLE−CRE)'}
+FLOW_CH = 'CLE-CRE'        # channel treated as directional CSF flow (L−R)
 
 BLOCK_SEC = 10.0            # window for mean / variance / motion (display rows)
 LP_CAP_HZ = 10.0           # low-pass cap applied to raw signal before mean/variance
 VEL_BLOCK_SEC = 1.0        # finer block for the velocity baseline (1 Hz series)
-VEL_LP_HZ = 0.002          # low-pass cap on the velocity -> slow drift rate (~500 s)
+VEL_SLOPE_WIN_MIN = 25.0   # window for the local-slope (super-slow drift rate)
 SPEC_FMAX = 5.0            # spectrogram top frequency (Hz)
 
 # ── Journal styling ───────────────────────────────────────────────────────────
@@ -126,6 +135,29 @@ def tight_sym_ylim(y, k=4.0, pad=0.1):
     return (-half, half)
 
 
+def flow_balance(flow, t_hr):
+    """Directional CSF-flow balance from the L−R differential, offset-invariant.
+    The static per-mount offset is removed (centre on the session median, the
+    neutral coupling point), then balance is described by the flow dynamics:
+    reversals (side-to-side alternation) and the longest one-sided run (minutes).
+    A balanced flow alternates often with short runs; an imbalanced flow stays
+    stuck on one side. Returns (median, n_reversals, longest_run_min)."""
+    flow = np.asarray(flow, float)
+    med = np.median(flow[np.isfinite(flow)])
+    sign = np.sign(flow - med)
+    nz = sign[sign != 0]
+    reversals = int(np.sum(nz[1:] != nz[:-1])) if nz.size > 1 else 0
+    dt_min = (t_hr[1] - t_hr[0]) * 60 if len(t_hr) > 1 else 0.5
+    runs, cur = [], 1
+    for i in range(1, len(sign)):
+        if sign[i] == sign[i - 1] and sign[i] != 0:
+            cur += 1
+        else:
+            runs.append(cur); cur = 1
+    runs.append(cur)
+    return med, reversals, (max(runs) * dt_min if runs else 0.0)
+
+
 def block_reduce(x, n, fn):
     m = len(x) // n
     return fn(x[: m * n].reshape(m, n), axis=1)
@@ -148,9 +180,26 @@ def regress_out(y, regressors):
     return y - R @ beta
 
 
+def slope_rate(y, fs_series, win_min, polyorder=2):
+    """Super-slow rate of change: local least-squares slope over a long window
+    (Savitzky-Golay 1st derivative). Averages out oscillations faster than the
+    window, so it shows the drift trend, not the wiggles. Returns units/hour."""
+    win = int(round(win_min * 60 * fs_series))
+    win += (win % 2 == 0)                      # force odd
+    win = min(win, len(y) - (1 - len(y) % 2))  # <= length, odd
+    if win < polyorder + 2:
+        return np.gradient(y, 1.0 / fs_series) * 3600.0
+    return savgol_filter(y, win, polyorder, deriv=1, delta=1.0 / fs_series) * 3600.0
+
+
 def compute_features(s):
     fs = s.fs
-    raw = {ch: s.cap[ch].astype(np.float64) for ch in CHANNELS}
+    raw = {}
+    for ch in CHANNELS:
+        if ch == 'CLE-CRE':
+            raw[ch] = s.cap['CLE'].astype(np.float64) - s.cap['CRE'].astype(np.float64)
+        else:
+            raw[ch] = s.cap[ch].astype(np.float64)
     acc = s.cap['acc_mag'].astype(np.float64)
     aXYZ = {a: s.cap[a].astype(np.float64) for a in ('aX', 'aY', 'aZ')}
 
@@ -183,10 +232,13 @@ def compute_features(s):
         # the 1 Hz baseline (nothing cut), low-pass the baseline at 0.15 Hz
         # (Butterworth-4, zero-phase), then differentiate. The velocity is thus the
         # rate of change of the sub-0.15 Hz baseline.
+        # Super-slow drift rate: regress the accelerometer out of the 1 Hz baseline
+        # (nothing cut), then take the local linear slope over a long window
+        # (Savitzky-Golay derivative). This is the trend rate of the mean, not the
+        # derivative of oscillations — oscillations faster than the window average out.
         mean_v = block_reduce(filt[: mv * nv], nv, np.mean)
         resid = regress_out(mean_v, regs_v)
-        base = lowpass(resid, fs_v, VEL_LP_HZ)
-        vel = np.gradient(base, dt_v_hr)
+        vel = slope_rate(resid, fs_v, VEL_SLOPE_WIN_MIN)
         feats[ch] = {'mean': mean_b, 'var': var_b, 'vel': vel}
     return feats, raw
 
@@ -228,10 +280,26 @@ def plot_channel(s, ch, feats, raw, out):
     panel_letter(ax, 0)
 
     # B — mean value (adaptive, mean-centred y-axis: huge coupling swings clip so
-    # the structure around the baseline stays visible)
+    # the structure around the baseline stays visible). For the CLE−CRE channel
+    # this row is the directional CSF flow (L−R): two-colour fill about the neutral
+    # (median) shows which side dominates, with a balance readout.
     ax = axes[1]; stage_shading(ax, sp)
-    ax.plot(t, f['mean'], lw=0.9, color=col)
-    ax.set_ylabel('Mean value\n(a.u.)'); ax.set_ylim(*adaptive_ylim(f['mean']))
+    if ch == FLOW_CH:
+        flow = f['mean']
+        med, reversals, max_run = flow_balance(flow, t)
+        ax.axhline(med, color='#2C3E50', ls='--', lw=0.8, zorder=2)
+        ax.fill_between(t, med, flow, where=(flow >= med), interpolate=True,
+                        color='#C0392B', alpha=0.25, zorder=1)
+        ax.fill_between(t, med, flow, where=(flow < med), interpolate=True,
+                        color='#2980B9', alpha=0.25, zorder=1)
+        ax.plot(t, flow, lw=0.9, color=col, zorder=3)
+        ax.set_ylabel('Flow  L−R\n(a.u.)'); ax.set_ylim(*adaptive_ylim(flow))
+        ax.text(0.006, 0.93, f'CSF flow (CLE−CRE) — ▲ L-dominant / ▼ R-dominant · '
+                f'balance: {reversals} reversals, longest one-sided run {max_run:.0f} min',
+                transform=ax.transAxes, fontsize=8, style='italic', color='#555', va='top')
+    else:
+        ax.plot(t, f['mean'], lw=0.9, color=col)
+        ax.set_ylabel('Mean value\n(a.u.)'); ax.set_ylim(*adaptive_ylim(f['mean']))
     ax.grid(True, alpha=0.15); panel_letter(ax, 1)
 
     # C — variance
@@ -247,8 +315,8 @@ def plot_channel(s, ch, feats, raw, out):
     ax.plot(feats['t_vel'], f['vel'], lw=0.7, color='#2980B9')
     ax.set_ylabel('Baseline velocity\n(a.u./hr)')
     ax.set_ylim(*tight_sym_ylim(f['vel']))
-    ax.text(0.006, 0.92, f'slow drift rate · motion regressed out · '
-            f'{VEL_LP_HZ:g} Hz low-pass · y-axis zoomed (pulses clip)',
+    ax.text(0.006, 0.92, f'super-slow drift rate · motion regressed out · '
+            f'{VEL_SLOPE_WIN_MIN:g}-min local slope · y-axis zoomed (pulses clip)',
             transform=ax.transAxes, fontsize=8, style='italic', color='#555', va='top')
     ax.grid(True, alpha=0.15); panel_letter(ax, 3)
 
