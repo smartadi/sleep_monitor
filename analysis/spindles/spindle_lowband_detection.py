@@ -293,46 +293,10 @@ def make_figure(df, sessions, save):
     colors = {'CLE': '#4C72B0', 'CRE': '#55A868', 'CLE-CRE': '#C44E52', 'CH': '#8172B3'}
 
     fig = plt.figure(figsize=(15, 5.2), dpi=200)
-    gs = fig.add_gridspec(1, 3, width_ratios=[1.35, 1.0, 1.0], wspace=0.32)
+    gs = fig.add_gridspec(1, 3, width_ratios=[1.15, 1.0, 1.3], wspace=0.32)
 
-    # --- Panel A: per-session low-band detection rate bars, per channel ---
+    # --- Panel A: onset-triggered low-band average, all CAP channels (CH bold) ---
     axA = fig.add_subplot(gs[0, 0])
-    labels = sess_df['session'].tolist()
-    x = np.arange(len(labels))
-    w = 0.2
-    for i, ch in enumerate(CAP_CHANNELS):
-        vals = sess_df[f'{ch}_low_detrate'].values * 100
-        axA.bar(x + (i - 1.5) * w, vals, w, label=ch, color=colors[ch],
-                edgecolor='none', alpha=0.9)
-    axA.axhline(50, color='k', ls='--', lw=1.2, label='chance (50%)')
-    axA.set_xticks(x)
-    axA.set_xticklabels(labels, rotation=60, ha='right', fontsize=7)
-    axA.set_ylabel('Low-band (0-3 Hz) detection rate (%)')
-    axA.set_title('A  Per-session low-band spindle detection rate', fontsize=10, loc='left')
-    axA.set_ylim(40, max(62, sess_df[[f'{c}_low_detrate' for c in CAP_CHANNELS]].max().max() * 100 + 3))
-    axA.legend(fontsize=7, ncol=2, loc='upper right', framealpha=0.9)
-    axA.grid(axis='y', alpha=0.25)
-
-    # --- Panel B: per-spindle effect-size distributions, sigma vs low-band (CH) ---
-    axB = fig.add_subplot(gs[0, 1])
-    db_low = save['db_CH_low_03']
-    db_sig = save['db_CH_sigma']
-    bins = np.linspace(-6, 6, 61)
-    axB.hist(db_sig, bins=bins, density=True, color='#999999', alpha=0.75,
-             label=f'sigma 11-16 Hz\n(mean {np.mean(db_sig):+.2f} dB, det {np.mean(db_sig>0)*100:.0f}%)')
-    axB.hist(db_low, bins=bins, density=True, color=colors['CH'], alpha=0.6,
-             label=f'low 0-3 Hz\n(mean {np.mean(db_low):+.2f} dB, det {np.mean(db_low>0)*100:.0f}%)')
-    axB.axvline(0, color='k', ls='--', lw=1.2)
-    axB.axvline(np.mean(db_low), color=colors['CH'], lw=2)
-    axB.axvline(np.mean(db_sig), color='#555555', lw=2)
-    axB.set_xlabel('Per-spindle effect size (dB, core vs own baseline)')
-    axB.set_ylabel('density')
-    axB.set_title('B  Per-spindle effect: CH low-band vs sigma', fontsize=10, loc='left')
-    axB.legend(fontsize=7.5, loc='upper left')
-    axB.set_xlim(-6, 6)
-
-    # --- Panel C: onset-triggered low-band average, all CAP channels (CH bold) ---
-    axC = fig.add_subplot(gs[0, 2])
     t = save['t_axis']
     for ch in CAP_CHANNELS:
         curves = save[f'trig_low_{ch}']              # (sessions, T)
@@ -340,22 +304,56 @@ def make_figure(df, sessions, save):
         se = curves.std(axis=0) / np.sqrt(curves.shape[0])
         lw = 2.4 if ch == 'CH' else 1.2
         alpha = 1.0 if ch == 'CH' else 0.6
-        axC.plot(t, m, color=colors[ch], lw=lw, alpha=alpha, label=ch)
+        axA.plot(t, m, color=colors[ch], lw=lw, alpha=alpha, label=ch)
         if ch == 'CH':
-            axC.fill_between(t, m - se, m + se, color=colors[ch], alpha=0.2)
-    axC.axvline(0, color='k', ls='--', lw=1.0)
-    axC.set_xlim(-6, 6)
-    axC.set_xlabel('time from spindle center (s)')
-    axC.set_ylabel('0-3 Hz power (dB re baseline)')
-    axC.set_title('C  Onset-triggered low-band average', fontsize=10, loc='left')
-    axC.legend(fontsize=7.5, loc='upper right')
-    axC.grid(alpha=0.25)
+            axA.fill_between(t, m - se, m + se, color=colors[ch], alpha=0.2)
+    axA.axvline(0, color='k', ls='--', lw=1.0)
+    axA.set_xlim(-6, 6)
+    axA.set_xlabel('time from spindle center (s)')
+    axA.set_ylabel('0-3 Hz power (dB re baseline)')
+    axA.set_title('A  Onset-triggered low-band average (all channels)', fontsize=10, loc='left')
+    axA.legend(fontsize=7.5, loc='upper right')
+    axA.grid(alpha=0.25)
 
-    ch_low = pooled['CH_low_detrate'] * 100
-    ch_sig = pooled['CH_sigma_detrate'] * 100
+    # --- Panel B: per-spindle effect-size distributions, low-band vs sigma (CH) ---
+    axB = fig.add_subplot(gs[0, 1])
+    db_low = save['db_CH_low_03']
+    db_sig = save['db_CH_sigma']
+    bins = np.linspace(-6, 6, 61)
+    axB.hist(db_sig, bins=bins, density=True, color='#999999', alpha=0.75,
+             label=f'sigma 11-16 Hz\n(mean {np.mean(db_sig):+.2f} dB)')
+    axB.hist(db_low, bins=bins, density=True, color=colors['CH'], alpha=0.6,
+             label=f'low 0-3 Hz\n(mean {np.mean(db_low):+.2f} dB)')
+    axB.axvline(0, color='k', ls='--', lw=1.2)
+    axB.axvline(np.mean(db_low), color=colors['CH'], lw=2)
+    axB.axvline(np.mean(db_sig), color='#555555', lw=2)
+    axB.set_xlabel('Per-spindle power change (dB, core vs own baseline)')
+    axB.set_ylabel('density')
+    axB.set_title('B  Low-band vs sigma at spindles (CH)', fontsize=10, loc='left')
+    axB.legend(fontsize=7.5, loc='upper left')
+    axB.set_xlim(-6, 6)
+
+    # --- Panel C: per-session low-band power change per channel ---
+    axC = fig.add_subplot(gs[0, 2])
+    labels = sess_df['session'].tolist()
+    x = np.arange(len(labels))
+    w = 0.2
+    for i, ch in enumerate(CAP_CHANNELS):
+        vals = sess_df[f'{ch}_low_meandB'].values
+        axC.bar(x + (i - 1.5) * w, vals, w, label=ch, color=colors[ch],
+                edgecolor='none', alpha=0.9)
+    axC.axhline(0, color='k', ls='-', lw=0.8)
+    axC.set_xticks(x)
+    axC.set_xticklabels(labels, rotation=60, ha='right', fontsize=7)
+    axC.set_ylabel('Low-band (0-3 Hz) power change (dB)')
+    axC.set_title('C  Per-session low-band increase at spindles', fontsize=10, loc='left')
+    axC.legend(fontsize=7, ncol=2, loc='upper right', framealpha=0.9)
+    axC.grid(axis='y', alpha=0.25)
+
+    ch_low = pooled['CH_low_meandB']
     fig.suptitle(
-        f'Per-spindle low-band (0-3 Hz) CAP detection of N2 sleep spindles  |  '
-        f'CH pooled: low-band {ch_low:.1f}% vs sigma {ch_sig:.1f}% (chance 50%)',
+        f'Low-band (0-3 Hz) capacitive response to N2 sleep spindles: a mechanical, not electrical, reflection  |  '
+        f'CH pooled +{ch_low:.2f} dB at spindle center (sigma band null)',
         fontsize=11, y=1.02)
     fig_path = os.path.join(FIGDIR, 'fig_spindle_lowband_detection.png')
     fig.savefig(fig_path, bbox_inches='tight', dpi=200)
@@ -363,4 +361,13 @@ def make_figure(df, sessions, save):
 
 
 if __name__ == '__main__':
-    main()
+    import sys
+    if '--figure-only' in sys.argv:
+        # Rebuild the figure from saved CSV + NPZ without re-running the
+        # per-session analysis (used to re-render after a figure reframe).
+        import pandas as pd
+        df = pd.read_csv(os.path.join(OUT, 'spindle_lowband_detection.csv'))
+        save = np.load(os.path.join(OUT, 'spindle_lowband_detection.npz'))
+        make_figure(df, None, save)
+    else:
+        main()
