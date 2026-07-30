@@ -455,8 +455,13 @@ def run_tag(tag, bases, rng):
         for bname in BANDS:
             key = (ch, bname)
             m = np.nanmean(agg['curve'][key], 0)
+            nm = np.nanmean(agg['null'][key], 0)
             lead_amp = float(np.nanmean(m[pre_mask]))          # mean z in lead window
             peak_pre_t = float(tax[:len(tax)//2][np.nanargmax(m[:len(tax)//2])])
+            post = tax >= 0                                    # post-onset response
+            post_peak_z = float(np.nanmax(m[post]))
+            post_peak_t = float(tax[post][np.nanargmax(m[post])])
+            null_peak_z = float(np.nanmax(nm[post]))
             xc_peaks = [s['xcorr'][key][1] for s in sessions if s['xcorr'].get(key) is not None]
             xc_lags = sessions[0]['xcorr'][key][0] if sessions[0]['xcorr'].get(key) is not None else None
             if xc_peaks and xc_lags is not None:
@@ -467,6 +472,9 @@ def run_tag(tag, bases, rng):
                 xc_peak_lag = xc_peak_r = np.nan
             rows.append({
                 'tag': tag, 'channel': ch, 'band_hz': bname,
+                'post_peak_z': round(post_peak_z, 3),
+                'post_peak_t_s': round(post_peak_t, 1),
+                'null_peak_z': round(null_peak_z, 3),
                 'lead_amp_z': round(lead_amp, 3),
                 'peak_pre_t_s': round(peak_pre_t, 1),
                 'xcorr_peak_lag_s': round(xc_peak_lag, 1),

@@ -404,3 +404,5 @@ Records all code changes to library modules, scripts, and notebooks.
 - **Added** `notebooks/08_cap_sleep_embedding.ipynb` — PCA/t-SNE/UMAP sleep embedding
 - **Added** `notebooks/08_validation_loader.ipynb` — duplicate of 07 (validation loader)
 - **Added** `notebooks/09_projection_3d.ipynb` — 3D UMAP/t-SNE with 40 features
+
+- **Added** `writeup/edits/delta_onset_section_draft.md` — consolidated "EEG delta onset seen in CAP" story for the manuscript (positive mechanical/hemodynamic RESPONSE following delta onset; precursor hypothesis reported as tested-and-not-supported). **Changed** `analysis/delta_onset/delta_cap_precursor.py` — summary CSV now reports `post_peak_z`/`post_peak_t_s`/`null_peak_z` (post-onset response peak amplitude + latency vs null). Regenerated `precursor_summary_{q15,q30}.csv` (mirrored to `writeup/figures/delta_onset/`).
