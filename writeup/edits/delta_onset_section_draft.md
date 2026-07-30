@@ -26,10 +26,12 @@ other two but with a *positive* twist, so it belongs right after them:
 **Framing discipline (must hold in the text):**
 1. **Positive, honest:** "delta onset is *seen in* / *accompanied by a signature in* CAP,"
    never "CAP measures delta" or "CAP detects delta electrically."
-2. **Precursor hypothesis is reported as tested-and-not-supported.** The professor's
-   prior was that a CAP event *precedes* delta onset. We tested it directly and it failed;
-   the coupling runs the other way (CAP follows). Report both — the negative precursor and
-   the positive response — so the direction claim is airtight.
+2. **Direction is established, not hypothesized.** The capacitive event *follows* cortical
+   onset (peak +2–5 s; CAP→EEG xcorr lag ≈ 0). An apparent pre-onset rise in the slow
+   0–0.5 Hz band is a **zero-phase-filter artifact** (acausal backward power leakage) that
+   vanishes under strictly causal filtering (§3.y control), so we make **no precursor claim
+   in any band**. The section is **not** framed around the earlier guess that CAP might
+   *precede* delta — that hypothesis is dropped from the paper.
 3. **n = 6 honest-negative rule:** per-subject direction counts, not p-values (Wilcoxon
    floors at p = 0.031). AUCs reported as discrimination metrics.
 
@@ -63,7 +65,10 @@ drift), took each band's amplitude envelope, z-scored it within NREM, and averag
 **random-NREM null** (count-matched, motion-clean, ≥ 60 s from any real onset); (ii) a
 **CAP→EEG cross-correlation** over NREM with a circular-shift null (positive lag = CAP
 leads); (iii) a **forecasting AUC** — can CAP band power in a −12→−2 s pre-onset window
-separate "about to onset" from random NREM.
+separate "about to onset" from random NREM. As a directionality control, all envelopes
+were also recomputed with a **strictly causal** estimator (forward-only Butterworth +
+trailing RMS, no zero-phase filtering or centered smoothing) to rule out acausal filter
+leakage as a source of any apparent pre-onset rise (`lowband_precursor_check.py`).
 
 ---
 
@@ -89,13 +94,22 @@ the largest deflections.
 
 (q15 reproduces this — same rank order, peaks +5→+8 s; `precursor_summary_q15.csv`.)
 
-Crucially, the coupling is **directional and the professor's precursor hypothesis is not
-supported**: (i) the pre-onset lead window sat *at or below* baseline in every band and
+Crucially, the coupling is **directional — the capacitive event follows the cortex**:
+(i) the pre-onset lead window sat *at or below* the random-NREM null in every band and
 channel (lead amplitude −0.02 to −0.11 z), i.e. no CAP rise *before* onset; (ii) the
 CAP→EEG cross-correlation peaked at lag ≈ 0 s (within ±0.2 s) with its shoulder on the
 EEG-leads side, never on the CAP-leads side; and (iii) pre-onset CAP band power did not
-forecast an imminent onset — AUC 0.42–0.56 pooled, per-subject straddling chance. The
-capacitive event therefore **follows** the cortical delta onset rather than heralding it.
+forecast an imminent onset — AUC 0.42–0.56 pooled, per-subject straddling chance.
+
+The one apparent exception is instructive and is **not** a precursor: the slow **0–0.5 Hz**
+band seems to ramp up ~15–24 s before onset (6/6 subjects, real−null +0.35–0.41 z at
+[−3,0] s) — but this is an artifact of the **zero-phase envelope filter leaking the large
+post-onset response backward in time**. Recomputed with a strictly causal (forward-only
+Butterworth + trailing-RMS) estimator, the pre-onset rise disappears — real−null at
+[−3,0] s falls to +0.03/−0.03 z (2–3/6 subjects) and the rise-onset moves from −15→−24 s
+to ≈ 0 s — while the post-onset peak is unchanged (Figure Z; `lowband_precursor_check.py`).
+**No band, slow or fast, carries a capacitive precursor**; the CAP event begins at/after
+cortical delta onset throughout.
 
 Because the mask carries no cortical delta spectrally (§3.5) and no cortical sigma (§3.6),
 this post-onset event cannot be electrical pickup. It is a **mechanical/autonomic
@@ -123,11 +137,16 @@ of the onset definition.
 - n = 6; direction is reported per-subject.
 
 ## TODO before paste
-- [ ] Fill exact post-onset peak table (amplitude z, latency s, null) from
-      `precursor_summary_q30.csv` once run **bdffh3ltl** completes.
+- [x] Exact post-onset peak table filled (q30).
+- [x] 0–0.5 Hz "precursor" checked and **excluded** as a zero-phase-filter artifact
+      (`lowband_precursor_check.py`, `fig_lowband_causal_check_q30.png`). No precursor in
+      any band.
+- [x] Professor's precursor hypothesis dropped from the framing (per user).
 - [ ] Add a **per-subject response-consistency** statistic (how many of 6 subjects show a
       post-onset peak above their own null) for the honest-negative reporting — small
       addition to `delta_cap_precursor.py`.
 - [ ] Decide figure: q30 grid as main; xcorr + auc as supplement (or a 1-row composite).
-- [ ] Confirm section number / placement with the canonical manuscript
-      (`writeup/main/…main.docx`).
+      Consider regenerating the **main grid with the causal estimator** so the figure does
+      not show the acausal backward-leak in the slow band.
+- [ ] Lock into canonical manuscript `writeup/main/CAP_sleep_mask_manuscript_main.docx`
+      (currently open in Word — must be closed before insertion). Confirm section number.
