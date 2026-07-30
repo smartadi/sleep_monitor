@@ -61,7 +61,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from sleep_monitor import load_session, load_sleep_profile, FS
 from sleep_monitor.config import (
-    STAGE_LABELS, STAGE_COLORS, STAGE_ORDER, CAP_COLORS,
+    STAGE_LABELS, STAGE_COLORS, STAGE_ORDER, CAP_COLORS, CAP_SCALE_TO_FF,
 )
 from sleep_monitor.sessions import SESSION_META
 
@@ -73,7 +73,7 @@ REPORT_DIR.mkdir(parents=True, exist_ok=True)
 
 EPOCH_SEC = 30.0
 # All CAP channels + the accelerometer magnitude, treated as mean-value channels.
-CHANNELS = ['CLE', 'CRE', 'CLE-CRE', 'CLE+CRE', 'acc']
+CHANNELS = ['CH', 'CLE', 'CRE', 'CLE-CRE', 'CLE+CRE', 'acc']
 CAP_CH = ['CLE', 'CRE', 'CLE-CRE']       # channels drawn in the spectrogram overlay
 VLF_HZ = 0.05           # slow baseline cutoff (below respiratory band 0.1-0.5 Hz)
 DETREND_WIN_EPOCHS = 61  # ~30 min rolling-median trend to remove (odd -> centred)
@@ -113,9 +113,14 @@ def extract_session(idx):
 
     fs = s.fs
     t_hr = s.time_hr.astype(np.float64)
+    # Capacitance channels in femtofarads (CAP_SCALE_TO_FF documents the scale).
+    # CH is the sensor's OWN interhemispheric-difference channel and is carried
+    # alongside the arithmetic CLE-CRE because the two are not the same signal
+    # (quantified in ch_vs_diff.py).
     raw = {
-        'CLE': s.cap['CLE'].astype(np.float64),
-        'CRE': s.cap['CRE'].astype(np.float64),
+        'CH':  s.cap['CH'].astype(np.float64) * CAP_SCALE_TO_FF,
+        'CLE': s.cap['CLE'].astype(np.float64) * CAP_SCALE_TO_FF,
+        'CRE': s.cap['CRE'].astype(np.float64) * CAP_SCALE_TO_FF,
     }
     raw['CLE-CRE'] = raw['CLE'] - raw['CRE']
     raw['CLE+CRE'] = 0.5 * (raw['CLE'] + raw['CRE'])

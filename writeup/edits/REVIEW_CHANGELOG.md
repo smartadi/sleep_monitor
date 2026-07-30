@@ -1,0 +1,28 @@
+# Review edits applied to CAP_sleep_mask_manuscript_main_review.docx
+
+- renumbered Figure 1-7 -> 2-8 in 13 runs (Figure 9 unchanged, gap at 8 closed)
+- removed duplicated author line
+- abstract written
+- introduction: ISWA reframed as a mechanical measure that the Results deliver
+- section 2: heading level, panel labels, channel placement, broken sentences, SNR units
+- deleted 6 duplicated paragraphs from 3.1 (MOD number preserved)
+- methods 3.2-3.7 rewritten: canceller used, channel trade-off, 30-s grid, canonical bound defined, 7 estimators + Welch parameters, unit of analysis
+- Table 1: 6 doubled subject IDs fixed, headers corrected to Age / 30 s epochs
+- 4.1: surrogate result reframed against the 5% null, per-stage claim bounded, CAP->SEC
+- 4.2 rewritten; Table 3 rebuilt with night-level vs per-epoch error separated, true IQR for k, ratio row removed
+- 4.2.1: exact permutation p (0.058) replaces t-approximation, session-exclusion count fixed, r=0.50 no longer described as confirmation
+- 4.3 replaced with the three-band revamp (infra-slow ridge, 6/6 subjects; harmonic-ladder validation); both figures swapped to the July 23 three-band versions
+- 4.4: dB attribution made consistent between text and figure caption
+- 4.5: onset count corrected to 6-108 per night, 0.03 Hz high-pass stated
+- NEW section 4.6 inserted: SEC-vs-EEG SWA negative (r=-0.014, AUC 0.490 vs 0.740) plus the mechanical ISWA score (per-subject AUC 0.675, 6/6) + Figure 10
+- 5.2: within-night tracking added as a stated limitation (was only in 5.3)
+- 5.3-5.5: orphan 'harmonic direction ambiguity' resolved, apnea/eye-movement claims withdrawn, uncited comparisons qualified
+- 6: laboratory->home contradiction fixed; new seventh limitation on post-hoc channel/estimator selection
+- 7: conclusion aligned with the corrected numbers and the ISWA result
+- reference 28 rejoined into a single entry
+- Table S1 rebuilt with night-level error columns; now agrees with Table 3 exactly
+- supplementary writeups corrected (estimator count, degeneracy disclosure, pooled-epoch caveat, exact p)
+- added Figure S6 (harmonic-ladder validation) and Figure S7 (SEC vs EEG SWA ROC)
+- normalised 2 'Fig. 1' references to 'Figure 1'
+- 5.1 heading and supplementary captions aligned with the corrected regime names
+- removed a stray empty Heading2 paragraph

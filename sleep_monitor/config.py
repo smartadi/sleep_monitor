@@ -29,6 +29,53 @@ CAP_CHANS  = ['CH', 'CLE', 'CRE', 'CLE-CRE']
 CAP_COLORS = {'CH': '#2980B9', 'CLE': '#27AE60', 'CRE': '#8E44AD', 'CLE-CRE': '#E67E22'}
 GT_COLOR   = '#2C3E50'
 
+# ── Capacitance units ─────────────────────────────────────────────────────────
+# The CAP columns (CH, CLE, CRE) in the overnight sync CSVs are true capacitance
+# readings from the mask's capacitance-to-digital front end, recorded in
+# FEMTOFARADS (fF). Use CAP_UNIT / CAP_UNIT_SQ for axis labels so no script has
+# to hard-code "a.u." again.
+#
+# Provenance / evidence for the fF scale (NOT a stated figure — see caveats):
+#   * On-head values are CLE ~1960-2050, CRE ~1620-2350, i.e. ~2 pF, comfortably
+#     inside the front end's +/-15 pF range and the right order for this sensor:
+#     the source paper reports a bare-sensor C0 of 739.7 +/- 20.9 fF and a
+#     proximity swing of 22.1 -> 345.7 fF from 30 mm to 2 mm.
+#   * The no-subject baseline recording ('baseline noise/SM2_33.txt') carries the
+#     same channels at almost exactly 1/1000 the magnitude (CLE 1.83, CRE 2.18,
+#     CH -0.914) -> that file is in pF, these are in fF.
+#   * CH is negative, so it is a signed difference channel, not an absolute
+#     capacitance (see CH_IS_INTERHEMISPHERIC_DIFF below).
+#
+# CAVEATS (flagged rather than buried):
+#   * Neither source paper states the units of the recorded files. Bench numbers
+#     are quoted in fF but the nap-study Methods use "a.u.". The 1:1 scale below
+#     is inferred from the evidence above, not read off a datasheet.
+#   * The papers name the readout IC as TI FDC1004 ("sub-femtofarad resolution",
+#     2.4 V @ 25 kHz excitation). "FTD001" appears nowhere in either paper.
+#   * No per-LSB figure or full-scale range is given in either paper.
+# If a calibration sheet later gives a different scale, change CAP_SCALE_TO_FF
+# only -- every downstream label and statistic follows from it.
+CAP_SCALE_TO_FF = 1.0        # multiply a raw CAP column by this to get fF
+CAP_UNIT        = 'fF'       # axis-label unit for a mean / level
+CAP_UNIT_SQ     = 'fF²'      # axis-label unit for a variance
+CAP_UNIT_RATE   = 'fF/hr'    # axis-label unit for a drift rate
+
+# CH is documented in the source paper as the INTERHEMISPHERIC difference
+# ("the difference between left and right hemispheres", positive => higher
+# regional ICP on the left), from a four-sensor / three-signal front end. It is
+# NOT stated to equal CLE - CRE, and empirically it does not: see
+# analysis/mean_value/ch_vs_diff.py.
+CH_IS_INTERHEMISPHERIC_DIFF = True
+
+# Capacitance -> intracranial pressure sensitivity, for converting a capacitance
+# excursion into an approximate pressure excursion. PORCINE, CLE, respiratory
+# band; the source paper reports linearity only over <1 mm displacement and
+# 0-8.2 mmHg (r = 0.92), and explicitly warns the sensitivity depends on
+# cerebrovascular/tissue geometry. Treat any mmHg figure derived from it as a
+# rough scale, not a calibrated pressure, and never as absolute ICP -- only as
+# a CHANGE in pressure.
+ICP_SENS_FF_PER_MMHG = 4.79
+
 # ── Frequency bands ────────────────────────────────────────────────────────────
 RESP_LO, RESP_HI = 0.1, 0.5   # Hz  (~6–30 br/min)
 CARD_LO, CARD_HI = 0.5, 3.0   # Hz  (~30–180 BPM)

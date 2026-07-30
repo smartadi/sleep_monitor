@@ -7,18 +7,25 @@ Reporting figure for the manuscript. For each session and each channel
 stacked multi-row panel so the slow evolution of the baseline and its dynamics is
 visible across the night:
 
-    A  hypnogram strip (PSG stage colour band)
-    B  mean value        low-pass (<10 Hz) DC level (a.u.), 10 s windows.
+    A  hypnogram      PSG stages drawn as a stepped ladder ordered by strength of
+                      sleep depth — Wake, N1, N2, N3, then REM — so depth is read
+                      from the trace geometry rather than from colour alone.
+    B  mean capacitance  low-pass (<10 Hz) DC level in FEMTOFARADS, 10 s windows.
                          For CLE−CRE this is the directional CSF flow (L−R):
                          two-colour fill about neutral + a balance readout.
-    C  variance          low-pass (<10 Hz) within-window variance (a.u.^2)
-    D  drift rate        super-slow rate of change of the mean: local linear slope
+    C  variance          low-pass (<10 Hz) within-window variance (fF^2)
+    D  drift rate        super-slow rate of change of the mean (fF/hr): local slope
                          over a long window (Savitzky-Golay derivative), after the
                          accelerometer is regressed out. Oscillations faster than
                          the window average out, so this is the drift trend, not
                          the wiggles. y-axis zoomed tight so big coupling pulses clip.
     E  motion            accelerometer activity (within-window std)
     F  spectrogram       0-5 Hz spectrogram of that channel + dB colorbar
+
+Units: the CAP columns are true capacitance in femtofarads (see CAP_SCALE_TO_FF
+in sleep_monitor/config.py for the scale and its provenance/caveats). Note that
+CH is the sensor's own interhemispheric difference channel and is NOT equal to
+the arithmetic CLE−CRE — the two are compared in ch_vs_diff.py, so both are drawn.
 
 The raw channel is low-pass filtered at 10 Hz (zero-phase Butterworth) before the
 mean and variance are computed, so those series reflect physiological-band
@@ -44,15 +51,15 @@ import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from scipy.signal import butter, sosfiltfilt, savgol_filter, spectrogram as sp_spectrogram
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from sleep_monitor import load_session, load_sleep_profile
 from sleep_monitor.config import (
-    STAGE_LABELS, STAGE_COLORS, STAGE_ORDER, CAP_COLORS,
+    STAGE_LABELS, STAGE_COLORS, CAP_COLORS,
     RESP_LO, RESP_HI, CARD_LO, CARD_HI,
+    CAP_SCALE_TO_FF, CAP_UNIT, CAP_UNIT_SQ, CAP_UNIT_RATE,
 )
 from sleep_monitor.sessions import SESSION_META
 
@@ -66,6 +73,14 @@ CH_COLOR = {'CLE': CAP_COLORS['CLE'], 'CRE': CAP_COLORS['CRE'],
 CH_LONG = {'CLE': 'left temple (CLE)', 'CRE': 'right temple (CRE)',
            'CH': 'differential (CH)', 'CLE-CRE': 'CSF flow (CLE−CRE)'}
 FLOW_CH = 'CLE-CRE'        # channel treated as directional CSF flow (L−R)
+
+# Hypnogram ladder: stage code -> vertical position. Ordered by STRENGTH OF SLEEP
+# DEPTH, so descending the ladder is monotonically deeper sleep: Wake, N1, N2, N3,
+# then REM on its own rung at the bottom. (REM is placed below N3 rather than in
+# the conventional slot next to Wake, so the NREM descent reads as a clean depth
+# gradient and REM does not interrupt it.)
+LADDER_ORDER = [4, 3, 2, 1, 0]                                  # Wake, N1, N2, N3, REM
+LADDER_Y = {c: len(LADDER_ORDER) - 1 - i for i, c in enumerate(LADDER_ORDER)}
 
 BLOCK_SEC = 10.0            # window for mean / variance / motion (display rows)
 LP_CAP_HZ = 10.0           # low-pass cap applied to raw signal before mean/variance
@@ -197,9 +212,10 @@ def compute_features(s):
     raw = {}
     for ch in CHANNELS:
         if ch == 'CLE-CRE':
-            raw[ch] = s.cap['CLE'].astype(np.float64) - s.cap['CRE'].astype(np.float64)
+            sig = s.cap['CLE'].astype(np.float64) - s.cap['CRE'].astype(np.float64)
         else:
-            raw[ch] = s.cap[ch].astype(np.float64)
+            sig = s.cap[ch].astype(np.float64)
+        raw[ch] = sig * CAP_SCALE_TO_FF        # -> femtofarads
     acc = s.cap['acc_mag'].astype(np.float64)
     aXYZ = {a: s.cap[a].astype(np.float64) for a in ('aX', 'aY', 'aZ')}
 
@@ -262,19 +278,30 @@ def plot_channel(s, ch, feats, raw, out):
     f = feats[ch]
 
     fig, axes = plt.subplots(
-        6, 1, figsize=(14, 12), sharex=True,
-        gridspec_kw={'height_ratios': [0.16, 1.0, 1.0, 1.0, 0.7, 1.1]})
+        6, 1, figsize=(14, 12.6), sharex=True,
+        gridspec_kw={'height_ratios': [0.55, 1.0, 1.0, 1.0, 0.7, 1.1]})
 
-    # A — hypnogram strip
+    # A — hypnogram ladder: stage depth on the y-axis (Wake top ... N3 bottom) as a
+    # step trace, so sleep depth is read from the geometry, not from colour alone.
     ax = axes[0]
-    for j in range(len(sp['t_ep_hr']) - 1):
-        c = int(sp['codes'][j])
-        ax.axvspan(sp['t_ep_hr'][j], sp['t_ep_hr'][j + 1],
-                   color=STAGE_COLORS.get(c, '#AAA'), alpha=0.85)
-    ax.set_yticks([]); ax.set_ylabel('Stage', fontsize=10)
-    ax.legend(handles=[mpatches.Patch(color=STAGE_COLORS[c], label=STAGE_LABELS[c])
-                       for c in STAGE_ORDER], loc='upper right', ncol=5,
-              framealpha=0.9, handlelength=1.0, columnspacing=1.0)
+    t_ep = np.asarray(sp['t_ep_hr'], float)
+    codes = np.asarray(sp['codes'], int)
+    nep = min(len(codes), len(t_ep) - 1)
+    y_lad = np.array([LADDER_Y.get(int(c), np.nan) for c in codes[:nep]], float)
+    # step trace (NaN at unscored epochs leaves a gap rather than a false level)
+    ax.step(np.append(t_ep[:nep], t_ep[nep]), np.append(y_lad, y_lad[-1]),
+            where='post', color='#2C3E50', lw=1.0, solid_joinstyle='miter', zorder=3)
+    # colour the horizontal run of each epoch so the ladder stays stage-coded too
+    for j in range(nep):
+        if not np.isfinite(y_lad[j]):
+            continue
+        ax.plot([t_ep[j], t_ep[j + 1]], [y_lad[j]] * 2, lw=3.0, solid_capstyle='butt',
+                color=STAGE_COLORS.get(int(codes[j]), '#AAA'), zorder=4)
+    ax.set_yticks(list(LADDER_Y.values()))
+    ax.set_yticklabels([STAGE_LABELS[c] for c in LADDER_ORDER], fontsize=9)
+    ax.set_ylim(-0.6, len(LADDER_ORDER) - 0.4)
+    ax.set_ylabel('Sleep stage', fontsize=10)
+    ax.grid(True, axis='y', alpha=0.2, lw=0.6)
     ax.set_title(f'{s.label} — {CH_LONG[ch]} channel: overnight evolution',
                  fontsize=13, fontweight='bold')
     panel_letter(ax, 0)
@@ -293,19 +320,20 @@ def plot_channel(s, ch, feats, raw, out):
         ax.fill_between(t, med, flow, where=(flow < med), interpolate=True,
                         color='#2980B9', alpha=0.25, zorder=1)
         ax.plot(t, flow, lw=0.9, color=col, zorder=3)
-        ax.set_ylabel('Flow  L−R\n(a.u.)'); ax.set_ylim(*adaptive_ylim(flow))
+        ax.set_ylabel(f'Flow  L−R\n({CAP_UNIT})'); ax.set_ylim(*adaptive_ylim(flow))
         ax.text(0.006, 0.93, f'CSF flow (CLE−CRE) — ▲ L-dominant / ▼ R-dominant · '
                 f'balance: {reversals} reversals, longest one-sided run {max_run:.0f} min',
                 transform=ax.transAxes, fontsize=8, style='italic', color='#555', va='top')
     else:
         ax.plot(t, f['mean'], lw=0.9, color=col)
-        ax.set_ylabel('Mean value\n(a.u.)'); ax.set_ylim(*adaptive_ylim(f['mean']))
+        ax.set_ylabel(f'Mean capacitance\n({CAP_UNIT})')
+        ax.set_ylim(*adaptive_ylim(f['mean']))
     ax.grid(True, alpha=0.15); panel_letter(ax, 1)
 
     # C — variance
     ax = axes[2]; stage_shading(ax, sp)
     ax.plot(t, f['var'], lw=0.8, color='#C0392B')
-    ax.set_ylabel('Variance\n(a.u.²)')
+    ax.set_ylabel(f'Variance\n({CAP_UNIT_SQ})')
     ax.set_ylim(*robust_ylim(f['var'], floor0=True))
     ax.grid(True, alpha=0.15); panel_letter(ax, 2)
 
@@ -313,7 +341,7 @@ def plot_channel(s, ch, feats, raw, out):
     ax = axes[3]; stage_shading(ax, sp)
     ax.axhline(0, color='gray', ls=':', lw=0.8)
     ax.plot(feats['t_vel'], f['vel'], lw=0.7, color='#2980B9')
-    ax.set_ylabel('Baseline velocity\n(a.u./hr)')
+    ax.set_ylabel(f'Baseline drift rate\n({CAP_UNIT_RATE})')
     ax.set_ylim(*tight_sym_ylim(f['vel']))
     ax.text(0.006, 0.92, f'super-slow drift rate · motion regressed out · '
             f'{VEL_SLOPE_WIN_MIN:g}-min local slope · y-axis zoomed (pulses clip)',
@@ -353,7 +381,8 @@ def plot_channel(s, ch, feats, raw, out):
                      bbox_to_anchor=(1.005, 0., 1, 1), bbox_transform=ax.transAxes,
                      borderpad=0)
     cb = fig.colorbar(pcm, cax=cax)
-    cb.set_label('PSD (dB)', fontsize=8.5); cb.ax.tick_params(labelsize=7.5)
+    cb.set_label(f'PSD (dB re 1 {CAP_UNIT_SQ}/Hz)', fontsize=8.5)
+    cb.ax.tick_params(labelsize=7.5)
 
     fig.tight_layout()
     fig.savefig(out, dpi=200, bbox_inches='tight')
