@@ -136,17 +136,18 @@ of the onset definition.
   contribution to the post-onset event with these channels alone.
 - n = 6; direction is reported per-subject.
 
-## TODO before paste
+## Status — LOCKED IN (2026-07-30)
 - [x] Exact post-onset peak table filled (q30).
 - [x] 0–0.5 Hz "precursor" checked and **excluded** as a zero-phase-filter artifact
-      (`lowband_precursor_check.py`, `fig_lowband_causal_check_q30.png`). No precursor in
-      any band.
+      (`lowband_precursor_check.py`). No precursor in any band.
 - [x] Professor's precursor hypothesis dropped from the framing (per user).
-- [ ] Add a **per-subject response-consistency** statistic (how many of 6 subjects show a
-      post-onset peak above their own null) for the honest-negative reporting — small
-      addition to `delta_cap_precursor.py`.
-- [ ] Decide figure: q30 grid as main; xcorr + auc as supplement (or a 1-row composite).
-      Consider regenerating the **main grid with the causal estimator** so the figure does
-      not show the acausal backward-leak in the slow band.
-- [ ] Lock into canonical manuscript `writeup/main/CAP_sleep_mask_manuscript_main.docx`
-      (currently open in Word — must be closed before insertion). Confirm section number.
+- [x] **Per-subject response-consistency: 6/6 subjects in ALL nine channel×band combos**
+      (causal post-onset peak > own random-NREM null; `response_consistency_q30.csv`).
+      Per-subject peak +1.4→+3.2 z (largest CRE/CH, 0.5–1 & 1–3 Hz); null peaks ≤ +0.17 z.
+- [x] **Figure 9 = strictly-causal peri-onset grid** (`fig_precursor_grid_causal_q30.png`):
+      flat pre-onset baseline in all 9 panels + sharp post-onset rise → shows the response
+      AND the no-precursor result in one figure, with no acausal backward-leak.
+- [x] **Inserted into `writeup/main/CAP_sleep_mask_manuscript_main.docx` as §4.5** (heading
+      + 3 paragraphs + embedded Figure 9 + caption), after §4.4 spindles, before §5. Validated
+      (XSD passed); image rId resolves. Backup: `…BACKUP_2026-07-30.docx`. **Verify render in Word.**
+- [ ] Optional: xcorr + auc panels as supplement; formal consistency table in the docx.

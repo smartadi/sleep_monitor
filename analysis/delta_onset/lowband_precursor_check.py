@@ -236,6 +236,52 @@ def run(indices, tag):
     df = pd.DataFrame(rows)
     df.to_csv(OUT / f'lowband_precursor_check_{tag}.csv', index=False)
 
+    # ── causal 3x3 peri-onset grid (clean Figure 9 candidate: no acausal backward-leak) ──
+    gfig, gax = plt.subplots(len(BANDS), len(CHANNELS),
+                             figsize=(4.4 * len(CHANNELS), 3.2 * len(BANDS)), sharex=True)
+    gfig.suptitle(f'Peri-onset CAP band power at EEG delta onset — strictly causal estimator ({tag})\n'
+                  f'mean +/- SEM across subjects (n={len(subj_zp)}); grey dashed = random-NREM null; '
+                  f'green = delta onset', fontsize=12)
+    for i, bn in enumerate(BANDS):
+        for j, ch in enumerate(CHANNELS):
+            ax = gax[i, j]; key = (ch, bn)
+            m = np.nanmean(CA[key], 0); sem = np.nanstd(CA[key], 0) / np.sqrt(CA[key].shape[0])
+            nm = np.nanmean(CAn[key], 0)
+            ax.plot(tax, m, color=BAND_COLORS[bn], lw=1.6)
+            ax.fill_between(tax, m - sem, m + sem, color=BAND_COLORS[bn], alpha=0.25)
+            ax.plot(tax, nm, color='#888', ls='--', lw=0.9)
+            ax.axvline(0, color='#27AE60', lw=1.2); ax.axhline(0, color='k', lw=0.5)
+            if i == 0:
+                ax.set_title(ch, fontsize=11)
+            if j == 0:
+                ax.set_ylabel(f'{bn} Hz\nband power (z)', fontsize=9)
+            if i == len(BANDS) - 1:
+                ax.set_xlabel('s from delta onset', fontsize=9)
+    gfig.tight_layout(rect=[0, 0, 1, 0.93])
+    gfp = OUT / f'fig_precursor_grid_causal_{tag}.png'
+    gfig.savefig(gfp, dpi=120); plt.close(gfig)
+
+    # ── per-subject RESPONSE consistency (causal): subject counts if its post-onset peak
+    #    exceeds its OWN random-NREM null post-onset peak ──
+    post = tax >= 0
+    crows = []
+    for ch in CHANNELS:
+        for bn in BANDS:
+            key = (ch, bn)
+            pk = np.nanmax(CA[key][:, post], axis=1)          # per-subject post-onset peak (z)
+            pkn = np.nanmax(CAn[key][:, post], axis=1)         # per-subject null post-onset peak
+            lat = tax[post][np.nanargmax(np.nanmean(CA[key], 0)[post])]
+            crows.append({'tag': tag, 'channel': ch, 'band_hz': bn,
+                          'n_subj_response': int(np.sum(pk > pkn)), 'n_subj': CA[key].shape[0],
+                          'mean_peak_z': round(float(np.nanmean(pk)), 3),
+                          'mean_null_peak_z': round(float(np.nanmean(pkn)), 3),
+                          'grand_peak_latency_s': round(float(lat), 1)})
+    cdf = pd.DataFrame(crows)
+    cdf.to_csv(OUT / f'response_consistency_{tag}.csv', index=False)
+    print(f'\n[{tag}] per-subject RESPONSE consistency (causal; post-onset peak > own null):')
+    print(cdf.to_string(index=False))
+    print(f'  saved fig_precursor_grid_causal_{tag}.png, response_consistency_{tag}.csv')
+
     # figure: focus 0-0.5 Hz, zp vs causal, per channel, zoomed
     fig, axes = plt.subplots(2, len(CHANNELS), figsize=(4.6 * len(CHANNELS), 7), sharex=True)
     fig.suptitle(f'0-0.5 Hz pre-onset rise: zero-phase (leaks backward) vs strictly causal ({tag})\n'
