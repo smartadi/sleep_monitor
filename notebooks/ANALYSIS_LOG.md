@@ -1959,3 +1959,52 @@ NOT yet a clean replication — needs motion/arousal confound control and cohort
 accelerometer / restrict low-motion, since arousals co-modulate delta and CAP drift;
 (3) sub-band refinement (SO 0.5–1 vs delta) and slow-band choice. Figure:
 `analysis/swa_validation/outputs/fultz_eeg_cap_S2N2.png`.
+
+## 2026-07-30 — Rate detection reframed as two regimes; k-vs-age as a calibration result
+
+**Two regimes.** The rate section previously reported mean accuracy and left the
+within-session result to the Discussion, which explained a "tracking failure" that Results
+never showed. Restructured to report both bands in both regimes side by side.
+
+| | Respiratory | Cardiac |
+|---|---|---|
+| Night-level MAE (per-session median) | 0.91 br/min | 3.41 BPM |
+| Epoch-level MAE | 1.33 br/min | 3.65 BPM |
+| Within-session r | +0.06 (p=0.68), 8/12 nights >0 | −0.19 (p=0.34), 5/12 |
+| Reference rate SD within night | 1.14 br/min | 5.26 BPM |
+| Error-to-variation ratio | 0.77 | 0.78 |
+
+**Read.** The two bands fail the epoch-level regime for *opposite* reasons, which the
+error-to-variation ratio separates. Respiratory rate varies by only ~1.14 br/min within a
+night — comparable to the best epoch-level error — so there is almost nothing to resolve and
+a near-constant estimate is legitimately the more accurate one (spectral 0.91 vs responsive
+1.33 br/min). Cardiac rate varies by 5.26 BPM against a 3.65 BPM error, so the variation *is*
+resolvable and is still not recovered; that is the genuine sensor limit, and §5.3's
+morphology argument applies to it alone. Ceiling: two independent PSG respiratory sensors
+(Flow vs RIPSum) agree at only r = 0.47 on the same epochs.
+
+**k vs age (`analysis/rates/k_age_prior.py`).** Leave-one-subject-out mean |k error|:
+
+| Band | no calibration (k=1.0) | population-mean k | age prior |
+|------|------|------|------|
+| Resp | 0.056 | 0.056 | **0.020** |
+| Card | 0.818 | **0.305** | 0.387 |
+
+An age prior beats the best constant prior for respiratory k and *loses* to it for cardiac —
+the symmetry a fixed-pulse-morphology model predicts. Leave-one-out Spearman: respiratory ρ
+stays between −1.00 and −0.70 across all six drops (sign-stable), cardiac swings −0.10 to
++0.90 (not stable). **The paper's claim that cardiac k is "age-invariant" was an overclaim** —
+it is an underpowered null, and the fixed-morphology argument is carried instead by the
+R-peak-triggered peaks-per-beat result (1.70–2.43, median 2.02, bracketing k = 1.95).
+
+**Caveat recorded in the text:** at n = 6 age is perfectly confounded with subject identity,
+and both age extremes are male, so "age" may stand for any age-correlated subject trait.
+Reported as a calibration result validated on held-out subjects, not a physiological claim.
+
+**Bounding null (Figure S5).** No other capacitive feature tracks age. Note the modal
+cardiac peak frequency (ρ=+0.75, p=0.084) is *not* interpretable: it takes four distinct
+values across six subjects and sits at the 0.5 Hz band edge; the respiratory modal peak
+equals the 0.1 Hz band floor in 5 of 6 subjects.
+
+**Open item.** The delta-burst figure (now Figure 8) is referenced in §4.5 but has no caption
+or image in the manuscript — a pre-existing gap, not introduced here.
