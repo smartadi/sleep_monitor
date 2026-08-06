@@ -37,18 +37,28 @@ Rows (both figures)
     E  head angle     head TURN angle from the accelerometer (0 supine, +90 left,
                       -90 right), on an axis scaled to the movement that actually
                       happened on that night.
-    F,G  ridge panels  one per channel. On the DIFFERENCE figure these carry the
-                      tracked respiratory and cardiac ridges from the ridge
-                      analysis (sleep_monitor.harmonics.detect_persistent_ridges
-                      with the band configs imported from
-                      analysis/slow_wave/ridge_harmonic_revamp.py, and its
-                      accelerometer-regressed preprocessing) drawn over the
-                      channel's spectrogram. The frequency axis is LOGARITHMIC:
-                      on a linear 0-3 Hz axis the respiratory band is squeezed
-                      into the bottom sixth, whereas in log f the two bands split
-                      the axis almost evenly (resp 47%, cardiac 53%) and both
-                      ridge sets are legible in one panel.
-                      The ABSOLUTE figure keeps the plain 0-5 Hz spectrogram.
+    F,G  rate panels   DIFFERENCE figure only, one per channel: the respiratory
+                      and cardiac VITERBI rate traces over a background-removed
+                      0-3 Hz spectrogram, with the tracker's own confidence
+                      printed. This is the same extraction that produces
+                      writeup/figures/harmonics/ridges/ridge_tune_*.png —
+                      imported from analysis/slow_wave/ridge_overlay_tune.py, not
+                      reimplemented, so the two agree exactly.
+    H,I  slow panels   DIFFERENCE figure only, one per channel: the slow band
+                      (0-0.3 Hz) with its persistent ridges and prominence gate.
+                      Same band the flow marker in row C lives in, so rows C and
+                      H/I are two views of the same slow physics.
+    F,G  spectrograms  ABSOLUTE figure: plain 0-5 Hz spectrogram per channel.
+
+Why the rate traces are Viterbi paths and the slow ridges are not
+-----------------------------------------------------------------
+Respiration and heart rate each have exactly ONE value at any instant, so each
+is tracked as a single globally-optimal continuous path (maximise spectral
+amplitude minus a smoothness penalty, searched inside a physiological band). The
+generic multi-ridge detector is wrong for them: it returns a scatter of
+fragments, lets two "cardiac" ridges coexist at one instant, and lets a ridge
+hop to a subharmonic. Several slow oscillations genuinely CAN coexist, so the
+slow band keeps the multi-ridge detector.
 
 CH is the sensor's own hardware difference channel and is NOT the arithmetic
 CLE-CRE: across the cohort the offset is ~-742 fF and the gain of CH on CLE-CRE
@@ -117,7 +127,12 @@ from flow_marker import flow_marker, TAU_MIN, DESPIKE_MIN
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'slow_wave'))
 from sleep_monitor.harmonics import detect_persistent_ridges
 from sleep_monitor.preprocessing import remove_acc_artifact
-from ridge_harmonic_revamp import BANDS as RIDGE_BANDS, BAND_COLOR as RIDGE_COLOR
+import ridge_overlay_tune as rot
+from ridge_overlay_tune import (
+    TRACK, BANDS as SLOW_BANDS, BAND_COLOR as RIDGE_COLOR,
+    track_single_ridge, _enhance_spec,
+)
+rot.VERBOSE = False        # this figure reports ridge counts on the panel instead
 
 ROOT = Path(__file__).resolve().parents[2]
 PLOT_DIR = ROOT / 'writeup' / 'figures' / 'channel_evolution'
@@ -149,8 +164,8 @@ LADDER_Y = {c: len(LADDER_ORDER) - 1 - i for i, c in enumerate(LADDER_ORDER)}
 BLOCK_SEC = 10.0            # window for mean / variance / motion (display rows)
 LP_CAP_HZ = 10.0           # low-pass cap applied to raw signal before mean/variance
 SPEC_FMAX = 5.0            # plain-spectrogram top frequency (Hz)
-RIDGE_FMIN = 0.1           # ridge panel spans resp+cardiac on a LOG axis,
-RIDGE_FMAX = 3.0           # which splits the two bands ~evenly (47/53%)
+RIDGE_FMAX = 3.0           # rate-panel top frequency (resp + cardiac)
+SLOW_FMAX  = 0.30          # slow-band panel top frequency
 
 # ── Journal styling ───────────────────────────────────────────────────────────
 plt.rcParams.update({
@@ -159,7 +174,7 @@ plt.rcParams.update({
     'axes.linewidth': 0.8, 'axes.edgecolor': '#333333',
     'font.family': 'DejaVu Sans', 'figure.dpi': 200,
 })
-PANEL = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
+PANEL = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I']
 
 
 def robust_ylim(y, pad=0.08, symmetric=False, floor0=False):
@@ -501,74 +516,115 @@ def draw_spectrogram(ax, sig, fs, fig, label):
 
 def compute_ridges(sig, acc, fs):
     """
-    Respiratory and cardiac persistent ridges for one channel.
+    The tuned ridge extraction from analysis/slow_wave/ridge_overlay_tune.py.
 
-    Uses the ridge analysis's own detector and band configs (imported, not
-    restated) and its preprocessing: the accelerometer is regressed out first,
-    exactly as ridge_harmonic_revamp._sig does, so a ridge here is the same
-    object as a ridge there.
+    Respiration and heart rate are each ONE value at any instant, so they are
+    tracked as a single continuous VITERBI path per rhythm (globally optimal
+    trace maximising spectral amplitude minus a smoothness penalty, searched
+    inside a physiological band). The generic multi-ridge persistent-ridge
+    detector is wrong for them: it returns a scatter of fragments, lets two
+    "cardiac" ridges coexist at one instant, and lets a ridge hop to a
+    subharmonic. The slow band keeps the multi-ridge detector, because several
+    slow oscillations genuinely can coexist there, plus its prominence gate.
+
+    Everything -- the tracker, the band definitions, the prominence gate and the
+    accelerometer-regressed preprocessing -- is imported from that module rather
+    than restated, so these panels stay identical to the ridge figures under
+    writeup/figures/harmonics/ridges/.
     """
     clean = remove_acc_artifact(np.asarray(sig, float), np.asarray(acc, float),
                                 0.05, 4.0)
     out = {}
-    for band in ('resp', 'card'):
-        out[band] = detect_persistent_ridges(
-            clean, fs=fs, acc_mag=acc, fill_gaps=True, **dict(RIDGE_BANDS[band]))
+    for rhythm in ('resp', 'card'):
+        t, tr, conf = track_single_ridge(clean, fs, **TRACK[rhythm])
+        out[rhythm] = {'t_hr': t, 'freq': tr, 'conf': conf}
+
+    bp = dict(SLOW_BANDS['slow'])
+    min_prom = bp.pop('min_prominence', 0.0)
+    mask_motion = bp.pop('mask_motion', True)
+    rr = detect_persistent_ridges(clean, fs=fs,
+                                  acc_mag=acc if mask_motion else None,
+                                  fill_gaps=True, **bp)
+    rr['ridges'] = sorted(
+        [r for r in rr['ridges']
+         if np.isfinite(r.get('median_prominence', np.nan))
+         and r['median_prominence'] >= min_prom],
+        key=lambda r: -r['duration_sec'])
+    out['slow'] = rr
+    out['clean'] = clean
     return out
 
 
-def draw_ridge_panel(ax, sig, ridges, fs, fig, label):
+def draw_rate_panel(ax, ridges, fs, fig, label):
     """
-    0-3 Hz spectrogram with the tracked respiratory and cardiac ridges on top.
+    Background-removed 0-3 Hz spectrogram with the respiratory and cardiac
+    Viterbi rate traces on top -- the primary mechanism panel.
 
-    Replaces the plain spectrogram that used to sit here. The spectrogram alone
-    showed that a respiratory and a cardiac band exist; overlaying the tracked
-    ridges shows the sensor following each rate continuously through the night,
-    which is the point this figure is making about what the CAP channel can do.
+    Two things differ from an ordinary spectrogram panel, both taken from
+    ridge_overlay_tune.py:
+
+    * the spectrogram is BACKGROUND-REMOVED (each time column minus a
+      frequency-median-filtered copy of itself), which flattens the 1/f envelope
+      and broadband motion brightening while leaving narrow peaks intact. The
+      rate bands stand out instead of drowning in the low-frequency slope.
+    * the overlay is a single continuous Viterbi trace per rhythm, not a set of
+      ridge fragments. Respiration and heart rate each have exactly one value at
+      any instant, so one trace is the honest representation.
+
+    The tracker's own confidence -- the fraction of windows where the tracked
+    band is clearly peaked above its column median -- is printed, so a weak
+    night is visible as a number rather than having to be inferred.
     """
-    fr, tsp, Sxx = sp_spectrogram(sig, fs=fs, nperseg=int(30 * fs),
-                                  noverlap=int(15 * fs))
-    m = (fr >= RIDGE_FMIN) & (fr <= RIDGE_FMAX)
-    Sdb = 10 * np.log10(Sxx[m] + 1e-20)
-    vmin, vmax = np.nanpercentile(Sdb, [5, 97])
-    pcm = ax.pcolormesh(tsp / 3600.0, fr[m], Sdb, shading='gouraud', cmap='magma',
-                        vmin=vmin, vmax=vmax, rasterized=True)
-    n_r = {}
-    for band in ('resp', 'card'):
-        rr = ridges[band]
-        n_r[band] = len(rr['ridges'])
-        for r in rr['ridges']:
-            ax.plot(rr['t_hr'], r['freq_trace'], color=RIDGE_COLOR[band], lw=1.5,
-                    alpha=0.92, solid_capstyle='round', zorder=4)
-
-    # LOG frequency axis. On a linear 0-3 Hz axis the respiratory band (0.1-0.5)
-    # is squeezed into the bottom sixth and its ridges are unreadable. In log f
-    # the two bands split the axis almost evenly (resp 47%, cardiac 53%), so both
-    # sets of ridges are legible without needing a panel each.
-    ax.set_yscale('log')
-    ax.set_ylim(RIDGE_FMIN, RIDGE_FMAX)
-    ax.set_yticks([0.1, 0.2, 0.3, 0.5, 1.0, 2.0, 3.0])
-    ax.set_yticklabels(['0.1', '0.2', '0.3', '0.5', '1', '2', '3'])
-    ax.minorticks_off()
-    ax.axhline(RESP_HI, color='white', ls='--', lw=0.7, alpha=0.6, zorder=3)
-    trans = ax.get_yaxis_transform()
-    bbox = dict(facecolor='black', alpha=0.4, edgecolor='none', pad=1.2)
-    ax.text(0.012, np.sqrt(RESP_LO * RESP_HI), 'Resp', transform=trans,
-            color='white', fontsize=8, fontweight='bold', va='center', bbox=bbox)
-    ax.text(0.012, np.sqrt(CARD_LO * CARD_HI), 'Cardiac', transform=trans,
-            color='white', fontsize=8, fontweight='bold', va='center', bbox=bbox)
-    ax.set_ylabel(f'{label}\nFreq (Hz, log)')
-    ax.legend(handles=[
-        plt.Line2D([], [], color=RIDGE_COLOR['resp'], lw=2,
-                   label=f'respiratory ridge ×{n_r["resp"]}'),
-        plt.Line2D([], [], color=RIDGE_COLOR['card'], lw=2,
-                   label=f'cardiac ridge ×{n_r["card"]}')],
-        loc='upper right', fontsize=8, ncol=2, framealpha=0.85)
+    f, t, db = _enhance_spec(ridges['clean'], fs, 30, 15, RIDGE_FMAX, bg_hz=0.4)
+    vmax = np.percentile(db, 99.5)
+    pcm = ax.pcolormesh(t / 3600.0, f, db, shading='gouraud', cmap='magma',
+                        vmin=0, vmax=vmax, rasterized=True)
+    for rhythm, name in (('resp', 'resp rate'), ('card', 'cardiac rate')):
+        r = ridges[rhythm]
+        ax.plot(r['t_hr'], r['freq'], color=RIDGE_COLOR[rhythm], lw=2.0,
+                alpha=0.95, zorder=4,
+                label=f'{name}  (conf {r["conf"]:.0%})')
+    ax.set_ylim(0, RIDGE_FMAX)
+    ax.set_ylabel(f'{label}\nFreq (Hz)')
+    ax.legend(loc='upper right', fontsize=8.5, ncol=2, framealpha=0.85)
     cax = inset_axes(ax, width='1.4%', height='85%', loc='center left',
                      bbox_to_anchor=(1.005, 0., 1, 1), bbox_transform=ax.transAxes,
                      borderpad=0)
     cb = fig.colorbar(pcm, cax=cax)
-    cb.set_label(f'PSD (dB re 1 {CAP_UNIT_SQ}/Hz)', fontsize=8)
+    cb.set_label('dB above background', fontsize=8)
+    cb.ax.tick_params(labelsize=7)
+
+
+def draw_slow_panel(ax, ridges, fs, fig, label):
+    """
+    Slow band (0-0.3 Hz) with its persistent ridges.
+
+    This is the band the flow marker in row C lives in, so the two rows are
+    about the same physics: row C is the signed slow imbalance between the
+    hemispheres, this row is the oscillatory content of that same slow range.
+    Unlike respiration and heart rate, several slow oscillations genuinely can
+    coexist, so the multi-ridge detector (with its prominence gate) is kept here
+    rather than a single Viterbi trace.
+    """
+    fS, tS, dbS = _enhance_spec(ridges['clean'], fs, 240, 210, SLOW_FMAX,
+                                bg_hz=0.10)
+    vmaxS = np.percentile(dbS, 99.5)
+    pcm = ax.pcolormesh(tS / 3600.0, fS, dbS, shading='gouraud', cmap='viridis',
+                        vmin=0, vmax=vmaxS, rasterized=True)
+    rr = ridges['slow']
+    for r in rr['ridges']:
+        ax.plot(rr['t_hr'], r['freq_trace'], color=RIDGE_COLOR['slow'], lw=2.0,
+                alpha=0.95, zorder=4)
+    ax.set_ylim(0, SLOW_FMAX)
+    ax.set_ylabel(f'{label}\nSlow (Hz)')
+    ax.legend(handles=[plt.Line2D([], [], color=RIDGE_COLOR['slow'], lw=2,
+                                  label=f'slow ridge x{len(rr["ridges"])}')],
+              loc='upper right', fontsize=8.5, framealpha=0.85)
+    cax = inset_axes(ax, width='1.4%', height='85%', loc='center left',
+                     bbox_to_anchor=(1.005, 0., 1, 1), bbox_transform=ax.transAxes,
+                     borderpad=0)
+    cb = fig.colorbar(pcm, cax=cax)
+    cb.set_label('dB above background', fontsize=8)
     cb.ax.tick_params(labelsize=7)
 
 
@@ -596,9 +652,12 @@ def plot_pair(s, feats, raw, chans, out, title, shared_level_axis, ridges=None):
     f0, f1 = feats[c0], feats[c1]
     is_diff = c0 in DIFF_CHANNELS and c1 in DIFF_CHANNELS
 
+    n_bottom = 4 if ridges is not None else 2
+    heights = ([0.55, 1.25, 1.35, 0.80, 1.15]
+               + ([1.30, 1.30, 1.00, 1.00] if ridges is not None else [0.95, 0.95]))
     fig, axes = plt.subplots(
-        7, 1, figsize=(14, 16.0), sharex=True,
-        gridspec_kw={'height_ratios': [0.55, 1.25, 1.35, 0.80, 1.15, 1.15, 1.15]})
+        5 + n_bottom, 1, figsize=(14, 14.0 + 2.2 * n_bottom), sharex=True,
+        gridspec_kw={'height_ratios': heights})
 
     # A -- hypnogram ladder
     draw_ladder(axes[0], sp, title)
@@ -691,7 +750,9 @@ def plot_pair(s, feats, raw, chans, out, title, shared_level_axis, ridges=None):
     # channels keep the plain spectrogram.
     for k, ch in enumerate((c0, c1)):
         if ridges is not None:
-            draw_ridge_panel(axes[5 + k], raw[ch], ridges[ch], s.fs, fig, ch)
+            draw_rate_panel(axes[5 + k], ridges[ch], s.fs, fig, ch)
+            draw_slow_panel(axes[7 + k], ridges[ch], s.fs, fig, ch)
+            panel_letter(axes[7 + k], 7 + k)
         else:
             draw_spectrogram(axes[5 + k], raw[ch], s.fs, fig, ch)
         panel_letter(axes[5 + k], 5 + k)
