@@ -90,42 +90,109 @@ def _hypno_bands(ax, t, codes, alpha=0.16):
 
 # ── per-session figure ───────────────────────────────────────────────────────
 
-def fig_session(g, label, mus, out):
+def _pct_lim(y, pad_frac=0.12, lo_p=0.5, hi_p=99.5):
+    """Y-limits set by percentiles so one re-seat spike cannot flatten the trace."""
+    y = np.asarray(y, float)
+    y = y[np.isfinite(y)]
+    if len(y) == 0:
+        return -1.0, 1.0
+    lo, hi = np.nanpercentile(y, [lo_p, hi_p])
+    if hi - lo < 1e-9:
+        lo, hi = lo - 1, hi + 1
+    pad = pad_frac * (hi - lo)
+    return lo - pad, hi + pad
+
+
+def fig_session(g, label, mus, out, ha=None):
+    """
+    Per-session mean-value figure, three stacked panels.
+
+    The four channels are NOT drawn on one axis. CH moves ~2.8x as far as the
+    temple channels (up to 11x -- see ch_vs_clecre_sessions.py), so a shared
+    axis is set by CH and flattens CLE, CRE and CLE-CRE onto the zero line.
+    Absolute channels, difference channels and posture each get their own row.
+    """
     g = g.sort_values('epoch')
     t = g['t_hr'].to_numpy()
     codes = g['stage_code'].to_numpy()
     motion = g['motion'].to_numpy().astype(bool) if 'motion' in g else np.zeros(len(g), bool)
+    has_ha = ha is not None and len(ha) > 0
 
-    fig, ax = plt.subplots(figsize=(14, 4.4))
+    nrow = 3 if has_ha else 2
+    heights = [1.0, 1.0, 0.62][:nrow]
+    fig, axes = plt.subplots(nrow, 1, figsize=(14, 3.1 * nrow + 1.0), sharex=True,
+                             gridspec_kw={'height_ratios': heights})
+
+    # ── row 1: the two absolute temple channels ──
+    ax = axes[0]
     _hypno_bands(ax, t, codes)
-    for ch, colr, lw, lbl in CHANNELS:
+    ys = []
+    for ch, colr, _, lbl in [c for c in CHANNELS if c[0] in ('CLE', 'CRE')]:
         y = g[f'mean_{ch}'].to_numpy() - mus[ch]
-        ax.plot(t, y, lw=lw, color=colr, alpha=0.9,
-                label=f'{lbl}   mean = {mus[ch]:,.0f} {CAP_UNIT}',
-                zorder=4 if ch == 'CLE-CRE' else 3)
+        ys.append(y)
+        ax.plot(t, y, lw=1.2, color=colr, alpha=0.9,
+                label=f'{lbl}   mean = {mus[ch]:,.0f} {CAP_UNIT}', zorder=3)
     ax.axhline(0, color='#2C3E50', ls='--', lw=1.0, zorder=2)
-
-    # Autoscale to the bulk of the data, not to motion spikes.
-    allv = np.concatenate([g[f'mean_{ch}'].to_numpy() - mus[ch] for ch, *_ in CHANNELS])
-    lo, hi = np.nanpercentile(allv, [0.5, 99.5])
-    pad = 0.15 * (hi - lo) + 1
-    ax.set_ylim(lo - pad, hi + pad)
+    lo, hi = _pct_lim(np.concatenate(ys))
+    ax.set_ylim(lo, hi)
     if motion.any():
-        ax.plot(t[motion], np.full(motion.sum(), hi + pad * 0.6), '|', color='k',
-                ms=5, alpha=0.5, zorder=5)
-
-    ax.set_xlabel('Time (hours)')
-    ax.set_ylabel(f'Deviation from session mean ({CAP_UNIT})')
-    ax.set_title(f'{label} — mean value as a deviation from the session mean '
-                 f'(zero = session mean; axis in {CAP_UNIT})',
-                 fontsize=12, fontweight='bold')
-    stage_h = [mpatches.Patch(color=STAGE_COLORS[k], label=STAGE_LABELS[k])
-               for k in STAGE_ORDER]
-    ch_h, _ = ax.get_legend_handles_labels()
-    ax.legend(handles=ch_h + stage_h, loc='upper right', ncol=3, fontsize=7,
-              framealpha=0.92)
+        ax.plot(t[motion], np.full(motion.sum(), hi - 0.04 * (hi - lo)), '|',
+                color='k', ms=5, alpha=0.55, zorder=5)
+    ax.set_ylabel(f'Δ from session mean\n({CAP_UNIT})')
+    ax.set_title(f'{label} — mean value as a deviation from the session mean  '
+                 f'(zero = session mean, axis in {CAP_UNIT})',
+                 fontsize=12.5, fontweight='bold')
+    ax.legend(loc='upper left', fontsize=8, ncol=2, framealpha=0.92)
     ax.grid(True, alpha=0.13)
-    fig.tight_layout(); fig.savefig(out, dpi=185, bbox_inches='tight'); plt.close(fig)
+
+    # ── row 2: the two difference channels, independent axes ──
+    ax = axes[1]
+    _hypno_bands(ax, t, codes)
+    yd = g['mean_CLE-CRE'].to_numpy() - mus['CLE-CRE']
+    ax.plot(t, yd, lw=1.6, color='#E67E22', zorder=4)
+    ax.axhline(0, color='#2C3E50', ls='--', lw=1.0, zorder=2)
+    ax.set_ylim(*_pct_lim(yd))
+    ax.set_ylabel(f'CLE−CRE − mean\n({CAP_UNIT})', color='#E67E22')
+    ax.tick_params(axis='y', labelcolor='#E67E22')
+    ax.grid(True, alpha=0.13)
+
+    ax2 = ax.twinx()
+    yc = g['mean_CH'].to_numpy() - mus['CH']
+    ax2.plot(t, yc, lw=1.1, color='#2980B9', alpha=0.85, zorder=3)
+    ax2.set_ylim(*_pct_lim(yc))
+    ax2.set_ylabel(f'CH − mean ({CAP_UNIT})', color='#2980B9')
+    ax2.tick_params(axis='y', labelcolor='#2980B9')
+    ax.legend(handles=[
+        plt.Line2D([], [], color='#E67E22', lw=2.2,
+                   label=f'CLE−CRE (arithmetic)   mean = {mus["CLE-CRE"]:,.0f} {CAP_UNIT}'
+                         f'   [left axis]'),
+        plt.Line2D([], [], color='#2980B9', lw=2.2,
+                   label=f'CH (hardware)   mean = {mus["CH"]:,.0f} {CAP_UNIT}'
+                         f'   [right axis]')],
+        loc='upper left', fontsize=8, ncol=2, framealpha=0.92)
+
+    # ── row 3: head posture, which is what most of the steps above are ──
+    if has_ha:
+        ax = axes[2]
+        _hypno_bands(ax, t, codes)
+        ax.plot(ha['t_hr'], ha['turn_deg'], lw=1.3, color='#16A085', zorder=3)
+        for lv, lb in [(90, 'left'), (0, 'supine'), (-90, 'right')]:
+            ax.axhline(lv, color='#555', ls=':', lw=0.8, zorder=2)
+            ax.annotate(lb, (t[0], lv), fontsize=7.5, color='#555', va='bottom')
+        ax.set_ylim(-185, 185); ax.set_yticks([-180, -90, 0, 90, 180])
+        ax.set_ylabel('head turn\n(deg)', color='#16A085')
+        ax.tick_params(axis='y', labelcolor='#16A085')
+        ax.grid(True, alpha=0.13)
+
+    axes[-1].set_xlabel('Time (hours)')
+    handles = [mpatches.Patch(color=STAGE_COLORS[k], label=STAGE_LABELS[k])
+               for k in STAGE_ORDER]
+    handles.append(plt.Line2D([], [], color='k', marker='|', ls='',
+                              label='high-motion epoch'))
+    fig.legend(handles=handles, loc='upper center', ncol=6, fontsize=9,
+               framealpha=0.9, bbox_to_anchor=(0.5, 1.0))
+    fig.tight_layout(rect=[0, 0, 1, 0.965])
+    fig.savefig(out, dpi=185, bbox_inches='tight'); plt.close(fig)
 
 
 def fig_grid(df, sessions, mu_tbl, ch, out):
@@ -297,9 +364,18 @@ def main():
     dev.to_csv(REPORT_DIR / 'mean_centred_stage_deviation.csv', index=False)
 
     # ── figures ──
+    # Head angle is optional context: the large steps in the differential are
+    # mostly the head re-seating, so posture is drawn underneath when available.
+    ha_csv = REPORT_DIR / 'head_angle_epochs.csv'
+    ha_all = pd.read_csv(ha_csv) if ha_csv.exists() else None
+    if ha_all is None:
+        print('  (no head_angle_epochs.csv - per-session figures will omit the '
+              'posture row; run head_angle_validate.py for it)')
     for lbl in sessions:
+        ha = ha_all[ha_all['session'] == lbl].sort_values('t_hr') \
+            if ha_all is not None else None
         fig_session(df[df['session'] == lbl], lbl, mus_by_session[lbl],
-                    FIG_DIR / f'mean_centred_{lbl}.png')
+                    FIG_DIR / f'mean_centred_{lbl}.png', ha=ha)
     fig_grid(df, sessions, mu_tbl, 'CLE-CRE',
              FIG_DIR / 'mean_centred_grid_CLE_CRE.png')
     fig_stage_deviation(dev, FIG_DIR / 'mean_centred_stage_deviation.png')
