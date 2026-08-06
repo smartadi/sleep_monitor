@@ -68,7 +68,10 @@ def session_ersp(sig, centers_samp, half):
         dB = 10.0 * np.log10(Sxx[fb] + 1e-12)
         if acc is None:
             acc = np.zeros_like(dB)
-            tcen = t - (t[-1] / 2.0)   # center time axis on 0
+            # Center on the event. The epoch is [c-half, c+half] so the event
+            # sits at WIN_HALF seconds into it; t[-1]/2 is one STFT hop short of
+            # that and shifts the whole axis 0.32 s early.
+            tcen = t - WIN_HALF
             faxis = f[fb]
         acc += dB
         k += 1

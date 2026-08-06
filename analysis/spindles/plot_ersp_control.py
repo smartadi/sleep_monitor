@@ -1,5 +1,5 @@
 """Plot the ERSP-control core spectra: spindle vs random-N2 null vs arousal,
-and spindle split by arousal co-occurrence. Answers whether the CAP 0-3 Hz
+and spindle split by arousal co-occurrence. Answers whether the CAP 0.1-3 Hz
 bump is a real spindle signature or an artifact / arousal confound."""
 import os
 import numpy as np
@@ -42,7 +42,7 @@ def main():
         ax.set_ylabel('Core (|t|<1 s) − baseline (dB)')
         ax.set_title(f'{ch}')
         ax.legend(fontsize=8); ax.grid(alpha=0.25)
-    fig.suptitle('ERSP control — is the CAP 0–3 Hz spindle bump real, an artifact, or an arousal confound?',
+    fig.suptitle('ERSP control — is the CAP 0.1–3 Hz spindle bump real, an artifact, or an arousal confound?',
                  y=1.02, fontsize=12)
     fig.tight_layout()
     p = os.path.join(OUT, 'fig_spindle_ersp_control.png')

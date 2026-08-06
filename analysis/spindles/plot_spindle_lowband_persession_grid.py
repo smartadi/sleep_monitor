@@ -1,8 +1,8 @@
 """
 The most basic spindle finding, one panel per session: when a spindle occurs,
-CAP low-frequency (0-3 Hz) power rises at the spindle onset.
+CAP low-frequency (0.1-3 Hz) power rises at the spindle center.
 
-Pure onset-triggered average of the CAP 0-3 Hz power (baseline-corrected) for
+Pure center-triggered average of the CAP 0.1-3 Hz power (baseline-corrected) for
 every N2 spindle, shown per session for all 12 recordings. Reads the cached
 per-session triggered curves from `spindle_lowband_detection.npz` (no recompute).
 
@@ -55,7 +55,7 @@ for i, lab in enumerate(labels):
                  fontsize=9.5, fontweight='bold')
     ax.set_xlim(t.min(), t.max())
     if i % 3 == 0:
-        ax.set_ylabel('0–3 Hz power\n(dB vs baseline)', fontsize=8)
+        ax.set_ylabel('0.1–3 Hz power\n(dB vs baseline)', fontsize=8)
     if i >= 9:
         ax.set_xlabel('Time from spindle center (s)', fontsize=8)
     ax.tick_params(labelsize=7)
@@ -67,8 +67,8 @@ handles = [plt.Line2D([], [], color=CH_COLORS[c], lw=2.2 if c == 'CH' else 0.9,
 fig.legend(handles=handles, loc='upper center', fontsize=9, ncol=4,
            bbox_to_anchor=(0.5, 0.965), frameon=False)
 
-fig.suptitle('What the CAP mask does at a sleep spindle — 0–3 Hz power rises at onset '
-             '(onset-triggered average, all 12 sessions)',
+fig.suptitle('What the CAP mask does at a sleep spindle — 0.1–3 Hz power rises at the spindle center '
+             '(center-triggered average, all 12 sessions)',
              fontsize=13.5, fontweight='bold', y=1.0)
 os.makedirs(os.path.dirname(FIG), exist_ok=True)
 fig.savefig(FIG, dpi=200, bbox_inches='tight', facecolor='white')

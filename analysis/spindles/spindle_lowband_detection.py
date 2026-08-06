@@ -1,11 +1,12 @@
 """
-Per-spindle, onset-level DETECTION-RATE analysis of the low-band (0-3 Hz) CAP
+Per-spindle DETECTION-RATE analysis of the low-band (0.1-3 Hz) CAP
 response to sleep spindles.
 
 Known story (established elsewhere):
   * CAP carries NO electrical sigma -> per-spindle sigma AUC ~ 0.50.
-  * CAP DOES carry a small low-band (0-3 Hz) mechanical/hemodynamic bump
-    time-locked to N2 spindle onsets (ERSP work: ~+0.45 dB, strongest on CH).
+  * CAP DOES carry a small low-band (0.1-3 Hz) mechanical/hemodynamic bump
+    time-locked to N2 spindle centers (ERSP work: ~+0.5 dB, strongest on CH),
+    but it is heavy-tailed: the mean is several times the median.
 
 This script quantifies HOW OFTEN that bump is detectable per spindle.
 
@@ -25,7 +26,7 @@ EACH spindle individually instead of session-averaging):
   * Per-spindle effect size = the per-spindle dB itself.
 
 Bands: sigma 11-16 Hz (built-in negative control, must be ~chance for CAP),
-low 0-3 Hz (primary -- the validated bump), and a 0.5-3 Hz variant (the env_c band).
+low 0.1-3 Hz (primary -- the validated bump), and a 0.5-3 Hz variant (the env_c band).
 Channels: CLE, CRE, CLE-CRE, CH (+ EEG kept for reference). N2 spindles, 12 sessions.
 
 Outputs:
@@ -38,6 +39,7 @@ import os
 import numpy as np
 import pandas as pd
 from scipy.signal import spectrogram
+from scipy.stats import trim_mean
 
 from sleep_monitor.loader import load_session, load_sleep_profile
 from sleep_monitor.sessions import SESSION_META
@@ -53,7 +55,11 @@ NOVERLAP = 96
 
 # bands
 SIGMA = (11.0, 16.0)
-LOW_03 = (0.0, 3.0)       # primary low band (the validated 0-3 Hz bump)
+# Primary low band. Lower edge is 0.1 Hz, not 0, so the f=0 STFT bin is excluded:
+# after per-segment mean removal that bin holds only the residual within-window
+# drift, which is a windowing/detrending quantity rather than a low-band oscillation.
+# At nperseg=128 (0.78 Hz bins) this selects the 0.78/1.56/2.34 Hz bins.
+LOW_03 = (0.1, 3.0)
 LOW_C = (0.5, 3.0)        # 0.5-3 Hz variant (the env_c cardiac band)
 
 CAP_CHANNELS = ['CLE', 'CRE', 'CLE-CRE', 'CH']
@@ -91,7 +97,7 @@ def channel_event_metrics(sig, centers_samp, win_samp, bands, want_trace=None):
     with core = |t|<CORE_HALF and baseline = |t|>BASE_EDGE. This is the ERSP
     contrast applied per event. Returns {band: np.array of per-event dB}. If
     want_trace is a band name, also returns the mean baseline-corrected dB(t)
-    curve for that band (for the onset-triggered figure panel).
+    curve for that band (for the center-triggered figure panel).
     """
     n = len(sig)
     per_band = {b: [] for b in bands}
@@ -108,7 +114,9 @@ def channel_event_metrics(sig, centers_samp, win_samp, bands, want_trace=None):
         f, t, Sxx = spectrogram(sig[a:b], fs=FS, nperseg=NPERSEG, noverlap=NOVERLAP)
         dB = 10.0 * np.log10(Sxx + 1e-12)             # dB per freq bin (as in spindle_ersp)
         if tcen is None:
-            tcen = t - t[-1] / 2.0
+            # Event sits WIN_HALF seconds into the epoch; t[-1]/2 is one STFT
+            # hop short of that and shifts the whole axis 0.32 s early.
+            tcen = t - WIN_HALF
             core_t = np.abs(tcen) < CORE_HALF
             base_t = np.abs(tcen) > BASE_EDGE
             for bn, (lo, hi) in bands.items():
@@ -162,7 +170,7 @@ def run_session(idx, rng):
     bands = {'sigma': SIGMA, 'low_c': LOW_C, 'low_03': LOW_03}
 
     per_channel = {}   # ch -> dict of band -> metrics
-    trig_low = {}      # ch -> onset-triggered low_03 band-power dB curve
+    trig_low = {}      # ch -> center-triggered low_03 band-power dB curve
     t_axis = None
     for ch in ALL_CHANNELS:
         sig = get_channel(s, ch)
@@ -181,10 +189,14 @@ def run_session(idx, rng):
                 continue
             # DETECTION RULE: spindle detected if its core band power exceeds its
             # own local baseline (per-spindle dB > 0).
+            # The per-event dB distribution is heavy-tailed: a small minority of
+            # events carries most of the mean. Report the mean alongside robust
+            # statistics so the two can be compared directly.
             per_channel[ch][bname] = {
                 'det_rate': float(np.mean(de > 0)),
                 'mean_db': float(np.mean(de)),
                 'median_db': float(np.median(de)),
+                'trim_db': float(trim_mean(de, 0.1)),   # 10% trimmed each tail
                 'null_rate': float(np.mean(dc > 0)),   # control detection, ~0.5 sanity
                 'n_spindles': int(len(de)),
                 'db_per_spindle': de,      # kept for pooled distribution
@@ -231,9 +243,13 @@ def main():
                 if m is None:
                     row[f'{ch}_{tag}_detrate'] = np.nan
                     row[f'{ch}_{tag}_meandB'] = np.nan
+                    row[f'{ch}_{tag}_mediandB'] = np.nan
+                    row[f'{ch}_{tag}_trimdB'] = np.nan
                     continue
                 row[f'{ch}_{tag}_detrate'] = m['det_rate']
                 row[f'{ch}_{tag}_meandB'] = m['mean_db']
+                row[f'{ch}_{tag}_mediandB'] = m['median_db']
+                row[f'{ch}_{tag}_trimdB'] = m['trim_db']
                 if bname in ('low_03', 'sigma'):
                     pooled_db[ch][bname].append(m['db_per_spindle'])
             # empirical null (primary low band) for reference
@@ -257,7 +273,26 @@ def main():
             pooled[f'{ch}_{tag}_detrate'] = num / den if den else np.nan
         for bname, tag in [('low_03', 'low'), ('sigma', 'sigma')]:
             alldb = np.concatenate(pooled_db[ch][bname]) if pooled_db[ch][bname] else np.array([])
-            pooled[f'{ch}_{tag}_meandB'] = float(np.mean(alldb)) if len(alldb) else np.nan
+            if not len(alldb):
+                for k in ('meandB', 'mediandB', 'trimdB', 'semdB', 'ci_lo', 'ci_hi',
+                          'top5pct_share'):
+                    pooled[f'{ch}_{tag}_{k}'] = np.nan
+                continue
+            sem = float(alldb.std(ddof=1) / np.sqrt(len(alldb)))
+            pooled[f'{ch}_{tag}_meandB'] = float(alldb.mean())
+            pooled[f'{ch}_{tag}_mediandB'] = float(np.median(alldb))
+            pooled[f'{ch}_{tag}_trimdB'] = float(trim_mean(alldb, 0.1))
+            pooled[f'{ch}_{tag}_semdB'] = sem
+            # 95% CI on the trial-averaged effect. For the sigma band this is the
+            # quantity the manuscript should quote: an upper bound on any
+            # spindle-locked change, not a claim that the change is exactly zero.
+            pooled[f'{ch}_{tag}_ci_lo'] = float(alldb.mean() - 1.96 * sem)
+            pooled[f'{ch}_{tag}_ci_hi'] = float(alldb.mean() + 1.96 * sem)
+            # Fraction of the summed effect carried by the strongest 5% of events.
+            # >1 means the remaining 95% sum negative, i.e. the mean is tail-driven.
+            top = np.sort(alldb)[::-1][:max(1, len(alldb) // 20)]
+            pooled[f'{ch}_{tag}_top5pct_share'] = (float(top.sum() / alldb.sum())
+                                                   if alldb.sum() != 0 else np.nan)
         pooled[f'{ch}_low_nullrate'] = float(np.nanmean(df[f'{ch}_low_nullrate']))
     df = pd.concat([df, pd.DataFrame([pooled])], ignore_index=True)
 
@@ -278,6 +313,26 @@ def main():
     npz_path = os.path.join(OUT, 'spindle_lowband_detection.npz')
     np.savez(npz_path, **save)
     print(f'Wrote {npz_path}')
+
+    # ---- manuscript-ready summary ----
+    p = df[df['session'] == 'POOLED'].iloc[0]
+    ss = df[df['session'] != 'POOLED']
+    print(f"\n=== pooled over {int(p['n_spindles_N2']):,} N2 spindles ===")
+    print(f"{'ch':8} {'low mean':>9} {'median':>8} {'trim10':>8} {'det':>7} {'null':>7} "
+          f"{'top5%share':>11} {'<0.5 sessions':>14}")
+    for ch in ALL_CHANNELS:
+        below = int((ss[f'{ch}_low_detrate'] < 0.5).sum())
+        print(f"{ch:8} {p[f'{ch}_low_meandB']:+9.3f} {p[f'{ch}_low_mediandB']:+8.3f} "
+              f"{p[f'{ch}_low_trimdB']:+8.3f} {p[f'{ch}_low_detrate']:7.3f} "
+              f"{p[f'{ch}_low_nullrate']:7.3f} {p[f'{ch}_low_top5pct_share']:11.2f} "
+              f"{below:>10d}/12")
+    print('\nSigma band — quote as a bound, not a null:')
+    for ch in ALL_CHANNELS:
+        m, se = p[f'{ch}_sigma_meandB'], p[f'{ch}_sigma_semdB']
+        bound = abs(m) + 1.96 * se
+        print(f"  {ch:8} mean {m:+.4f} dB  95% CI [{p[f'{ch}_sigma_ci_lo']:+.4f}, "
+              f"{p[f'{ch}_sigma_ci_hi']:+.4f}]  ->  |effect| < {bound:.3f} dB "
+              f"({100*(10**(bound/10)-1):.1f}% power)")
 
     make_figure(df, sessions, save)
     return df
@@ -310,8 +365,8 @@ def make_figure(df, sessions, save):
     axA.axvline(0, color='k', ls='--', lw=1.0)
     axA.set_xlim(-6, 6)
     axA.set_xlabel('time from spindle center (s)')
-    axA.set_ylabel('0-3 Hz power (dB re baseline)')
-    axA.set_title('A  Onset-triggered low-band average (all channels)', fontsize=10, loc='left')
+    axA.set_ylabel('0.1-3 Hz power (dB re baseline)')
+    axA.set_title('A  Center-triggered low-band average (all channels)', fontsize=10, loc='left')
     axA.legend(fontsize=7.5, loc='upper right')
     axA.grid(alpha=0.25)
 
@@ -321,17 +376,28 @@ def make_figure(df, sessions, save):
     db_sig = save['db_CH_sigma']
     bins = np.linspace(-6, 6, 61)
     axB.hist(db_sig, bins=bins, density=True, color='#999999', alpha=0.75,
-             label=f'sigma 11-16 Hz\n(mean {np.mean(db_sig):+.2f} dB)')
+             label=f'sigma 11-16 Hz\n(mean {np.mean(db_sig):+.2f}, '
+                   f'median {np.median(db_sig):+.2f} dB)')
     axB.hist(db_low, bins=bins, density=True, color=colors['CH'], alpha=0.6,
-             label=f'low 0-3 Hz\n(mean {np.mean(db_low):+.2f} dB)')
+             label=f'low 0.1-3 Hz\n(mean {np.mean(db_low):+.2f}, '
+                   f'median {np.median(db_low):+.2f} dB)')
     axB.axvline(0, color='k', ls='--', lw=1.2)
+    # Solid = mean, dashed = median. The gap between them is the point: the
+    # distribution is heavy-tailed, so the mean overstates the typical spindle.
     axB.axvline(np.mean(db_low), color=colors['CH'], lw=2)
+    axB.axvline(np.median(db_low), color=colors['CH'], lw=2, ls=':')
     axB.axvline(np.mean(db_sig), color='#555555', lw=2)
-    axB.set_xlabel('Per-spindle power change (dB, core vs own baseline)')
+    axB.axvline(np.median(db_sig), color='#555555', lw=2, ls=':')
+    det = 100 * np.mean(db_low > 0)
+    axB.set_xlabel('Per-spindle power change (dB, core vs own baseline)\n'
+                   'vertical lines: solid = mean, dotted = median')
     axB.set_ylabel('density')
     axB.set_title('B  Low-band vs sigma at spindles (CH)', fontsize=10, loc='left')
     axB.legend(fontsize=7.5, loc='upper left')
     axB.set_xlim(-6, 6)
+    axB.text(0.98, 0.55, f'{det:.1f}% of spindles exceed\ntheir own baseline\n(chance 50%)',
+             transform=axB.transAxes, ha='right', va='top', fontsize=7.5, zorder=6,
+             bbox=dict(boxstyle='round', fc='white', ec='#bbbbbb', alpha=0.95))
 
     # --- Panel C: per-session low-band power change per channel ---
     axC = fig.add_subplot(gs[0, 2])
@@ -340,21 +406,28 @@ def make_figure(df, sessions, save):
     w = 0.2
     for i, ch in enumerate(CAP_CHANNELS):
         vals = sess_df[f'{ch}_low_meandB'].values
-        axC.bar(x + (i - 1.5) * w, vals, w, label=ch, color=colors[ch],
+        axC.bar(x + (i - 1.5) * w, vals, w, label=f'{ch} (mean)', color=colors[ch],
                 edgecolor='none', alpha=0.9)
+        # Per-session median overlaid as a tick, so the tail-driven gap between
+        # mean and median is visible night by night, not just in the pooled panel.
+        med = sess_df[f'{ch}_low_mediandB'].values
+        axC.scatter(x + (i - 1.5) * w, med, marker='_', s=45, lw=1.4,
+                    color='k', zorder=4)
+    axC.scatter([], [], marker='_', s=45, lw=1.4, color='k', label='median')
     axC.axhline(0, color='k', ls='-', lw=0.8)
     axC.set_xticks(x)
     axC.set_xticklabels(labels, rotation=60, ha='right', fontsize=7)
-    axC.set_ylabel('Low-band (0-3 Hz) power change (dB)')
+    axC.set_ylabel('Low-band (0.1-3 Hz) power change (dB)')
     axC.set_title('C  Per-session low-band increase at spindles', fontsize=10, loc='left')
     axC.legend(fontsize=7, ncol=2, loc='upper right', framealpha=0.9)
     axC.grid(axis='y', alpha=0.25)
 
-    ch_low = pooled['CH_low_meandB']
     fig.suptitle(
-        f'Low-band (0-3 Hz) capacitive response to N2 sleep spindles: a mechanical, not electrical, reflection  |  '
-        f'CH pooled +{ch_low:.2f} dB at spindle center (sigma band null)',
-        fontsize=11, y=1.02)
+        f'Low-band (0.1-3 Hz) capacitive response to N2 sleep spindles  |  CH pooled '
+        f'mean {pooled["CH_low_meandB"]:+.2f} dB, median {pooled["CH_low_mediandB"]:+.2f} dB, '
+        f'{100*pooled["CH_low_detrate"]:.1f}% of spindles above own baseline  |  '
+        f'sigma band bounded at |{abs(pooled["CH_sigma_meandB"]) + 1.96*pooled["CH_sigma_semdB"]:.2f}| dB',
+        fontsize=10.5, y=1.02)
     fig_path = os.path.join(FIGDIR, 'fig_spindle_lowband_detection.png')
     fig.savefig(fig_path, bbox_inches='tight', dpi=200)
     print(f'Wrote {fig_path}')

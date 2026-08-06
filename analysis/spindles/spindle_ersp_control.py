@@ -1,5 +1,5 @@
 """
-Is the CAP 0-3 Hz spindle bump a real spindle signature, or an artifact / an
+Is the CAP 0.1-3 Hz spindle bump a real spindle signature, or an artifact / an
 arousal-K-complex confound?
 
 Two decisive controls, reusing the ERSP machinery from spindle_ersp.py:
@@ -9,7 +9,7 @@ Two decisive controls, reusing the ERSP machinery from spindle_ersp.py:
       center bump; if random N2 also bumps, the effect is not spindle-locked.
 
   (B) AROUSAL CONFOUND — most N2 spindles ride a K-complex / micro-arousal whose
-      autonomic-motor transient IS a 0-3 Hz mechanical signal. We (i) trigger the
+      autonomic-motor transient IS a 0.1-3 Hz mechanical signal. We (i) trigger the
       ERSP on scored arousals (Classification Arousal, in N2) and (ii) split
       spindles by whether an arousal onset falls within +/-5 s. If only
       arousal-coupled spindles bump, the mask is sensing the arousal, not the
@@ -151,9 +151,9 @@ def main():
     np.savez(os.path.join(OUT, 'spindle_ersp_control.npz'), **save)
     print('\nevent counts (median/session):',
           {c: int(np.median(counts[c])) if counts[c] else 0 for c in conds})
-    # 0-3 Hz core change per condition/channel
-    print('\n=== mean 0-3 Hz core-vs-baseline (dB) ===')
-    lo = (f_axis >= 0.5) & (f_axis <= 3.0)
+    # 0.1-3 Hz core change per condition/channel
+    print('\n=== mean 0.1-3 Hz core-vs-baseline (dB) ===')
+    lo = (f_axis >= 0.1) & (f_axis <= 3.0)   # excludes the f=0 bin
     rows = []
     for ch in CHANNELS:
         for c in conds:

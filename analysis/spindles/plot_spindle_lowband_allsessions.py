@@ -1,17 +1,17 @@
 """
-All-sessions summary of the low-band (0-3 Hz) CAP spindle response.
+All-sessions summary of the low-band (0.1-3 Hz) CAP spindle response.
 
-Answers "is the 0-3 Hz power increase at spindle onset a real finding?" by
-showing it across all 12 sessions, using the per-session onset-triggered curves
+Answers "is the 0.1-3 Hz power increase at spindle center a real finding?" by
+showing it across all 12 sessions, using the per-session center-triggered curves
 and per-session detection rates already computed by
 `spindle_lowband_detection.py` (reads the cached .npz + .csv, no recompute).
 
 Figure (writeup/figures/spindles/fig_spindle_lowband_allsessions.png):
-  (A) All 12 sessions' CH low-band onset-triggered average curves (thin) with the
+  (A) All 12 sessions' CH low-band center-triggered average curves (thin) with the
       grand mean +/- SD (bold) — the bump is present in every session.
   (B) Per-session CH onset bump (core |t|<1 s dB) and per-spindle detection rate,
       with the zero/chance references; 12/12 sessions positive.
-  (C) Grand-mean onset-triggered curves for all four CAP channels (CH strongest),
+  (C) Grand-mean center-triggered curves for all four CAP channels (CH strongest),
       with the sigma-band negative control (per-spindle ~chance) annotated.
 
 Usage:
@@ -56,10 +56,10 @@ for i in range(trigCH.shape[0]):
 ax.fill_between(t, gm - gs, gm + gs, color=CH_COLORS['CH'], alpha=0.20)
 ax.plot(t, gm, color=CH_COLORS['CH'], lw=2.4, label='grand mean ± SD (12 sessions)')
 ax.axvline(0, color='k', lw=0.8, alpha=0.6)
-ax.set_title('(A) CH low-band (0–3 Hz) power at spindle onset\n'
+ax.set_title('(A) CH low-band (0.1–3 Hz) power at spindle center\n'
              'every one of 12 sessions shows the bump', fontsize=10.5, fontweight='bold')
 ax.set_xlabel('Time from spindle center (s)', fontsize=9)
-ax.set_ylabel('CH 0–3 Hz power (dB vs own baseline)', fontsize=9)
+ax.set_ylabel('CH 0.1–3 Hz power (dB vs own baseline)', fontsize=9)
 ax.legend(fontsize=8, loc='upper left')
 ax.set_xlim(t.min(), t.max())
 
@@ -100,11 +100,11 @@ ax.set_title('(C) Grand-mean onset response by channel\n'
              f'CH strongest; sigma (11–16 Hz) stays at chance ({sig_det:.0f}%)',
              fontsize=10.5, fontweight='bold')
 ax.set_xlabel('Time from spindle center (s)', fontsize=9)
-ax.set_ylabel('0–3 Hz power (dB vs own baseline)', fontsize=9)
+ax.set_ylabel('0.1–3 Hz power (dB vs own baseline)', fontsize=9)
 ax.legend(fontsize=8, loc='upper left')
 ax.set_xlim(t.min(), t.max())
 
-fig.suptitle(f'Low-band (0–3 Hz) spindle response in the capacitive mask — all 12 sessions, '
+fig.suptitle(f'Low-band (0.1–3 Hz) spindle response in the capacitive mask — all 12 sessions, '
              f'{n_spindles:,} N2 spindles',
              fontsize=13, fontweight='bold', y=1.02)
 os.makedirs(os.path.dirname(FIG), exist_ok=True)

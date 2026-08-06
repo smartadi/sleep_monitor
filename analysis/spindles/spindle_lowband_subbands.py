@@ -1,12 +1,12 @@
 """
-Break the CAP low-band (0-3 Hz) spindle-onset response into three sub-bands to
+Break the CAP low-band (0.1-3 Hz) spindle response into three sub-bands to
 see WHERE in the low band the bump lives:
 
-    slow    0.0-0.5 Hz   (sub-respiratory / baseline-wander / very slow mechanical)
+    slow    0.1-0.5 Hz   (sub-respiratory / baseline-wander / very slow mechanical)
     mid     0.5-1.5 Hz   (respiratory upper + low cardiac)
     high    1.5-3.0 Hz   (cardiac fundamental + harmonics)
 
-Onset-triggered average of the CH power in each sub-band, per N2 spindle, for all
+Center-triggered average of the CH power in each sub-band, per N2 spindle, for all
 12 sessions. Uses the same +/-8 s window and own-baseline dB contrast as
 `spindle_lowband_detection.py`, but with a finer STFT (nperseg=256 -> 0.39 Hz
 bins) so the three sub-bands are actually resolved (the 0-3 Hz analysis used
@@ -45,12 +45,14 @@ BASE_EDGE = 5.0
 NPERSEG = 256          # 0.39 Hz resolution (finer than the 0-3 Hz analysis)
 NOVERLAP = 224
 
+# Lower edge 0.1 Hz, not 0, so the f=0 bin (residual within-window drift after
+# per-segment mean removal) is excluded — matches spindle_lowband_detection.
 SUBBANDS = {
-    'slow 0–0.5 Hz':  (0.0, 0.5),
-    'mid 0.5–1.5 Hz': (0.5, 1.5),
-    'high 1.5–3 Hz':  (1.5, 3.0),
+    'slow 0.1–0.5 Hz': (0.1, 0.5),
+    'mid 0.5–1.5 Hz':  (0.5, 1.5),
+    'high 1.5–3 Hz':   (1.5, 3.0),
 }
-SUB_COLORS = {'slow 0–0.5 Hz': '#C0392B', 'mid 0.5–1.5 Hz': '#2980B9',
+SUB_COLORS = {'slow 0.1–0.5 Hz': '#C0392B', 'mid 0.5–1.5 Hz': '#2980B9',
               'high 1.5–3 Hz': '#27AE60'}
 CHAN = 'CH'
 
@@ -87,7 +89,9 @@ def subband_triggered(sig, centers_samp):
         f, t, Sxx = spectrogram(sig[a:b], fs=FS, nperseg=NPERSEG, noverlap=NOVERLAP)
         dB = 10.0 * np.log10(Sxx + 1e-12)
         if tcen is None:
-            tcen = t - t[-1] / 2.0
+            # Event sits WIN_HALF seconds into the epoch; t[-1]/2 is one STFT
+            # hop short of that and shifts the whole axis early.
+            tcen = t - WIN_HALF
             core_t = np.abs(tcen) < CORE_HALF
             base_t = np.abs(tcen) > BASE_EDGE
             for name, (lo, hi) in SUBBANDS.items():
@@ -175,7 +179,7 @@ def main():
         gm = data[f'trig_{key}'].mean(axis=0)
         axg.plot(t, gm, color=SUB_COLORS[name], lw=2.2,
                  label=f'{name}  (+{gm[core].mean():.2f} dB)')
-    axg.set_title('Grand mean over 12 sessions — the CH 0–3 Hz spindle bump, split by sub-band',
+    axg.set_title('Grand mean over 12 sessions — the CH 0.1–3 Hz spindle bump, split by sub-band',
                   fontsize=11, fontweight='bold')
     axg.set_xlabel('Time from spindle center (s)', fontsize=9)
     axg.set_ylabel('CH power (dB vs baseline)', fontsize=9)
@@ -203,8 +207,8 @@ def main():
         if i >= 9:
             ax.set_xlabel('Time from center (s)', fontsize=8)
 
-    fig.suptitle('Where the 0–3 Hz spindle bump lives — CH power split into '
-                 '0–0.5 / 0.5–1.5 / 1.5–3 Hz (onset-triggered average, all 12 sessions)',
+    fig.suptitle('Where the 0.1–3 Hz spindle bump lives — CH power split into '
+                 '0.1–0.5 / 0.5–1.5 / 1.5–3 Hz (center-triggered average, all 12 sessions)',
                  fontsize=13, fontweight='bold', y=1.0)
     os.makedirs(os.path.dirname(FIG), exist_ok=True)
     fig.savefig(FIG, dpi=200, bbox_inches='tight', facecolor='white')

@@ -17,6 +17,20 @@ Each entry records the question asked, code written, parameters used, plots gene
 
   **(6) Wording.** §4.4 and the Figure 7 caption say "onset-triggered", but the code triggers on spindle **centres** (`0.5*(start+end)`).
 
+  **Post-fix numbers (2026-08-06, after the code changes logged in CHANGELOG — these supersede everything above and everything currently in §4.4).** Pooled over **14,305** N2 spindles, low band now 0.1–3 Hz, event axis corrected:
+
+  | channel | low mean | median | trim10 | det rate | null | top5 % share | sessions <0.50 |
+  |---|---|---|---|---|---|---|---|
+  | CLE | +0.511 | +0.195 | +0.223 | 0.531 | 0.490 | 1.13 | 1/12 |
+  | CRE | +0.477 | +0.149 | +0.160 | 0.525 | 0.483 | 1.26 | 2/12 |
+  | CLE−CRE | +0.493 | +0.160 | +0.194 | 0.526 | 0.481 | 1.19 | 1/12 |
+  | CH | +0.586 | +0.130 | +0.180 | 0.518 | 0.482 | 1.20 | **5/12** |
+  | EEG | +1.828 | +1.248 | +1.556 | 0.605 | 0.443 | **0.42** | 0/12 |
+
+  The EEG row is the interpretive key: its low-band response has median ≈ mean and a top-5 % share of 0.42, i.e. distributed across events. Every CAP channel has median ≪ mean and a share >1, i.e. the other 95 % of spindles sum negative. Same contrast, opposite character. Sigma bounds: CLE **<0.046 dB (1.1 % power)**, CRE **<0.057 (1.3 %)**, CLE−CRE **<0.048 (1.1 %)**, CH **<0.058 (1.3 %)**; EEG **+3.555 dB**, up from +3.32 before the alignment fix. ERSP controls survive unchanged in character: spindle CH **+0.514** vs random-N2 **+0.046**, scored arousals alone **−0.330**, spindles with no arousal within ±5 s **+0.505**. Sub-bands (all 12/12 positive): slow 0.1–0.5 Hz **+0.728**, mid 0.5–1.5 Hz **+0.684**, high 1.5–3 Hz **+0.471**.
+
+  **Still open — the peri-event baseline is not flat.** The corrected grand-mean curve rises from about **−0.3 dB at −6 s** to the peak at t = 0 and decays with a long positive tail past +6 s, so the `|t| > 5 s` baseline sits *inside* the response rather than outside it. Spindles occur in trains (≈1 per 7.5 s in N2), so each window's baseline contains other spindles. This biases the measured bump *downward*, so it does not threaten the positive finding — but it does mean the ±8 s window cannot separate a spindle-specific transient from a slower N2 process the spindles ride on. Worth a wider-window check before the section is final.
+
   **Checked and clean** (ruled out, worth stating if a reviewer asks): DC-bin contamination — 0–3 Hz including f = 0 vs 0.5–3 Hz differ by ratio 0.91–1.00; 111→100 Hz linear-interpolation artifact — no spurious line at the 11 Hz beat frequency or anywhere in 8–20 Hz (top peaks ≈2× local median = ordinary Welch scatter), the sigma band is plain white noise; respiratory phase-locking of spindle times (median R = 0.051, mostly n.s., control R comparable) and cardiac phase-locking (R = 0.013–0.068, n.s.) — the low-band bump is not a trigger-phase artifact; broadband-step/motion artifact — the CAP spindle-triggered spectrum is low-frequency-specific (+0.4 to +0.67 dB at 0–1.5 Hz, decaying to ~0 by 8 Hz, 0.00–0.05 dB at 17–25 Hz), not flat; sub-AASM-duration events are only 0.0–0.5 % of the set.
 
 - **2026-08-05** — **Mean-centred mean value, head-angle revalidation, night-scale flow marker, CH vs CLE−CRE, and CAP variance vs cortical activity** (`analysis/mean_value/{mean_centred_traces,head_angle_validate,flow_marker,ch_vs_clecre_sessions}.py`, `analysis/swa_validation/cap_variance_vs_cortical.py`; figures under `writeup/figures/{mean_value,head_angle,flow,channel_evolution,cap_variance}/`). Five requests, all framed as "this is what the CAP can do".
