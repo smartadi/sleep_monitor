@@ -44,21 +44,17 @@ Rows (both figures)
                       writeup/figures/harmonics/ridges/ridge_tune_*.png —
                       imported from analysis/slow_wave/ridge_overlay_tune.py, not
                       reimplemented, so the two agree exactly.
-    H,I  slow panels   DIFFERENCE figure only, one per channel: the slow band
-                      (0-0.3 Hz) with its persistent ridges and prominence gate.
-                      Same band the flow marker in row C lives in, so rows C and
-                      H/I are two views of the same slow physics.
     F,G  spectrograms  ABSOLUTE figure: plain 0-5 Hz spectrogram per channel.
 
-Why the rate traces are Viterbi paths and the slow ridges are not
------------------------------------------------------------------
+Why the rate traces are Viterbi paths
+-------------------------------------
 Respiration and heart rate each have exactly ONE value at any instant, so each
 is tracked as a single globally-optimal continuous path (maximise spectral
 amplitude minus a smoothness penalty, searched inside a physiological band). The
 generic multi-ridge detector is wrong for them: it returns a scatter of
 fragments, lets two "cardiac" ridges coexist at one instant, and lets a ridge
-hop to a subharmonic. Several slow oscillations genuinely CAN coexist, so the
-slow band keeps the multi-ridge detector.
+hop to a subharmonic. The slow band is NOT drawn here -- the slow physics is
+already row C's subject, in fF rather than as a spectrum.
 
 CH is the sensor's own hardware difference channel and is NOT the arithmetic
 CLE-CRE: across the cohort the offset is ~-742 fF and the gain of CH on CLE-CRE
@@ -121,16 +117,15 @@ from sleep_monitor.sessions import SESSION_META
 # One definition of the flow marker, shared with flow_marker.py so the two
 # figures cannot drift apart.
 from flow_marker import flow_marker, TAU_MIN, DESPIKE_MIN
-# Same for the ridge detector and its band configs: imported from the ridge
-# analysis rather than restated here, so the bottom panels of this figure and the
-# ridge figures cannot disagree about what a ridge is.
+# Same for the rate tracker: the Viterbi tracker, its per-rhythm search bands
+# and the background-removal are imported from the tuned ridge overlay rather
+# than restated here, so the rate panels of this figure and the figures under
+# writeup/figures/harmonics/ridges/ cannot disagree.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'slow_wave'))
-from sleep_monitor.harmonics import detect_persistent_ridges
 from sleep_monitor.preprocessing import remove_acc_artifact
 import ridge_overlay_tune as rot
 from ridge_overlay_tune import (
-    TRACK, BANDS as SLOW_BANDS, BAND_COLOR as RIDGE_COLOR,
-    track_single_ridge, _enhance_spec,
+    TRACK, BAND_COLOR as RIDGE_COLOR, track_single_ridge, _enhance_spec,
 )
 rot.VERBOSE = False        # this figure reports ridge counts on the panel instead
 
@@ -165,7 +160,6 @@ BLOCK_SEC = 10.0            # window for mean / variance / motion (display rows)
 LP_CAP_HZ = 10.0           # low-pass cap applied to raw signal before mean/variance
 SPEC_FMAX = 5.0            # plain-spectrogram top frequency (Hz)
 RIDGE_FMAX = 3.0           # rate-panel top frequency (resp + cardiac)
-SLOW_FMAX  = 0.30          # slow-band panel top frequency
 
 # ── Journal styling ───────────────────────────────────────────────────────────
 plt.rcParams.update({
@@ -174,7 +168,7 @@ plt.rcParams.update({
     'axes.linewidth': 0.8, 'axes.edgecolor': '#333333',
     'font.family': 'DejaVu Sans', 'figure.dpi': 200,
 })
-PANEL = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I']
+PANEL = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
 
 
 def robust_ylim(y, pad=0.08, symmetric=False, floor0=False):
@@ -539,18 +533,6 @@ def compute_ridges(sig, acc, fs):
         t, tr, conf = track_single_ridge(clean, fs, **TRACK[rhythm])
         out[rhythm] = {'t_hr': t, 'freq': tr, 'conf': conf}
 
-    bp = dict(SLOW_BANDS['slow'])
-    min_prom = bp.pop('min_prominence', 0.0)
-    mask_motion = bp.pop('mask_motion', True)
-    rr = detect_persistent_ridges(clean, fs=fs,
-                                  acc_mag=acc if mask_motion else None,
-                                  fill_gaps=True, **bp)
-    rr['ridges'] = sorted(
-        [r for r in rr['ridges']
-         if np.isfinite(r.get('median_prominence', np.nan))
-         and r['median_prominence'] >= min_prom],
-        key=lambda r: -r['duration_sec'])
-    out['slow'] = rr
     out['clean'] = clean
     return out
 
@@ -595,39 +577,6 @@ def draw_rate_panel(ax, ridges, fs, fig, label):
     cb.ax.tick_params(labelsize=7)
 
 
-def draw_slow_panel(ax, ridges, fs, fig, label):
-    """
-    Slow band (0-0.3 Hz) with its persistent ridges.
-
-    This is the band the flow marker in row C lives in, so the two rows are
-    about the same physics: row C is the signed slow imbalance between the
-    hemispheres, this row is the oscillatory content of that same slow range.
-    Unlike respiration and heart rate, several slow oscillations genuinely can
-    coexist, so the multi-ridge detector (with its prominence gate) is kept here
-    rather than a single Viterbi trace.
-    """
-    fS, tS, dbS = _enhance_spec(ridges['clean'], fs, 240, 210, SLOW_FMAX,
-                                bg_hz=0.10)
-    vmaxS = np.percentile(dbS, 99.5)
-    pcm = ax.pcolormesh(tS / 3600.0, fS, dbS, shading='gouraud', cmap='viridis',
-                        vmin=0, vmax=vmaxS, rasterized=True)
-    rr = ridges['slow']
-    for r in rr['ridges']:
-        ax.plot(rr['t_hr'], r['freq_trace'], color=RIDGE_COLOR['slow'], lw=2.0,
-                alpha=0.95, zorder=4)
-    ax.set_ylim(0, SLOW_FMAX)
-    ax.set_ylabel(f'{label}\nSlow (Hz)')
-    ax.legend(handles=[plt.Line2D([], [], color=RIDGE_COLOR['slow'], lw=2,
-                                  label=f'slow ridge x{len(rr["ridges"])}')],
-              loc='upper right', fontsize=8.5, framealpha=0.85)
-    cax = inset_axes(ax, width='1.4%', height='85%', loc='center left',
-                     bbox_to_anchor=(1.005, 0., 1, 1), bbox_transform=ax.transAxes,
-                     borderpad=0)
-    cb = fig.colorbar(pcm, cax=cax)
-    cb.set_label('dB above background', fontsize=8)
-    cb.ax.tick_params(labelsize=7)
-
-
 def _caption(ax, txt, y=0.95, va='top'):
     ax.text(0.006, y, txt, transform=ax.transAxes, fontsize=8, style='italic',
             color='#555', va=va,
@@ -652,12 +601,9 @@ def plot_pair(s, feats, raw, chans, out, title, shared_level_axis, ridges=None):
     f0, f1 = feats[c0], feats[c1]
     is_diff = c0 in DIFF_CHANNELS and c1 in DIFF_CHANNELS
 
-    n_bottom = 4 if ridges is not None else 2
-    heights = ([0.55, 1.25, 1.35, 0.80, 1.15]
-               + ([1.30, 1.30, 1.00, 1.00] if ridges is not None else [0.95, 0.95]))
     fig, axes = plt.subplots(
-        5 + n_bottom, 1, figsize=(14, 14.0 + 2.2 * n_bottom), sharex=True,
-        gridspec_kw={'height_ratios': heights})
+        7, 1, figsize=(14, 16.4), sharex=True,
+        gridspec_kw={'height_ratios': [0.55, 1.25, 1.35, 0.80, 1.15, 1.40, 1.40]})
 
     # A -- hypnogram ladder
     draw_ladder(axes[0], sp, title)
@@ -751,8 +697,6 @@ def plot_pair(s, feats, raw, chans, out, title, shared_level_axis, ridges=None):
     for k, ch in enumerate((c0, c1)):
         if ridges is not None:
             draw_rate_panel(axes[5 + k], ridges[ch], s.fs, fig, ch)
-            draw_slow_panel(axes[7 + k], ridges[ch], s.fs, fig, ch)
-            panel_letter(axes[7 + k], 7 + k)
         else:
             draw_spectrogram(axes[5 + k], raw[ch], s.fs, fig, ch)
         panel_letter(axes[5 + k], 5 + k)
