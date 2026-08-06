@@ -2,7 +2,7 @@
 Per-session channel "evolution" panels (journal figures).
 
 The point of these figures: show how the raw sensor value evolves across a night,
-and how that evolution carries a directional FLOW signal. The flow marker is still
+and how that evolution carries a directional capacitance-imbalance signal. The capacitance-imbalance marker is still
 being tuned — it is drawn here as the current best definition, not a settled one.
 
 Two figures per session, grouped by what the channels are:
@@ -23,7 +23,7 @@ Rows (both figures)
                       excursion is read directly off the axis; nights with large
                       re-seat steps overflow the axis rather than compressing
                       everything else into a flat line.
-    C  flow           sits directly under the mean it is derived from.
+    C  imbalance      sits directly under the mean it is derived from.
                       Difference figure: the signed 30-min low pass of the
                       mean-centred difference, LP(d), filled two-colour about
                       zero and drawn inside the +/-LP(|d|) envelope — sign is the
@@ -31,7 +31,7 @@ Rows (both figures)
                       on one axis. The second difference channel is overlaid on
                       its own axis.
                       Absolute figure: the same low pass of each level. A signed
-                      flow direction needs a difference channel, so it is not
+                      imbalance direction needs a difference channel, so it is not
                       defined for CLE or CRE on their own.
     D  variance       within-window variance (fF^2)
     E  head angle     head TURN angle from the accelerometer (0 supine, +90 left,
@@ -59,12 +59,13 @@ already row C's subject, in fF rather than as a spectrum.
 CH is the sensor's own hardware difference channel and is NOT the arithmetic
 CLE-CRE: across the cohort the offset is ~-742 fF and the gain of CH on CLE-CRE
 runs from -1.9 to +6.5, changing sign between subjects (ch_vs_clecre_sessions.py).
-Row C of the difference figure prints how often the two flow channels agree in
-sign and their correlation.
+Row C of the difference figure prints how often the two difference channels
+agree in sign and their correlation.
 
 Two display choices that earlier versions got wrong
 ---------------------------------------------------
-* The flow row used to show a NORMALISED direction, LP(d)/LP(|d|), in [-1,+1].
+* The imbalance row used to show a NORMALISED direction, LP(d)/LP(|d|), in
+  [-1,+1].
   It saturates flat against +/-1 whenever the sign is consistent, which reads as
   clipping rather than as "one-sided", and it needed a second axis in different
   units for the magnitude. The signed low pass carries the same information with
@@ -114,9 +115,9 @@ from sleep_monitor.config import (
     CAP_SCALE_TO_FF, CAP_UNIT, CAP_UNIT_SQ,
 )
 from sleep_monitor.sessions import SESSION_META
-# One definition of the flow marker, shared with flow_marker.py so the two
-# figures cannot drift apart.
-from flow_marker import flow_marker, TAU_MIN, DESPIKE_MIN
+# One definition of the capacitance-imbalance marker, shared with
+# imbalance_marker.py so the two figures cannot drift apart.
+from imbalance_marker import imbalance_marker, TAU_MIN, DESPIKE_MIN
 # Same for the rate tracker: the Viterbi tracker, its per-rhythm search bands
 # and the background-removal are imported from the tuned ridge overlay rather
 # than restated here, so the rate panels of this figure and the figures under
@@ -134,13 +135,13 @@ PLOT_DIR = ROOT / 'writeup' / 'figures' / 'channel_evolution'
 PLOT_DIR.mkdir(parents=True, exist_ok=True)
 
 CHANNELS = ['CLE', 'CRE', 'CH', 'CLE-CRE']
-DIFF_CHANNELS = ['CLE-CRE', 'CH']       # channels a signed flow direction exists for
+DIFF_CHANNELS = ['CLE-CRE', 'CH']       # channels a signed imbalance direction exists for
 CH_COLOR = {'CLE': CAP_COLORS['CLE'], 'CRE': CAP_COLORS['CRE'],
             'CH': CAP_COLORS['CH'], 'CLE-CRE': CAP_COLORS['CLE-CRE']}
 CH_LONG = {'CLE': 'left temple (CLE)', 'CRE': 'right temple (CRE)',
            'CH': 'hardware difference (CH)',
            'CLE-CRE': 'arithmetic difference (CLE−CRE)'}
-# The flow row draws each channel in its OWN colour, so it needs no separate
+# The imbalance row draws each channel in its OWN colour, so it needs no separate
 # magnitude/direction colours -- those existed only while the two quantities were
 # split across different axes.
 HEAD_COLOR = '#16A085'
@@ -298,11 +299,11 @@ def compute_features(s):
         var_b = block_reduce(filt[: m * n], n, np.var)
         mu = float(np.nanmean(mean_b[in_sleep]))
         d = mean_b - mu
-        # Same marker as flow_marker.py, evaluated on this figure's 10 s blocks.
-        A, D, d_lp = flow_marker(d, is_motion, TAU_MIN, DESPIKE_MIN,
+        # Same marker as imbalance_marker.py, evaluated on this figure's 10 s blocks.
+        A, D, d_lp = imbalance_marker(d, is_motion, TAU_MIN, DESPIKE_MIN,
                                  block_min=BLOCK_SEC / 60.0)
         feats[ch] = {'mean': mean_b, 'centred': d, 'mu': mu, 'var': var_b,
-                     'flow_mag': A, 'flow_dir': D, 'flow_lp': d_lp}
+                     'imb_mag': A, 'imb_dir': D, 'imb_lp': d_lp}
     return feats, raw
 
 
@@ -360,13 +361,13 @@ def draw_ladder(ax, sp, title=None):
         ax.set_title(title, fontsize=13, fontweight='bold')
 
 
-def draw_flow_row(ax, t, feats, chans, shared_axis):
+def draw_imbalance_row(ax, t, feats, chans, shared_axis):
     """
-    Flow, drawn identically for both channels.
+    Imbalance, drawn identically for both channels.
 
     Every channel goes through the SAME computation in compute_features(): the
     same 10 s block mean, the same session-mean centring, and the same
-    flow_marker() call with the same time constants. Nothing about CH is
+    imbalance_marker() call with the same time constants. Nothing about CH is
     computed differently from CLE-CRE — where they differ, that is signal.
 
     The previous version of this row did not honour that. It drew the SIGNED
@@ -377,7 +378,7 @@ def draw_flow_row(ax, t, feats, chans, shared_axis):
     information and read as clipping).
 
     Unified presentation, one definition per channel, both in femtofarads:
-        line  = LP(d)   the signed slow flow; sign is the direction
+        line  = LP(d)   the signed slow imbalance; sign is the direction
         band  = +/-LP|d|  the envelope of the imbalance
     How close the line runs to its band edge is the old normalised direction,
     without the saturation artefact. Each channel is drawn in its own colour
@@ -397,22 +398,22 @@ def draw_flow_row(ax, t, feats, chans, shared_axis):
         a = ax if (shared_axis or k == 0) else ax.twinx()
         axes_for[ch] = a
         col = CH_COLOR[ch]
-        a.fill_between(t, -f['flow_mag'], f['flow_mag'], color=col, alpha=0.13,
+        a.fill_between(t, -f['imb_mag'], f['imb_mag'], color=col, alpha=0.13,
                        lw=0, zorder=1)
-        ln, = a.plot(t, f['flow_lp'], lw=2.0 if k == 0 else 1.6, color=col,
+        ln, = a.plot(t, f['imb_lp'], lw=2.0 if k == 0 else 1.6, color=col,
                      zorder=5 - k, label=ch)
         handles.append(ln)
         if not shared_axis:
-            a.set_ylim(*sym_zero_ylim(f['flow_lp'], f['flow_mag'], -f['flow_mag']))
+            a.set_ylim(*sym_zero_ylim(f['imb_lp'], f['imb_mag'], -f['imb_mag']))
             side = 'left' if k == 0 else 'right'
-            a.set_ylabel(f'{ch} flow\n({CAP_UNIT})' if k == 0
-                         else f'{ch} flow ({CAP_UNIT})', color=col)
+            a.set_ylabel(f'{ch} imbalance\n({CAP_UNIT})' if k == 0
+                         else f'{ch} imbalance ({CAP_UNIT})', color=col)
             a.tick_params(axis='y', labelcolor=col)
     if shared_axis:
-        ax.set_ylim(*sym_zero_ylim(*[feats[c]['flow_lp'] for c in chans],
-                                   *[feats[c]['flow_mag'] for c in chans],
-                                   *[-feats[c]['flow_mag'] for c in chans]))
-        ax.set_ylabel(f'Slow flow\n({CAP_UNIT})')
+        ax.set_ylim(*sym_zero_ylim(*[feats[c]['imb_lp'] for c in chans],
+                                   *[feats[c]['imb_mag'] for c in chans],
+                                   *[-feats[c]['imb_mag'] for c in chans]))
+        ax.set_ylabel(f'Slow imbalance\n({CAP_UNIT})')
     handles.append(mpatches.Patch(color='#888888', alpha=0.3,
                                   label='± low-passed |Δ| (envelope)'))
     ax.legend(handles=handles, loc='lower left', fontsize=8.5, ncol=3,
@@ -636,7 +637,7 @@ def plot_pair(s, feats, raw, chans, out, title, shared_level_axis, ridges=None):
     ax.grid(True, alpha=0.15)
     panel_letter(ax, 1)
 
-    # C -- flow, directly under the mean it is derived from
+    # C -- imbalance, directly under the mean it is derived from
     #
     # Everything on this row is in fF on ONE signed axis. The previous version
     # put a normalised direction LP(d)/LP(|d|) in [-1,+1] on the left, a
@@ -649,9 +650,9 @@ def plot_pair(s, feats, raw, chans, out, title, shared_level_axis, ridges=None):
     # still readable as how close the line sits to the envelope edge.
     ax = axes[2]
     stage_shading(ax, sp)
-    draw_flow_row(ax, t, feats, chans, shared_axis=shared_level_axis)
+    draw_imbalance_row(ax, t, feats, chans, shared_axis=shared_level_axis)
     if is_diff:
-        g0, g1 = f0['flow_lp'], f1['flow_lp']
+        g0, g1 = f0['imb_lp'], f1['imb_lp']
         ok = np.isfinite(g0) & np.isfinite(g1)
         r = float(np.corrcoef(g0[ok], g1[ok])[0, 1]) if ok.sum() > 20 else np.nan
         agree = (float(np.mean(np.sign(g0[ok]) == np.sign(g1[ok])))
@@ -659,7 +660,7 @@ def plot_pair(s, feats, raw, chans, out, title, shared_level_axis, ridges=None):
         left = float(np.mean(g0[np.isfinite(g0)] > 0))
         _caption(ax, f'same computation for both channels: {TAU_MIN:.0f} min low '
                      f'pass of the mean-centred difference, motion excluded \u00b7 '
-                     f'line = LP(\u0394) signed flow, band = \u00b1LP|\u0394| envelope\n'
+                     f'line = LP(\u0394) signed imbalance, band = \u00b1LP|\u0394| envelope\n'
                      f'{c0} > 0 = left temple higher ({left * 100:.0f}% of the night)'
                      f' \u00b7 {c1} polarity is not assumed to match: measured sign '
                      f'agreement {agree * 100:.0f}%, r = {r:+.2f}',
@@ -668,7 +669,7 @@ def plot_pair(s, feats, raw, chans, out, title, shared_level_axis, ridges=None):
         _caption(ax, f'same {TAU_MIN:.0f} min low pass applied to each channel '
                      f'\u00b7 line = LP(\u0394), band = \u00b1LP|\u0394| \u00b7 these '
                      f'are single-ended levels, so the sign is drift about the '
-                     f'session mean, not a flow direction \u2014 see the '
+                     f'session mean, not a imbalance direction \u2014 see the '
                      f'CH / CLE\u2212CRE figure for that',
                  y=0.95, va='top')
     ax.grid(True, alpha=0.15)
@@ -725,7 +726,7 @@ def run_session(label):
         title = (f'{s.label} \u2014 {chans[0]} and {chans[1]}: overnight evolution '
                  f'of the sensor value')
         # Ridge panels only on the difference figure: those are the channels the
-        # flow story is about, and ridge detection is the expensive step here.
+        # imbalance story is about, and ridge detection is the expensive step here.
         ridges = ({ch: compute_ridges(raw[ch], acc, s.fs) for ch in chans}
                   if tag == 'CH_CLE-CRE' else None)
         out = plot_pair(s, feats, raw, chans, PLOT_DIR / f'{label}_{tag}.png',

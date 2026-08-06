@@ -1,17 +1,17 @@
 """
-Directional "flow" from the L-R mean value, and its link to sleep quality.
+Directional "imbalance" from the L-R mean value, and its link to sleep quality.
 
 Hypothesis (user)
 -----------------
 The slowly-moving mean (DC baseline) of the capacitive temple sensors tracks a
-slow "flow". The LEFT-minus-RIGHT baseline,  flow(t) = base_CLE - base_CRE,
-is a *signed direction of flow*. If, across the night, flow stays prominently in
+slow "imbalance". The LEFT-minus-RIGHT baseline,  imbalance(t) = base_CLE - base_CRE,
+is a *signed direction of imbalance*. If, across the night, imbalance stays prominently in
 ONE direction (imbalanced / one-sided) rather than alternating, sleep quality is
 worse.
 
 Signal
 ------
-flow(t) := vlf_CLE-CRE  (the <0.05 Hz baseline of CLE-CRE, already computed by
+imbalance(t) := vlf_CLE-CRE  (the <0.05 Hz baseline of CLE-CRE, already computed by
 mean_value_vs_stage.py and stored per 30 s epoch in mean_value_epochs.csv).
 This is the "slowly moving mean value" the hypothesis is about.
 
@@ -23,13 +23,13 @@ mismatch). So metrics defined relative to *absolute zero* ("how far from 0",
 therefore report TWO families of imbalance metrics:
 
   offset-SENSITIVE (literal reading of the hypothesis; interpret with care)
-     flow_bias        median(flow)                    signed, raw units
-     flow_onesided    |mean(flow)| / rms(flow) in[0,1]  1 = never crosses abs 0
+     imbalance_bias        median(imbalance)                    signed, raw units
+     imbalance_onesided    |mean(imbalance)| / rms(imbalance) in[0,1]  1 = never crosses abs 0
 
   offset-INVARIANT (robust test of "stuck one-sided vs alternating")
-     flow_skew        skewness of flow                one-sided magnitude asym.
-     flow_reversal    sign-changes of (flow-median)/hr  low = stuck, high = alternating
-     flow_gini_dwell  dwell asymmetry about session median (Gini of run lengths)
+     imbalance_skew        skewness of imbalance                one-sided magnitude asym.
+     imbalance_reversal    sign-changes of (imbalance-median)/hr  low = stuck, high = alternating
+     imbalance_gini_dwell  dwell asymmetry about session median (Gini of run lengths)
 
 The offset-invariant metrics are the ones we trust for the hypothesis.
 
@@ -45,19 +45,19 @@ Sleep quality (PSG hypnogram, from the same epoch table)
 
 Analysis
 --------
-  * Per-session flow + quality metrics table.
-  * Spearman correlation grid: each flow metric vs each quality metric (n=12).
+  * Per-session imbalance + quality metrics table.
+  * Spearman correlation grid: each imbalance metric vs each quality metric (n=12).
   * Within-subject paired check: does the worse-quality night have the more
-    imbalanced flow? (6 subject-pairs, sign test.)
-  * "How flow changes across sleep": per-stage flow activity (pooled, z-scored).
-  * Figures: per-session flow-vs-hypnogram traces, imbalance-vs-quality scatters,
-    per-session reversal-rate bars, per-stage flow-activity boxplot.
+    imbalanced imbalance? (6 subject-pairs, sign test.)
+  * "How imbalance changes across sleep": per-stage imbalance activity (pooled, z-scored).
+  * Figures: per-session imbalance-vs-hypnogram traces, imbalance-vs-quality scatters,
+    per-session reversal-rate bars, per-stage imbalance-activity boxplot.
 
 n = 12 sessions / 6 subjects -> EXPLORATORY. Report effect sizes + caveats,
 not p-value verdicts.
 
 Usage:
-    .venv/Scripts/python.exe analysis/mean_value/flow_imbalance_vs_quality.py
+    .venv/Scripts/python.exe analysis/mean_value/imbalance_vs_quality.py
 
 Requires reports/mean_value/mean_value_epochs.csv (produced by
 mean_value_vs_stage.py). Regenerate that first if missing.
@@ -85,7 +85,7 @@ PLOT_DIR.mkdir(parents=True, exist_ok=True)
 REPORT_DIR.mkdir(parents=True, exist_ok=True)
 
 EPOCH_MIN = 0.5                       # 30 s epochs
-FLOW_COL = 'vlf_CLE-CRE'              # the slowly-moving L-R mean = "flow"
+IMBALANCE_COL = 'vlf_CLE-CRE'              # the slowly-moving L-R mean = "imbalance"
 SLEEP_CODES = {0, 1, 2, 3}           # REM, N3, N2, N1
 WAKE_CODE = 4
 REPRESENTATIVE = ['S1N1', 'S3N1', 'S5N1']
@@ -96,14 +96,14 @@ WORSE_IF_HIGH = {'waso_min', 'sol_min', 'n_awake', 'frag_idx'}
 BETTER_IF_HIGH = {'sleep_eff', 'pct_N3', 'pct_REM'}
 
 
-# ── Per-session flow (imbalance) metrics ──────────────────────────────────────
+# ── Per-session imbalance (imbalance) metrics ──────────────────────────────────────
 
-def flow_metrics(g):
+def imbalance_metrics(g):
     """
-    Flow imbalance metrics for one session.
+    Imbalance imbalance metrics for one session.
 
-    g : per-epoch rows for a session, sorted by epoch, with FLOW_COL, stage_code,
-        motion (top-decile acc flag). Flow is analysed over the SLEEP period only
+    g : per-epoch rows for a session, sorted by epoch, with IMBALANCE_COL, stage_code,
+        motion (top-decile acc flag). Imbalance is analysed over the SLEEP period only
         (onset..final sleep epoch) with high-motion epochs dropped, because motion
         throws large transient swings into the baseline.
     """
@@ -117,9 +117,9 @@ def flow_metrics(g):
     on, off = np.argmax(is_sleep), len(is_sleep) - 1 - np.argmax(is_sleep[::-1])
     win = np.zeros(len(g), dtype=bool)
     win[on:off + 1] = True
-    clean = win & (~g['motion'].to_numpy()) & np.isfinite(g[FLOW_COL].to_numpy())
+    clean = win & (~g['motion'].to_numpy()) & np.isfinite(g[IMBALANCE_COL].to_numpy())
 
-    f = g.loc[clean, FLOW_COL].to_numpy()
+    f = g.loc[clean, IMBALANCE_COL].to_numpy()
     if len(f) < 20:
         return None
     n_hr = len(f) * EPOCH_MIN / 60.0
@@ -139,17 +139,17 @@ def flow_metrics(g):
 
     return {
         # offset-SENSITIVE (interpret with care — dominated by mask-placement offset)
-        'flow_bias':      float(med),                       # signed operating point (a.u.)
-        'flow_onesided':  float(abs(np.mean(f)) / (rms + 1e-9)),  # saturates ~1 (offset)
-        'flow_offset_dom': float(abs(med) / (sd + 1e-9)),   # offset / modulation ratio
+        'imbalance_bias':      float(med),                       # signed operating point (a.u.)
+        'imbalance_onesided':  float(abs(np.mean(f)) / (rms + 1e-9)),  # saturates ~1 (offset)
+        'imbalance_offset_dom': float(abs(med) / (sd + 1e-9)),   # offset / modulation ratio
         # offset-INVARIANT (the real test of "stuck one-sided vs alternating")
-        'flow_skew':      float(sp_skew(f)),
-        'flow_absskew':   float(abs(sp_skew(f))),
-        'flow_reversal':  float(reversals / n_hr),          # crossings per hour
-        'flow_maxrun':    float(max_run_min),               # longest one-sided run (min)
+        'imbalance_skew':      float(sp_skew(f)),
+        'imbalance_absskew':   float(abs(sp_skew(f))),
+        'imbalance_reversal':  float(reversals / n_hr),          # crossings per hour
+        'imbalance_maxrun':    float(max_run_min),               # longest one-sided run (min)
         # context
-        'flow_std':       float(sd),
-        'flow_range':     float(np.ptp(f)),
+        'imbalance_std':       float(sd),
+        'imbalance_range':     float(np.ptp(f)),
         'n_clean_epochs': int(len(f)),
     }
 
@@ -219,11 +219,11 @@ def quality_metrics(g):
 
 # ── Figures ───────────────────────────────────────────────────────────────────
 
-def fig_flow_hypno(g, label, out):
-    """Signed flow trace across the night, over a colour-banded hypnogram."""
+def fig_imbalance_hypno(g, label, out):
+    """Signed imbalance trace across the night, over a colour-banded hypnogram."""
     g = g.sort_values('epoch')
     t = g['t_hr'].to_numpy()
-    f = g[FLOW_COL].to_numpy()
+    f = g[IMBALANCE_COL].to_numpy()
     med = np.nanmedian(f[np.isin(g['stage_code'], list(SLEEP_CODES))])
 
     fig, ax = plt.subplots(figsize=(14, 4))
@@ -231,25 +231,25 @@ def fig_flow_hypno(g, label, out):
     for j in range(len(t) - 1):
         ax.axvspan(t[j], t[j + 1], color=STAGE_COLORS.get(int(codes[j]), '#AAA'),
                    alpha=0.16, lw=0)
-    ax.plot(t, f, lw=1.2, color='#E67E22', label='flow = CLE-CRE baseline')
+    ax.plot(t, f, lw=1.2, color='#E67E22', label='imbalance = CLE-CRE baseline')
     ax.axhline(med, color='#2C3E50', ls='--', lw=1.0, label='session median')
     ax.fill_between(t, med, f, where=(f >= med), color='#C0392B', alpha=0.25,
-                    interpolate=True, label='flow → left')
+                    interpolate=True, label='imbalance → left')
     ax.fill_between(t, med, f, where=(f < med), color='#2980B9', alpha=0.25,
-                    interpolate=True, label='flow → right')
-    ax.set_xlabel('Time (hours)'); ax.set_ylabel('flow  (CLE-CRE, a.u.)')
-    ax.set_title(f'{label} — directional flow (L-R slow mean) vs hypnogram',
+                    interpolate=True, label='imbalance → right')
+    ax.set_xlabel('Time (hours)'); ax.set_ylabel('imbalance  (CLE-CRE, a.u.)')
+    ax.set_title(f'{label} — capacitance imbalance (L-R slow mean) vs hypnogram',
                  fontsize=12, fontweight='bold')
     handles = [mpatches.Patch(color=STAGE_COLORS[k], label=STAGE_LABELS[k])
                for k in STAGE_ORDER]
-    handles += [plt.Line2D([], [], color='#E67E22', label='flow'),
+    handles += [plt.Line2D([], [], color='#E67E22', label='imbalance'),
                 plt.Line2D([], [], color='#2C3E50', ls='--', label='median')]
     ax.legend(handles=handles, loc='upper right', ncol=4, fontsize=7, framealpha=0.9)
     fig.tight_layout(); fig.savefig(out, dpi=200, bbox_inches='tight'); plt.close(fig)
 
 
 def fig_scatter(sess, xcol, ycol, out):
-    """Per-session scatter of a flow metric vs a quality metric, Spearman annotated."""
+    """Per-session scatter of an imbalance metric vs a quality metric, Spearman annotated."""
     x = sess[xcol].to_numpy(); y = sess[ycol].to_numpy()
     ok = np.isfinite(x) & np.isfinite(y)
     rho, p = spearmanr(x[ok], y[ok])
@@ -276,37 +276,37 @@ def fig_scatter(sess, xcol, ycol, out):
 
 
 def fig_reversal_bars(sess, out):
-    """Per-session flow reversal rate, coloured by sleep efficiency."""
-    s = sess.sort_values('flow_reversal')
+    """Per-session imbalance reversal rate, coloured by sleep efficiency."""
+    s = sess.sort_values('imbalance_reversal')
     fig, ax = plt.subplots(figsize=(10, 5))
     norm = plt.Normalize(sess['sleep_eff'].min(), sess['sleep_eff'].max())
     colors = plt.get_cmap('RdYlGn')(norm(s['sleep_eff']))
-    ax.bar(s['session'], s['flow_reversal'], color=colors, edgecolor='k', lw=0.5)
+    ax.bar(s['session'], s['imbalance_reversal'], color=colors, edgecolor='k', lw=0.5)
     sm = plt.cm.ScalarMappable(cmap='RdYlGn', norm=norm); sm.set_array([])
     plt.colorbar(sm, ax=ax, label='sleep efficiency (%)')
-    ax.set_ylabel('flow reversals / hour'); ax.set_xlabel('session')
-    ax.set_title('Flow alternation rate per session (low = stuck one-sided)\n'
+    ax.set_ylabel('imbalance reversals / hour'); ax.set_xlabel('session')
+    ax.set_title('Imbalance alternation rate per session (low = stuck one-sided)\n'
                  'coloured by sleep efficiency', fontsize=11, fontweight='bold')
     plt.setp(ax.get_xticklabels(), rotation=45, ha='right')
     ax.grid(True, alpha=0.15, axis='y')
     fig.tight_layout(); fig.savefig(out, dpi=200, bbox_inches='tight'); plt.close(fig)
 
 
-def fig_flow_by_stage(df, out):
-    """How flow behaves across stages: per-session-z |flow-median| by stage (pooled)."""
+def fig_imbalance_by_stage(df, out):
+    """How imbalance behaves across stages: per-session-z |imbalance-median| by stage (pooled)."""
     d = df[df['stage_code'] >= 0].copy()
     # per-session centre + scale, so sessions are comparable
-    d['flow_c'] = np.nan
+    d['imbalance_c'] = np.nan
     for sess, g in d.groupby('session'):
-        f = g[FLOW_COL].to_numpy()
+        f = g[IMBALANCE_COL].to_numpy()
         sl = np.isin(g['stage_code'], list(SLEEP_CODES))
         med = np.median(f[sl]) if sl.any() else np.median(f)
         sd = np.std(f) + 1e-9
-        d.loc[g.index, 'flow_c'] = np.abs(f - med) / sd
+        d.loc[g.index, 'imbalance_c'] = np.abs(f - med) / sd
     fig, ax = plt.subplots(figsize=(8, 5))
     data, labels, colors = [], [], []
     for sc in STAGE_ORDER:
-        v = d.loc[d['stage_code'] == sc, 'flow_c'].dropna().to_numpy()
+        v = d.loc[d['stage_code'] == sc, 'imbalance_c'].dropna().to_numpy()
         if len(v):
             data.append(v); labels.append(STAGE_LABELS[sc]); colors.append(STAGE_COLORS[sc])
     bp = ax.boxplot(data, patch_artist=True, showfliers=False,
@@ -314,8 +314,8 @@ def fig_flow_by_stage(df, out):
     for patch, c in zip(bp['boxes'], colors):
         patch.set_facecolor(c); patch.set_alpha(0.7)
     ax.set_xticklabels(labels)
-    ax.set_ylabel('|flow − session median|  (per-session z)')
-    ax.set_title('Flow excursion magnitude by sleep stage (12 sessions pooled)',
+    ax.set_ylabel('|imbalance − session median|  (per-session z)')
+    ax.set_title('Imbalance excursion magnitude by sleep stage (12 sessions pooled)',
                  fontsize=11, fontweight='bold')
     ax.grid(True, alpha=0.15, axis='y')
     fig.tight_layout(); fig.savefig(out, dpi=200, bbox_inches='tight'); plt.close(fig)
@@ -329,62 +329,62 @@ def main():
         sys.exit(f'Missing {epochs_csv}. Run mean_value_vs_stage.py first.')
 
     print('=' * 68)
-    print('Directional flow (L-R slow mean) imbalance  vs  sleep quality')
+    print('Capacitance imbalance (L-R slow mean) imbalance  vs  sleep quality')
     print('=' * 68)
     df = pd.read_csv(epochs_csv)
     print(f'Loaded {len(df)} epochs, {df["session"].nunique()} sessions, '
           f'{df["subject"].nunique()} subjects')
 
-    # ── per-session flow + quality metrics ──
+    # ── per-session imbalance + quality metrics ──
     rows = []
     for (sess, sub, night), g in df.groupby(['session', 'subject', 'night']):
-        fm = flow_metrics(g)
+        fm = imbalance_metrics(g)
         qm = quality_metrics(g)
         if fm is None or qm is None:
             print(f'  {sess}: skipped (insufficient sleep/clean epochs)')
             continue
         rows.append({'session': sess, 'subject': sub, 'night': night, **fm, **qm})
     sess = pd.DataFrame(rows).sort_values('session').reset_index(drop=True)
-    sess.to_csv(REPORT_DIR / 'flow_imbalance_session.csv', index=False)
-    print(f'\nPer-session table -> flow_imbalance_session.csv  ({len(sess)} sessions)')
+    sess.to_csv(REPORT_DIR / 'imbalance_session.csv', index=False)
+    print(f'\nPer-session table -> imbalance_session.csv  ({len(sess)} sessions)')
 
-    flow_metric_cols = ['flow_bias', 'flow_onesided', 'flow_offset_dom',
-                        'flow_skew', 'flow_absskew', 'flow_reversal', 'flow_maxrun']
+    imbalance_metric_cols = ['imbalance_bias', 'imbalance_onesided', 'imbalance_offset_dom',
+                        'imbalance_skew', 'imbalance_absskew', 'imbalance_reversal', 'imbalance_maxrun']
     qual_cols = ['sleep_eff', 'waso_min', 'sol_min', 'n_awake',
                  'pct_N3', 'pct_REM', 'frag_idx']
 
     # Confound diagnostic: how much bigger is the static offset than the modulation?
-    od = sess['flow_offset_dom']
+    od = sess['imbalance_offset_dom']
     print(f'\nOffset-dominance |median|/std : median={od.median():.1f}x '
           f'(range {od.min():.1f}-{od.max():.1f}). '
           f'Offset >> modulation -> absolute one-sidedness is instrumental.')
 
     # ── Spearman correlation grid ──
-    print('\nSpearman rho  (flow metric x quality metric, n = %d sessions):' % len(sess))
+    print('\nSpearman rho  (imbalance metric x quality metric, n = %d sessions):' % len(sess))
     print('  offset-invariant metrics starred (trusted); watch sign vs hypothesis')
-    invariant = {'flow_skew', 'flow_absskew', 'flow_reversal', 'flow_maxrun'}
+    invariant = {'imbalance_skew', 'imbalance_absskew', 'imbalance_reversal', 'imbalance_maxrun'}
     corr_rows = []
-    header = f'{"flow metric":16s} ' + ' '.join(f'{q[:8]:>9s}' for q in qual_cols)
+    header = f'{"imbalance metric":16s} ' + ' '.join(f'{q[:8]:>9s}' for q in qual_cols)
     print('  ' + header)
-    for fmname in flow_metric_cols:
+    for fmname in imbalance_metric_cols:
         cells = []
         for q in qual_cols:
             x = sess[fmname].to_numpy(); y = sess[q].to_numpy()
             ok = np.isfinite(x) & np.isfinite(y)
             rho, p = spearmanr(x[ok], y[ok]) if ok.sum() >= 4 else (np.nan, np.nan)
-            corr_rows.append({'flow_metric': fmname, 'quality': q,
+            corr_rows.append({'imbalance_metric': fmname, 'quality': q,
                               'spearman_rho': rho, 'p': p, 'n': int(ok.sum()),
                               'offset_invariant': fmname in invariant})
             star = '*' if (np.isfinite(p) and p < 0.05) else ' '
             cells.append(f'{rho:>+8.2f}{star}')
         tag = '*' if fmname in invariant else ' '
         print(f'  {fmname+tag:16s} ' + ' '.join(cells))
-    pd.DataFrame(corr_rows).to_csv(REPORT_DIR / 'flow_quality_corr.csv', index=False)
+    pd.DataFrame(corr_rows).to_csv(REPORT_DIR / 'imbalance_quality_corr.csv', index=False)
 
     # ── within-subject de-meaned correlation (removes fixed per-subject offset) ──
     print('\nWithin-subject de-meaned Spearman (per-subject mean removed, isolates '
           'night-to-night STATE):')
-    within_subject_corr(sess, flow_metric_cols, qual_cols)
+    within_subject_corr(sess, imbalance_metric_cols, qual_cols)
 
     # ── within-subject paired night check ──
     print('\nWithin-subject paired check (worse-quality night vs more-imbalanced night):')
@@ -395,24 +395,24 @@ def main():
     for lbl in REPRESENTATIVE:
         g = df[df['session'] == lbl]
         if len(g):
-            fig_flow_hypno(g, lbl, PLOT_DIR / f'flow_hypno_{lbl}.png')
-            print(f'  {lbl}: flow-vs-hypnogram trace')
+            fig_imbalance_hypno(g, lbl, PLOT_DIR / f'imbalance_hypno_{lbl}.png')
+            print(f'  {lbl}: imbalance-vs-hypnogram trace')
     # key scatters: the offset-invariant imbalance metrics vs core quality
-    for fmname, q in [('flow_reversal', 'sleep_eff'), ('flow_reversal', 'frag_idx'),
-                      ('flow_absskew', 'sleep_eff'), ('flow_absskew', 'waso_min'),
-                      ('flow_maxrun', 'sleep_eff'), ('flow_bias', 'sleep_eff')]:
+    for fmname, q in [('imbalance_reversal', 'sleep_eff'), ('imbalance_reversal', 'frag_idx'),
+                      ('imbalance_absskew', 'sleep_eff'), ('imbalance_absskew', 'waso_min'),
+                      ('imbalance_maxrun', 'sleep_eff'), ('imbalance_bias', 'sleep_eff')]:
         fig_scatter(sess, fmname, q, PLOT_DIR / f'scatter_{fmname}_vs_{q}.png')
     print('  scatter grid: reversal/skew/maxrun/dwell vs efficiency/WASO/frag')
-    fig_reversal_bars(sess, PLOT_DIR / 'flow_reversal_bars.png')
-    fig_flow_by_stage(df, PLOT_DIR / 'flow_by_stage.png')
-    print('  reversal-rate bars + flow-by-stage boxplot')
+    fig_reversal_bars(sess, PLOT_DIR / 'imbalance_reversal_bars.png')
+    fig_imbalance_by_stage(df, PLOT_DIR / 'imbalance_by_stage.png')
+    print('  reversal-rate bars + imbalance-by-stage boxplot')
 
     print('\nDone.  Reports -> reports/mean_value/  Figures -> notebooks/plots/mean_value/')
     _print_takeaways(sess, corr_rows)
 
 
-def within_subject_corr(sess, flow_cols, qual_cols):
-    """Correlate flow vs quality AFTER removing each subject's own mean.
+def within_subject_corr(sess, imbalance_cols, qual_cols):
+    """Correlate imbalance vs quality AFTER removing each subject's own mean.
 
     Removing the per-subject mean strips the fixed mask-placement offset (and any
     stable anatomy), so a surviving correlation reflects night-to-night STATE that
@@ -425,31 +425,31 @@ def within_subject_corr(sess, flow_cols, qual_cols):
     if d.empty:
         print('  (no subjects with two nights)')
         return
-    cols = flow_cols + qual_cols
+    cols = imbalance_cols + qual_cols
     for c in cols:
         d[c + '_w'] = d[c] - d.groupby('subject')[c].transform('mean')
     rows = []
     focus_q = ['sleep_eff', 'waso_min', 'frag_idx']
-    print(f'  {"flow metric":16s} ' + ' '.join(f'{q[:8]:>9s}' for q in focus_q))
-    for fm in ['flow_bias', 'flow_reversal', 'flow_absskew', 'flow_maxrun']:
+    print(f'  {"imbalance metric":16s} ' + ' '.join(f'{q[:8]:>9s}' for q in focus_q))
+    for fm in ['imbalance_bias', 'imbalance_reversal', 'imbalance_absskew', 'imbalance_maxrun']:
         cells = []
         for q in focus_q:
             x = d[fm + '_w'].to_numpy(); y = d[q + '_w'].to_numpy()
             ok = np.isfinite(x) & np.isfinite(y)
             r, p = spearmanr(x[ok], y[ok]) if ok.sum() >= 4 else (np.nan, np.nan)
-            rows.append({'flow_metric': fm, 'quality': q, 'within_rho': r,
+            rows.append({'imbalance_metric': fm, 'quality': q, 'within_rho': r,
                          'p': p, 'n_pairs': int(ok.sum())})
             star = '*' if (np.isfinite(p) and p < 0.05) else ' '
             cells.append(f'{r:>+8.2f}{star}')
         # for bias, |bias| deviation is the imbalance reading
         print(f'  {fm:16s} ' + ' '.join(cells))
-    pd.DataFrame(rows).to_csv(REPORT_DIR / 'flow_quality_within_subject.csv', index=False)
+    pd.DataFrame(rows).to_csv(REPORT_DIR / 'imbalance_quality_within_subject.csv', index=False)
 
 
 def paired_report(sess):
-    """For each subject with both nights, does the worse night have worse flow balance?"""
+    """For each subject with both nights, does the worse night have worse imbalance balance?"""
     agree = {}
-    for fmname in ['flow_reversal', 'flow_absskew', 'flow_maxrun', 'flow_bias']:
+    for fmname in ['imbalance_reversal', 'imbalance_absskew', 'imbalance_maxrun', 'imbalance_bias']:
         hits = tot = 0
         for sub, g in sess.groupby('subject'):
             if g['night'].nunique() < 2:
@@ -460,10 +460,10 @@ def paired_report(sess):
             worse = n1 if n1['sleep_eff'] < n2['sleep_eff'] else n2
             better = n2 if worse is n1 else n1
             # more imbalanced: lower reversal, higher skew/maxrun, larger |bias|
-            if fmname == 'flow_reversal':
-                more_imb = worse['flow_reversal'] < better['flow_reversal']
-            elif fmname == 'flow_bias':
-                more_imb = abs(worse['flow_bias']) > abs(better['flow_bias'])
+            if fmname == 'imbalance_reversal':
+                more_imb = worse['imbalance_reversal'] < better['imbalance_reversal']
+            elif fmname == 'imbalance_bias':
+                more_imb = abs(worse['imbalance_bias']) > abs(better['imbalance_bias'])
             else:
                 more_imb = worse[fmname] > better[fmname]
             hits += int(more_imb); tot += 1
@@ -480,7 +480,7 @@ def _print_takeaways(sess, corr_rows):
     strongest = inv.reindex(inv['spearman_rho'].abs().sort_values(ascending=False).index).head(3)
     print('\nStrongest offset-invariant associations:')
     for _, r in strongest.iterrows():
-        print(f'  {r["flow_metric"]} x {r["quality"]}: '
+        print(f'  {r["imbalance_metric"]} x {r["quality"]}: '
               f'rho={r["spearman_rho"]:+.2f} (p={r["p"]:.3f}, n={int(r["n"])})')
 
 

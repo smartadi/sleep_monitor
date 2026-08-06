@@ -1,25 +1,37 @@
 """
-Figure 2 — Broadband signal-to-noise ratio, one value per session.
+Figure 2 — Physiological-band signal-to-noise ratio per session, per channel.
 
-Simplified, baseline-free SNR
------------------------------
-The capacitive temple sensor concentrates all of its physiological content
-(respiration, cardiac, movement, slow drift) below ~10 Hz.  Above 10 Hz there
-is no physiology — only the sensor / electronic noise floor.  So we define,
-directly on the raw CLE-CRE signal, with no baseline model required:
+We report the three raw capacitive channels (CH, CLE, CRE) directly. We do NOT
+report the CLE-CRE differential: the two temple electrodes see respiration
+largely in phase, so the difference cancels the common-mode physiological signal
+while keeping the uncorrelated noise — the differential loses SNR relative to the
+better single electrode in 10/12 sessions (e.g. S5N2: CH +16.8 dB but
+CLE-CRE -4.9 dB). Reporting the raw channels avoids that self-inflicted loss.
 
-    signal power  =  P( f < 10 Hz )
-    noise  power  =  P( f >= 10 Hz )            (up to Nyquist, 50 Hz)
+Density-based, baseline-free SNR (per channel, on the raw signal):
 
-    SNR(dB) = 10 * log10( P_signal / P_noise )
+    signal  =  mean PSD/Hz over 0.1 - 3 Hz  (respiration 0.1-0.5 + cardiac 0.5-3)
+    noise   =  mean PSD/Hz over 10 - 50 Hz  (10 Hz to Nyquist; physiology-free floor)
 
-Power is the integral of the full-night Welch PSD over each frequency range
-(Welch removes the DC offset per segment, so the drifting baseline does not
-inflate the signal term).  One number per session; higher = the physiological
-band sits further above the sensor noise floor.
+    SNR(dB) = 10 * log10( <P_signal> / <P_noise> )
 
-Reads the summaries cached by signal_characterization.py.  Run that once
-(optionally with --recompute) if the cache is missing.
+We compare *spectral densities* (mean power per Hz), not band-integrated powers.
+Integrating signal over 2.9 Hz against noise over 40 Hz imposes a fixed ~11 dB
+bandwidth penalty that made otherwise-usable channels read as near-zero or
+negative SNR (e.g. S5N1 CRE was -5.1 dB under the integrated form, yet its raw
+0.1-3 Hz waveform shows clear respiratory/cardiac oscillation). The density form
+removes that mismatch, is gain-invariant (a per-channel scaling cancels in the
+ratio, so the S4N1 gain anomaly no longer distorts the bar), and tracks what the
+raw traces actually show.
+
+The numerator is the physiological band only; sub-0.1 Hz baseline drift/movement
+is excluded so the number reflects respiratory+cardiac pickup, not baseline
+wander. The >=10 Hz floor is a stable per-channel instrument constant, and the
+no-subject baseline recording (baseline noise/SM2_33.txt) confirms this floor is
+spectrally white from 0.1-50 Hz, which is what licenses extrapolating it across
+the signal band. Welch removes the DC offset per segment.
+
+Reads signal_characterization_cache.pkl.
 
 Output (writeup/figures/signal_validation/):
     fig2_inband_snr.png
@@ -43,115 +55,81 @@ import matplotlib.pyplot as plt
 OUT_DIR = Path(__file__).resolve().parent
 CACHE = OUT_DIR / 'signal_characterization_cache.pkl'
 
-CHANNEL   = 'CLE-CRE'
-SIG_HI    = 10.0          # Hz — signal = everything below this
-CHANNEL_COLOR = '#2C7FB8'
+CHANNELS = ['CH', 'CLE', 'CRE']
+CHAN_COLORS = {'CH': '#2980B9', 'CLE': '#27AE60', 'CRE': '#8E44AD'}
+SIG_LO, SIG_HI = 0.1, 3.0        # physiological signal band (resp + cardiac)
+NOISE_LO = 10.0                  # noise = NOISE_LO .. Nyquist
 
 _trapz = getattr(np, 'trapezoid', np.trapz)
 
 
-def band_power(freqs, psd, lo, hi):
+def band_density(freqs, psd, lo, hi):
+    """Mean PSD per Hz over [lo, hi) — a bandwidth-independent spectral density."""
     m = (freqs > lo) & (freqs < hi)
-    return float(_trapz(psd[m], freqs[m]))
+    return float(np.mean(psd[m]))
 
 
-def snr_db(freqs, psd, split=SIG_HI):
-    nyq = freqs.max()
-    p_sig = band_power(freqs, psd, 0.0, split)
-    p_noise = band_power(freqs, psd, split, nyq)
+def snr_db(freqs, psd):
+    p_sig = band_density(freqs, psd, SIG_LO, SIG_HI)
+    p_noise = band_density(freqs, psd, NOISE_LO, freqs.max())
     return 10.0 * np.log10(p_sig / (p_noise + 1e-30) + 1e-30)
 
 
 # ── Load cached PSDs ──────────────────────────────────────────────────────────
 if not CACHE.exists():
-    sys.exit(f"Cache not found: {CACHE.name}\n"
-             f"Run signal_characterization.py --recompute first.")
+    sys.exit(f"Cache not found: {CACHE.name}\nRun signal_characterization.py --recompute first.")
 
 with open(CACHE, 'rb') as f:
     cached = pickle.load(f)
-
 labels = cached['labels']
 psd_by_session = cached['psd_by_session']
-records = {r['session']: r for r in cached['records']}
 
-# ── Per-session SNR from the full-night PSD ──────────────────────────────────
+# ── Per-session, per-channel SNR from the full-night PSD ─────────────────────
 rows = []
 for lab in labels:
-    freqs, psd = psd_by_session[lab][CHANNEL]
-    rows.append(dict(
-        session=lab,
-        subject=records[lab]['subject'],
-        snr_db=round(snr_db(freqs, psd), 2),
-    ))
+    row = {'session': lab}
+    for ch in CHANNELS:
+        freqs, psd = psd_by_session[lab][ch]
+        row[ch] = round(snr_db(freqs, psd), 2)
+    rows.append(row)
 summary = pd.DataFrame(rows)
 summary.to_csv(OUT_DIR / 'inband_snr_summary.csv', index=False)
 
-snr = summary['snr_db'].to_numpy()
-mean_snr, med_snr = float(np.mean(snr)), float(np.median(snr))
+means = {ch: summary[ch].mean() for ch in CHANNELS}
 print(summary.to_string(index=False))
-print(f"\nSNR (dB): mean {mean_snr:.1f}, median {med_snr:.1f}, "
-      f"range {snr.min():.1f}–{snr.max():.1f}")
+print('\nchannel means (dB):', {ch: round(v, 1) for ch, v in means.items()})
 
-# ── Mean PSD across sessions (for the inset that defines signal vs noise) ─────
-freq0 = psd_by_session[labels[0]][CHANNEL][0]
-psd_stack = np.vstack([np.interp(freq0, *psd_by_session[l][CHANNEL]) for l in labels])
-psd_mean = psd_stack.mean(axis=0)
-
-# ── Figure: single panel, one bar per session ────────────────────────────────
-fig, ax = plt.subplots(figsize=(11, 5.6))
+# ── Figure: grouped bars, one group per session, 3 channels ──────────────────
+fig, ax = plt.subplots(figsize=(12.5, 5.8))
 x = np.arange(len(labels))
-ax.bar(x, snr, color=CHANNEL_COLOR, alpha=0.9, edgecolor='white', linewidth=0.6, zorder=3)
-for xi, v in zip(x, snr):
-    ax.text(xi, v + (0.4 if v >= 0 else -0.4), f'{v:.0f}',
-            ha='center', va='bottom' if v >= 0 else 'top', fontsize=8, color='#333')
+w = 0.26
+for i, ch in enumerate(CHANNELS):
+    vals = summary[ch].to_numpy()
+    off = (i - 1) * w
+    ax.bar(x + off, vals, w, color=CHAN_COLORS[ch], edgecolor='white', linewidth=0.5,
+           zorder=3, label=f'{ch}  (mean {means[ch]:.1f} dB)')
 
-ax.axhline(0, color='gray', ls='-', lw=1.0, zorder=2)
-ax.axhline(mean_snr, color='#E74C3C', ls='--', lw=1.3, zorder=2,
-           label=f'Mean {mean_snr:.1f} dB')
+ax.axhline(0, color='gray', lw=1.0, zorder=2)
 ax.set_xticks(x)
 ax.set_xticklabels(labels, rotation=45, ha='right', fontsize=9)
-ax.set_ylabel('Broadband SNR (dB)', fontsize=11)
+ax.set_ylabel('Physiological-band SNR (dB, per-Hz density)', fontsize=11)
 ax.set_xlabel('Session', fontsize=11)
-ax.set_title(f'In-band signal-to-noise ratio per session ({CHANNEL})',
+ax.set_title('Respiratory + cardiac band SNR per session, per raw channel',
              fontsize=13, fontweight='bold')
 ax.grid(True, axis='y', alpha=0.25, zorder=0)
-ax.legend(loc='upper left', fontsize=9, frameon=False)
-ax.margins(y=0.12)
-ax.set_ylim(top=max(snr.max() + 5.0, ax.get_ylim()[1]))
+ax.legend(loc='upper right', fontsize=9.5, frameon=True, framealpha=0.95, ncol=3)
+ax.margins(y=0.14)
 
 # definition text
-ax.text(0.985, 0.04,
-        r'signal = power at $f<10$ Hz' '\n'
-        r'noise  = power at $f\geq10$ Hz' '\n'
-        r'SNR $= 10\log_{10}(P_\mathrm{sig}/P_\mathrm{noise})$',
-        transform=ax.transAxes, ha='right', va='bottom', fontsize=8.5,
+ax.text(0.012, 0.035,
+        r'signal = mean PSD/Hz at $0.1$–$3$ Hz (resp+cardiac)' '\n'
+        r'noise  = mean PSD/Hz at $f\geq10$ Hz (white floor, baseline-verified)' '\n'
+        r'SNR $= 10\log_{10}(\overline{P}_\mathrm{sig}/\overline{P}_\mathrm{noise})$  |  equal-bandwidth, gain-invariant  |  CLE−CRE omitted (cancels)',
+        transform=ax.transAxes, ha='left', va='bottom', fontsize=8.3,
         family='monospace',
         bbox=dict(boxstyle='round,pad=0.4', fc='#F5F7FA', ec='#B0BEC5', lw=0.8))
 
-# inset: mean PSD showing the signal / noise split (opaque PiP over the bars)
-axin = ax.inset_axes([0.63, 0.62, 0.34, 0.34], zorder=6)
-axin.set_facecolor('white')
-for sp in axin.spines.values():
-    sp.set_edgecolor('#B0BEC5')
-    sp.set_linewidth(1.0)
-    sp.set_zorder(7)
-fmask = (freq0 > 0.03) & (freq0 <= 50.0)
-axin.semilogy(freq0[fmask], psd_mean[fmask], color='#2C3E50', lw=1.1)
-axin.axvspan(0.03, SIG_HI, color=CHANNEL_COLOR, alpha=0.18)
-axin.axvspan(SIG_HI, 50.0, color='#7F8C8D', alpha=0.22)
-axin.axvline(SIG_HI, color='#333', lw=1.0, ls='--')
-axin.text(2.5, axin.get_ylim()[1], 'signal', ha='center', va='top',
-          fontsize=7.5, color=CHANNEL_COLOR, fontweight='bold')
-axin.text(25, axin.get_ylim()[1], 'noise', ha='center', va='top',
-          fontsize=7.5, color='#5D6D7E', fontweight='bold')
-axin.set_xlim(0, 50)
-axin.set_xlabel('Frequency (Hz)', fontsize=7.5)
-axin.set_ylabel('PSD', fontsize=7.5)
-axin.tick_params(labelsize=6.5)
-axin.set_title('Mean PSD (12 sessions)', fontsize=8)
-
 fig.tight_layout()
-fig.savefig(OUT_DIR / 'fig2_inband_snr.png', dpi=200,
-            bbox_inches='tight', facecolor='white')
+fig.savefig(OUT_DIR / 'fig2_inband_snr.png', dpi=200, bbox_inches='tight', facecolor='white')
 plt.close(fig)
-print("\nSaved fig2_inband_snr.png")
+print('\nSaved fig2_inband_snr.png')

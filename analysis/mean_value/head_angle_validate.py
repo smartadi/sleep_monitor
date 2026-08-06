@@ -1,7 +1,7 @@
 """
 Revalidation of the accelerometer-derived head angle: is it a real angle?
 
-The mean-value and flow analyses use head posture as a covariate, so the angle
+The mean-value and imbalance analyses use head posture as a covariate, so the angle
 has to be more than a plausible-looking trace. This script runs the four checks
 that decide whether it is, and fixes what they broke.
 
