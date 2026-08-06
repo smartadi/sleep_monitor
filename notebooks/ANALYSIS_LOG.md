@@ -19,7 +19,11 @@ Each entry records the question asked, code written, parameters used, plots gene
 
   **(7) Age (n = 6, exploratory, 18 uncorrected tests).** No amplitude–age relation on the robust scale (max |rho| 0.31–0.60, all p ≥ 0.21; the apparent relation on raw z was the S5 outlier). Half-rise latency rises with age in 8/9 combinations, strongest **CH 0–0.5 Hz rho = +0.94 (p = 0.005)**, CH 1–3 Hz +0.89, CLE 0–0.5 Hz +0.73. Given (1), this is time-from-delta-onset-to-movement vs age, not a capacitive physiology result.
 
-  **Consequence for the manuscript:** §4.5 (heading + 3 paragraphs + Figure 9, already inserted in `writeup/main/CAP_sleep_mask_manuscript_main.docx`) needs revision or withdrawal. Not done — that is an author decision, flagged at the top of `writeup/edits/delta_onset_section_draft.md`.
+  **(8) What "motion" actually means here, and what it does not.** The flag is `rolling_std(acc_mag, 2 s) > 90th percentile of that night`, with a window counting as motion-free at ≤ 10 % of samples flagged — inherited unchanged from the onset detector, which applied it to the pre-window. Four properties matter for how far the control can be pushed. (a) **Relative, not physical:** the threshold is per-night, so exactly 10 % of every recording is flagged by construction; "motion" means top-decile accelerometer variability for that subject on that night, not a fixed amount of movement. (b) **It measures acceleration, not orientation:** `acc_mag` = |a| sits at ~1 g for a static head at *any* angle, so this detects dynamic transients (jerks, twitches, the acceleration during a turn) and registers a slow re-orientation only through its transient. (c) **It does not isolate the head:** trunk movement transmitted through the neck, or a tug on the mask/cable, flags identically. (d) **±1 s temporal smear** from the centered 2 s window. For *this* job — excluding a confound — over-inclusiveness is the safe direction, and narrowing the definition (e.g. to head re-orientation only) would make the control weaker, not cleaner: transient-only movement would leak into the "clean" set and could carry the effect back in, which would look like physiology and be nothing of the kind.
+
+  **(9) Proposed next test — displacement vs transient (not yet run).** The mechanistic question the current gate cannot answer is whether the capacitive event tracks actual head *displacement* (electrode–skin geometry changing) or acceleration transients that leave the head where it was. `sleep_monitor/motion.py::head_angle()` separates these — turn/elevation/tilt from the gravity vector, 0.05 Hz low-pass, validated at 99 % agreement against PSG-scored body position. Two read-outs: split the currently-excluded onsets by whether head orientation genuinely changed (Δturn/Δelev in degrees) versus transient-only; and regress per-onset response amplitude on motion magnitude, graded rather than thresholded. If amplitude scales with degrees of rotation it is electrode displacement, i.e. artifact demonstrated cleanly; if the effect survives in transient-only onsets with no repositioning, that is motor activation without displacement and a substantially stronger result. Costs a full recompute (~15 min) plus per-session head angle. Not started — awaiting go-ahead.
+
+  **Consequence for the manuscript:** §4.5 (heading + 3 paragraphs + Figure 9, already inserted in `writeup/main/CAP_sleep_mask_manuscript_main.docx`) needs revision or withdrawal. Not done — that is an author decision, flagged at the top of `writeup/edits/delta_onset_section_draft.md`. **2026-08-06 update:** reframed rather than withdrawn, per user — the section now reports what the mask shows during delta bursts *with* the movement co-occurrence stated as part of the result, mechanism left open, and the motion profile is drawn behind the band curves inside the figure so the two cannot be read apart.
 
 - **2026-08-06** — **Audit of the spindle result (§4.4 + Figure 7) for wrong interpretation and filter/measurement artifacts.** No new analysis scripts; re-derived from `analysis/spindles/outputs/{spindle_lowband_detection.npz,spindle_ersp.npz,spindle_ersp_control.csv}` plus fresh PSD/phase checks on the raw channels.
 
@@ -2173,3 +2177,52 @@ p = 0.68 / 0.34, 8/12 and 5/12, detrended +0.02 / −0.15), as do the Flow-vs-RI
 **Status.** All of the above is live in the canonical `writeup/main/CAP_sleep_mask_manuscript_main.docx`.
 The 2026-07-30 review copy fixes items 3–5 and discloses item 1, but was never merged and does
 not address item 2 at all.
+
+### 2026-08-06 (cont.) — how k was actually computed, and the amendments applied
+
+**Correction to the audit's k-stability item.** The manuscript's "median ratio ... across 50
+randomly drawn one-minute windows, verified against the whole-night k (|Δ| ≤ 0.04)" does not
+describe the code. `run_mask_rate_detection.py:394-400` computes `k_full` as the median of
+raw/reference over **every valid epoch of the night**, ratios clipped to [0.3, 5.0]. No
+50-random-window calibration exists in the pipeline that produced the reported numbers; the only
+alternative it computes is `k_10min` (first 20 epochs). The ≤0.04 sentence is inherited from a
+superseded pipeline.
+
+**Which k the age analysis used.** `analysis/rates/k_vs_age.py:24,51,62-67` reads the `k` column
+of `reports/rates/mask/per_session_summary.csv` — one whole-night scalar per session — and takes
+the **mean of the subject's two nights**, giving n = 6. It is not the adaptive per-window k(t)
+distribution (`k_biomarker_perwindow.csv` is not used), and not 50 random windows. The
+respiratory k comes from the `diff_spectral` strategy, i.e. the degenerate estimator, so
+`k_full = 15 / median(reference RR)` **exactly** — confirmed directly in phase C, e.g. S1N1
+k = 0.9095 = 15/16.493 and S3N1 k = 1.0279 = 15/14.593, with `rate_k_full` a flat line at the
+session's median reference rate. Figure 4's error bars span the two nights only; no within-night
+dispersion enters the analysis.
+
+**Corrected numbers** (`analysis/rates/corrected_rate_table.py`, phase C, `fused_agree`
+pipeline, non-degenerate in both bands — modal-value fraction 3.1% resp / 0.03% card):
+
+| | Respiratory (br/min) | Cardiac (BPM) |
+|---|---|---|
+| night error, same-night k | 0.14 [0.10–0.40] | 1.84 [1.29–2.52] |
+| night error, cross-night k | 0.46 [0.23–0.84] | 4.35 [2.24–6.98] |
+| night error, population k | 0.77 [0.16–0.94] | 2.84 [1.17–7.94] |
+| **night error, no sensor** | **0.66 [0.18–1.00]** | **2.53 [1.37–8.38]** |
+| epoch MAE, same-night k | 0.97 [0.89–1.26] | 3.32 [2.76–7.34] |
+| epoch MAE, population k | 1.19 [0.95–1.38] | 4.74 [3.26–9.24] |
+| **epoch MAE, no sensor** | **1.21 [1.03–1.39]** | **4.52 [2.85–9.36]** |
+| within-session r | +0.06 (9/12 positive) | −0.25 (5/12) |
+| reference SD within night | 1.73 [1.52–2.17] | 6.58 [5.38–10.96] |
+| k | 1.00 [0.95–1.05] | 1.95 [1.79–1.99] |
+
+Switching the respiratory band off the degenerate spectral estimator costs nothing (0.95 → 0.97
+br/min per epoch) and yields a genuinely varying output.
+
+**Amendments applied** (`writeup/edits/apply_rate_amendments.py`, 33 edits): Table 1 epoch length
+30 s; §3.3 window geometry and the 0.47/0.27 independent-sensor values; §3.5 seven estimators,
+the degeneracy disclosure, the true k definition, the held-out comparators, and the operational
+pipeline; §4.2 rewritten around aggregate-vs-within-night with the four calibrations, Table 3
+rebuilt, Figure 3 caption corrected; §4.2.1 the k = 15/median-RR identity, session-exclusion
+count, r = 0.50 p = 0.17, exact permutation p = 0.058 with the aggregation sensitivity, and the
+age result restated as an observation about breathing rate; §5.1, §5.3 (4-second Welch segments),
+§5.4 (screening/trending claim withdrawn), §5.5, Limitation 2 (home, not laboratory),
+Limitation 3 (calibration is the blocking gap), §7.
