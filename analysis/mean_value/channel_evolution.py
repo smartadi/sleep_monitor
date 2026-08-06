@@ -23,24 +23,40 @@ Rows (both figures)
                       excursion is read directly off the axis; nights with large
                       re-seat steps overflow the axis rather than compressing
                       everything else into a flat line.
-    C  variance       within-window variance (fF^2)
-    D  flow           difference figure: the night-scale flow marker — magnitude
-                      A = LP(|d|) and direction D = LP(d)/A in [-1,+1], for both
-                      CH and CLE-CRE on one shared dimensionless axis (the only
-                      directly comparable view of the two).
+    C  flow           sits directly under the mean it is derived from.
+                      Difference figure: the signed 30-min low pass of the
+                      mean-centred difference, LP(d), filled two-colour about
+                      zero and drawn inside the +/-LP(|d|) envelope — sign is the
+                      direction, height is the strength, and everything is in fF
+                      on one axis. The second difference channel is overlaid on
+                      its own axis.
                       Absolute figure: the same low pass of each level. A signed
                       flow direction needs a difference channel, so it is not
                       defined for CLE or CRE on their own.
-    E  head + motion  head TURN angle from the accelerometer (0 supine, +90 left,
-                      -90 right) over accelerometer activity.
+    D  variance       within-window variance (fF^2)
+    E  head angle     head TURN angle from the accelerometer (0 supine, +90 left,
+                      -90 right), on an axis scaled to the movement that actually
+                      happened on that night.
     F,G  spectrograms 0-5 Hz spectrogram of each channel + dB colorbar
 
 CH is the sensor's own hardware difference channel and is NOT the arithmetic
 CLE-CRE: across the cohort the offset is ~-742 fF and the gain of CH on CLE-CRE
 runs from -1.9 to +6.5, changing sign between subjects (ch_vs_clecre_sessions.py).
-Row D of the difference figure prints this session's offset / gain / correlation
-and how often the two flow directions agree in sign — S6N1 r=+0.93 (93% of
-blocks) against S5N2 r=-0.62 (25%).
+Row C of the difference figure prints how often the two flow channels agree in
+sign and their correlation.
+
+Two display choices that earlier versions got wrong
+---------------------------------------------------
+* The flow row used to show a NORMALISED direction, LP(d)/LP(|d|), in [-1,+1].
+  It saturates flat against +/-1 whenever the sign is consistent, which reads as
+  clipping rather than as "one-sided", and it needed a second axis in different
+  units for the magnitude. The signed low pass carries the same information with
+  one unit and no rails.
+* The head-angle row used to share space with accelerometer activity on a fixed
+  +/-180 axis. Motion is already implicit (every step in the angle is a
+  movement), and on a night spent within a few tens of degrees of supine the
+  fixed axis flattened every real posture change. Motion is gone; the axis
+  follows the data with a floor of HEAD_MIN_SPAN_DEG.
 
 Units: the CAP columns are true capacitance in femtofarads (see CAP_SCALE_TO_FF
 in sleep_monitor/config.py for the scale and its provenance/caveats).
@@ -68,6 +84,7 @@ import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from scipy.signal import butter, sosfiltfilt, spectrogram as sp_spectrogram
 
@@ -99,6 +116,8 @@ MAG_COLOR = '#B9380B'
 DIR_COLOR = '#1F618D'
 HEAD_COLOR = '#16A085'
 MOTION_PCT = 90            # top-decile accelerometer activity counts as motion
+HEAD_MIN_SPAN_DEG = 25.0   # floor on the head-angle axis span, so a still
+                           # night does not zoom in on sensor noise
 
 # Hypnogram ladder: stage code -> vertical position. Ordered by STRENGTH OF SLEEP
 # DEPTH, so descending the ladder is monotonically deeper sleep: Wake, N1, N2, N3,
@@ -334,32 +353,61 @@ def draw_flow_row(ax, t, mag, dirn, label):
     return ax2
 
 
-def draw_head_row(ax, t, turn, motion):
+def draw_head_row(ax, t, turn):
     """
-    Head-turn angle over accelerometer activity.
+    Head-turn angle alone, scaled to the movement that actually happened.
 
-    The angle is the primary reading here, so it gets the full +/-180 range with
-    a rung every 45 deg and the posture labels called out. Motion sits behind it
-    as a shaded context band.
+    Accelerometer activity used to share this row, but it is already implicit —
+    every step in the angle is a movement — and having it there forced the angle
+    onto a twin axis at fixed +/-180. Most nights the head stays within a few
+    tens of degrees of supine, so a fixed +/-180 axis rendered the real posture
+    changes as a nearly flat line. The axis now follows the data (with a floor,
+    so a motionless night does not zoom into sensor noise) and only the posture
+    guides that fall inside the view are drawn.
     """
-    ax.fill_between(t, 0, motion, color='#7F8C8D', alpha=0.35, zorder=1)
-    ax.plot(t, motion, lw=0.6, color='#7F8C8D', zorder=2)
-    ax.set_ylabel('Motion\n(acc. std)', color='#5D6D7E', fontsize=10)
-    ax.tick_params(axis='y', labelcolor='#5D6D7E', labelsize=9)
-    ax.set_ylim(*robust_ylim(motion, floor0=True))
-    ax2 = ax.twinx()
-    ax2.plot(t, turn, lw=1.6, color=HEAD_COLOR, zorder=4)
+    ax.plot(t, turn, lw=1.7, color=HEAD_COLOR, zorder=4)
+
+    # Range from the INTERQUARTILE spread, not from the extremes. A percentile
+    # range still lets one brief prone flip set the scale -- on S1N1 a single
+    # roll-over at 02:48 stretched the axis to 211 deg and flattened the real
+    # +/-30 deg posture changes. Isolated excursions overflow instead, the same
+    # treatment the raw-value rows give a re-seat step. A night that genuinely
+    # spends hours on each side has a wide IQR, so it still gets the wide axis.
+    good = np.asarray(turn, float)
+    good = good[np.isfinite(good)]
+    if good.size > 3:
+        q1, q3 = np.percentile(good, [25, 75])
+        iqr = q3 - q1
+        lo = max(float(good.min()), q1 - 1.5 * iqr)
+        hi = min(float(good.max()), q3 + 1.5 * iqr)
+    else:
+        lo, hi = -30.0, 30.0
+    span = max(hi - lo, HEAD_MIN_SPAN_DEG)
+    mid = 0.5 * (lo + hi)
+    lo, hi = mid - span / 2, mid + span / 2
+    pad = 0.12 * span
+    lo, hi = max(lo - pad, -190.0), min(hi + pad, 190.0)
+    ax.set_ylim(lo, hi)
+    n_over = int(np.sum((good < lo) | (good > hi)))
+
     for lv, lb in [(180, 'prone'), (90, 'left'), (0, 'supine'), (-90, 'right'),
                    (-180, 'prone')]:
-        ax2.axhline(lv, color='#555', ls=':', lw=0.7, zorder=3)
-        ax2.annotate(lb, (0.997, lv), xycoords=('axes fraction', 'data'),
-                     fontsize=9, color='#444', va='bottom', ha='right')
-    ax2.set_ylim(-195, 195)
-    ax2.set_yticks([-180, -135, -90, -45, 0, 45, 90, 135, 180])
-    ax2.set_ylabel('Head turn (deg)', color=HEAD_COLOR, fontsize=11)
-    ax2.tick_params(axis='y', labelcolor=HEAD_COLOR, labelsize=10)
-    ax2.grid(True, axis='y', alpha=0.18, lw=0.6)
-    return ax2
+        if lo < lv < hi:
+            ax.axhline(lv, color='#555', ls=':', lw=0.8, zorder=3)
+            ax.annotate(lb, (0.997, lv), xycoords=('axes fraction', 'data'),
+                        fontsize=9, color='#444', va='bottom', ha='right')
+    step = next(s for s in (5, 10, 15, 30, 45, 90) if span / s <= 9)
+    ax.set_yticks(np.arange(np.ceil(lo / step) * step,
+                            np.floor(hi / step) * step + 1, step))
+    ax.set_ylabel('Head turn\n(deg)', color=HEAD_COLOR, fontsize=11)
+    ax.tick_params(axis='y', labelcolor=HEAD_COLOR, labelsize=10)
+    ax.grid(True, axis='y', alpha=0.18, lw=0.6)
+    over = (f' · {n_over * BLOCK_SEC / 60:.0f} min of brief excursions off-axis'
+            if n_over else '')
+    _caption(ax, f'axis scaled to this night\'s sustained movement (span '
+                 f'{hi - lo:.0f}°), not the full ±180° range{over}',
+             y=0.045, va='bottom')
+    return ax
 
 
 def draw_spectrogram(ax, sig, fs, fig, label):
@@ -415,7 +463,7 @@ def plot_pair(s, feats, raw, chans, out, title, shared_level_axis):
 
     fig, axes = plt.subplots(
         7, 1, figsize=(14, 15.2), sharex=True,
-        gridspec_kw={'height_ratios': [0.55, 1.25, 0.85, 1.25, 1.30, 0.95, 0.95]})
+        gridspec_kw={'height_ratios': [0.55, 1.25, 1.35, 0.80, 1.15, 0.95, 0.95]})
 
     # A -- hypnogram ladder
     draw_ladder(axes[0], sp, title)
@@ -448,54 +496,59 @@ def plot_pair(s, feats, raw, chans, out, title, shared_level_axis):
     ax.grid(True, alpha=0.15)
     panel_letter(ax, 1)
 
-    # C -- variance
+    # C -- flow, directly under the mean it is derived from
+    #
+    # Everything on this row is in fF on ONE signed axis. The previous version
+    # put a normalised direction LP(d)/LP(|d|) in [-1,+1] on the left, a
+    # magnitude in fF on the right, and two channels across both -- three traces,
+    # two units, and a normalised trace that saturates flat against +/-1 for
+    # hours at a time, which reads as clipping rather than as "consistently
+    # one-sided". Replaced by the signed low-passed differential itself, filled
+    # two-colour about zero, inside the +/-magnitude envelope. Sign is the
+    # direction, height is the strength, and the old normalised direction is
+    # still readable as how close the line sits to the envelope edge.
     ax = axes[2]
     stage_shading(ax, sp)
-    ax.plot(t, f0['var'], lw=0.8, color=CH_COLOR[c0], alpha=0.9)
-    ax.plot(t, f1['var'], lw=0.8, color=CH_COLOR[c1], alpha=0.9)
-    ax.set_ylabel(f'Variance\n({CAP_UNIT_SQ})')
-    ax.set_ylim(*robust_ylim(np.concatenate([f0['var'], f1['var']]), floor0=True))
-    ax.grid(True, alpha=0.15)
-    panel_letter(ax, 2)
-
-    # D -- flow
-    ax = axes[3]
-    stage_shading(ax, sp)
-    ax.axhline(0, color='#2C3E50', ls='--', lw=1.0, zorder=2)
+    ax.axhline(0, color='#2C3E50', ls='--', lw=1.0, zorder=3)
     if is_diff:
-        ln0, = ax.plot(t, f0['flow_dir'], lw=2.0, color=CH_COLOR[c0],
-                       label=f'{c0} direction', zorder=4)
-        ln1, = ax.plot(t, f1['flow_dir'], lw=1.6, color=CH_COLOR[c1],
-                       label=f'{c1} direction', alpha=0.9, zorder=3)
-        ax.set_ylim(-1.15, 1.15)
-        ax.set_ylabel('Flow direction\n[\u22121,+1]')
-        axm = ax.twinx()
-        axm.plot(t, f0['flow_mag'], lw=1.1, color=MAG_COLOR, ls='--', alpha=0.75,
-                 zorder=2)
-        ax.legend(handles=[ln0, ln1,
-                           plt.Line2D([], [], color=MAG_COLOR, ls='--', lw=1.1,
-                                      label=f'{c0} magnitude (right axis)')],
+        A = f0['flow_mag']
+        d_lp = f0['flow_lp']
+        ax.fill_between(t, -A, A, color='#95A5A6', alpha=0.20, lw=0, zorder=1,
+                        label=f'\u00b1{c0} imbalance envelope  LP|\u0394|')
+        ax.fill_between(t, 0, d_lp, where=(d_lp >= 0), color='#C0392B', alpha=0.30,
+                        interpolate=True, zorder=2)
+        ax.fill_between(t, 0, d_lp, where=(d_lp < 0), color='#2980B9', alpha=0.30,
+                        interpolate=True, zorder=2)
+        ln0, = ax.plot(t, d_lp, lw=2.2, color=CH_COLOR[c0], zorder=5,
+                       label=f'{c0} flow  LP(\u0394)')
+        ax.set_ylim(*sym_zero_ylim(d_lp, A))
+        ax.set_ylabel(f'Flow  LP(\u0394)\n({CAP_UNIT})', color=CH_COLOR[c0])
+        ax.tick_params(axis='y', labelcolor=CH_COLOR[c0])
+        axr = ax.twinx()
+        ln1, = axr.plot(t, f1['flow_lp'], lw=1.5, color=CH_COLOR[c1], alpha=0.9,
+                        zorder=4, label=f'{c1} flow  LP(\u0394)')
+        axr.set_ylim(*sym_zero_ylim(f1['flow_lp']))
+        axr.set_ylabel(f'{c1} flow ({CAP_UNIT})', color=CH_COLOR[c1], fontsize=9.5)
+        axr.tick_params(axis='y', labelcolor=CH_COLOR[c1], labelsize=9)
+        ax.legend(handles=[ln0, ln1, mpatches.Patch(color='#95A5A6', alpha=0.35,
+                                                    label='\u00b1 envelope  LP|\u0394|')],
                   loc='lower left', fontsize=8.5, ncol=3, framealpha=0.9)
-        axm.set_ylim(0, max(np.nanpercentile(f0['flow_mag'], 99) * 1.15, 1e-3))
-        axm.set_ylabel(f'{c0} flow magnitude ({CAP_UNIT})', color=MAG_COLOR,
-                       fontsize=9.5)
-        axm.tick_params(axis='y', labelcolor=MAG_COLOR, labelsize=9)
-        d0, d1 = f0['flow_dir'], f1['flow_dir']
-        ok = np.isfinite(d0) & np.isfinite(d1)
-        r = float(np.corrcoef(d0[ok], d1[ok])[0, 1]) if ok.sum() > 20 else np.nan
-        agree = (float(np.mean(np.sign(d0[ok]) == np.sign(d1[ok])))
+
+        g0, g1 = d_lp, f1['flow_lp']
+        ok = np.isfinite(g0) & np.isfinite(g1)
+        r = float(np.corrcoef(g0[ok], g1[ok])[0, 1]) if ok.sum() > 20 else np.nan
+        agree = (float(np.mean(np.sign(g0[ok]) == np.sign(g1[ok])))
                  if ok.sum() > 20 else np.nan)
-        lv = np.isfinite(f0['centred']) & np.isfinite(f1['centred']) & feats['in_sleep']
-        gain = (float(np.polyfit(f0['centred'][lv], f1['centred'][lv], 1)[0])
-                if lv.sum() > 20 else np.nan)
-        _caption(ax, f'flow marker, still being tuned \u00b7 low pass '
-                     f'{TAU_MIN:.0f} min, motion excluded \u00b7 + = left-dominant '
-                     f'\u00b7 {c1} vs {c0}: gain {gain:+.2f} (1 if identical), '
-                     f'direction r = {r:+.2f}, same sign in {agree * 100:.0f}% of blocks',
+        left = float(np.mean(g0[np.isfinite(g0)] > 0))
+        _caption(ax, f'flow marker, still being tuned \u00b7 {TAU_MIN:.0f} min low pass '
+                     f'of the mean-centred difference, motion excluded\n'
+                     f'red above zero = left-dominant ({left * 100:.0f}% of the '
+                     f'night), blue below = right \u00b7 {c1} agrees in sign '
+                     f'{agree * 100:.0f}% of the time (r = {r:+.2f})',
                  y=0.95, va='top')
     else:
-        ax.plot(t, f0['flow_lp'], lw=1.6, color=CH_COLOR[c0], label=c0, zorder=3)
-        ax.plot(t, f1['flow_lp'], lw=1.6, color=CH_COLOR[c1], label=c1, zorder=3)
+        ax.plot(t, f0['flow_lp'], lw=1.8, color=CH_COLOR[c0], label=c0, zorder=3)
+        ax.plot(t, f1['flow_lp'], lw=1.8, color=CH_COLOR[c1], label=c1, zorder=3)
         ax.set_ylim(*sym_zero_ylim(f0['flow_lp'], f1['flow_lp']))
         ax.set_ylabel(f'Slow level\nLP{TAU_MIN:.0f}min ({CAP_UNIT})')
         ax.legend(loc='upper right', fontsize=9, ncol=2, framealpha=0.9)
@@ -504,13 +557,23 @@ def plot_pair(s, feats, raw, chans, out, title, shared_level_axis):
                      f'so it is not defined for {c0} or {c1} alone \u2014 see the '
                      f'CH / CLE\u2212CRE figure')
     ax.grid(True, alpha=0.15)
+    panel_letter(ax, 2)
+
+    # D -- variance
+    ax = axes[3]
+    stage_shading(ax, sp)
+    ax.plot(t, f0['var'], lw=0.8, color=CH_COLOR[c0], alpha=0.9, label=c0)
+    ax.plot(t, f1['var'], lw=0.8, color=CH_COLOR[c1], alpha=0.9, label=c1)
+    ax.set_ylabel(f'Variance\n({CAP_UNIT_SQ})')
+    ax.set_ylim(*robust_ylim(np.concatenate([f0['var'], f1['var']]), floor0=True))
+    ax.legend(loc='upper right', fontsize=9, ncol=2, framealpha=0.9)
+    ax.grid(True, alpha=0.15)
     panel_letter(ax, 3)
 
-    # E -- head turn + motion (enlarged)
+    # E -- head turn angle, scaled to the night's actual movement
     ax = axes[4]
     stage_shading(ax, sp)
-    draw_head_row(ax, t, feats['turn_deg'], feats['motion'])
-    ax.grid(True, alpha=0.15)
+    draw_head_row(ax, t, feats['turn_deg'])
     panel_letter(ax, 4)
 
     # F, G -- spectrograms, one per channel
