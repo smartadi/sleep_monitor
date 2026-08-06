@@ -1,37 +1,59 @@
 """
-Per-session, per-channel "evolution" panel (journal figure): mean value,
-variance, smoothed velocity, motion, and a spectrogram — one figure per channel.
+Per-session channel "evolution" panels (journal figures).
 
-Reporting figure for the manuscript. For each session and each channel
-(CLE, CRE, CH, and the CLE−CRE differential = directional CSF flow) we draw a
-stacked multi-row panel so the slow evolution of the baseline and its dynamics is
-visible across the night:
+For each session: one figure per channel (CLE, CRE, CH, CLE-CRE) plus a dedicated
+CH-vs-CLE-CRE comparison figure.
 
-    A  hypnogram      PSG stages drawn as a stepped ladder ordered by strength of
-                      sleep depth — Wake, N1, N2, N3, then REM — so depth is read
-                      from the trace geometry rather than from colour alone.
-    B  mean capacitance  low-pass (<10 Hz) DC level in FEMTOFARADS, 10 s windows.
-                         For CLE−CRE this is the directional CSF flow (L−R):
-                         two-colour fill about neutral + a balance readout.
-    C  variance          low-pass (<10 Hz) within-window variance (fF^2)
-    D  drift rate        super-slow rate of change of the mean (fF/hr): local slope
-                         over a long window (Savitzky-Golay derivative), after the
-                         accelerometer is regressed out. Oscillations faster than
-                         the window average out, so this is the drift trend, not
-                         the wiggles. y-axis zoomed tight so big coupling pulses clip.
-    E  motion            accelerometer activity (within-window std)
-    F  spectrogram       0-5 Hz spectrogram of that channel + dB colorbar
+Per-channel figure rows
+-----------------------
+    A  hypnogram      PSG stages as a depth-ordered ladder — Wake, N1, N2, N3,
+                      then REM — so depth reads from the geometry, not colour
+                      alone. Drawn as merged coloured runs with faint connectors,
+                      because per-epoch step connectors at full weight swamp the
+                      rungs they are meant to join.
+    B  mean value     DC level referenced to the SESSION MEAN, in femtofarads,
+                      with that mean printed on the panel. Nothing is normalised
+                      away; zero is the session's own operating point.
+    C  variance       within-window variance (fF^2)
+    D  flow           for the difference channels (CLE-CRE, CH): the night-scale
+                      flow marker — magnitude A = LP(|d|) and direction
+                      D = LP(d)/A in [-1,+1]. For the single-ended channels
+                      (CLE, CRE) a signed direction is not defined, so the row
+                      shows the same low-passed level instead.
+    E  head + motion  head TURN angle from the accelerometer (0 supine, +90 left,
+                      -90 right) over accelerometer activity.
+    F  spectrogram    0-5 Hz spectrogram of that channel + dB colorbar
+
+Comparison figure (<SESSION>_CH_vs_CLE-CRE.png)
+-----------------------------------------------
+CH and CLE-CRE are NOT the same signal (offset ~-742 fF, gain -1.9 to +6.5, sign
+of the gain flips between subjects — see ch_vs_clecre_sessions.py), so they get a
+figure of their own rather than being read across two separate per-channel plots:
+mean-centred levels on independent axes, then the two flow directions on the SAME
+[-1,+1] axis where they are directly comparable, then magnitude, head angle, and
+this session's offset / gain / correlation printed on the panel.
+
+What changed from the previous version of this script
+-----------------------------------------------------
+* The old row B for CLE-CRE was the raw level filled about its median and called
+  "CSF flow". It is now the mean-centred level, with the flow marker in its own
+  row D.
+* The old row D was a VELOCITY (Savitzky-Golay drift rate, fF/hr). A derivative
+  turns every electrode re-seat into a spike and averages to zero over a night,
+  so it carried no night-scale direction (30 min lag autocorrelation ~ -0.005 vs
+  +0.52 for the marker used now — see flow_marker.py). Replaced by the flow row.
+* Row E was motion only; it now carries the head-turn angle validated in
+  head_angle_validate.py, using the corrected +/-180 definition and the 0.05 Hz
+  gravity cutoff (the previous 0.5 Hz cutoff sat inside the respiratory band).
 
 Units: the CAP columns are true capacitance in femtofarads (see CAP_SCALE_TO_FF
-in sleep_monitor/config.py for the scale and its provenance/caveats). Note that
-CH is the sensor's own interhemispheric difference channel and is NOT equal to
-the arithmetic CLE−CRE — the two are compared in ch_vs_diff.py, so both are drawn.
+in sleep_monitor/config.py for the scale and its provenance/caveats).
 
 The raw channel is low-pass filtered at 10 Hz (zero-phase Butterworth) before the
 mean and variance are computed, so those series reflect physiological-band
 content and are not inflated by the >10 Hz electronic noise floor. Every data row
-is autoscaled to robust (1-99th pct) limits of ITS OWN series so the evolution
-fills the axis rather than being squished by a few outliers.
+is autoscaled to robust limits of ITS OWN series so the evolution fills the axis
+rather than being squished by a few outliers.
 
 Usage
 -----
@@ -41,6 +63,7 @@ Usage
 Outputs
 -------
     writeup/figures/channel_evolution/<SESSION>_<channel>.png
+    writeup/figures/channel_evolution/<SESSION>_CH_vs_CLE-CRE.png
 """
 
 import argparse
@@ -52,27 +75,36 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
-from scipy.signal import butter, sosfiltfilt, savgol_filter, spectrogram as sp_spectrogram
+from scipy.signal import butter, sosfiltfilt, spectrogram as sp_spectrogram
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from sleep_monitor import load_session, load_sleep_profile
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sleep_monitor import load_session, load_sleep_profile, head_angle
 from sleep_monitor.config import (
     STAGE_LABELS, STAGE_COLORS, CAP_COLORS,
     RESP_LO, RESP_HI, CARD_LO, CARD_HI,
-    CAP_SCALE_TO_FF, CAP_UNIT, CAP_UNIT_SQ, CAP_UNIT_RATE,
+    CAP_SCALE_TO_FF, CAP_UNIT, CAP_UNIT_SQ,
 )
 from sleep_monitor.sessions import SESSION_META
+# One definition of the flow marker, shared with flow_marker.py so the two
+# figures cannot drift apart.
+from flow_marker import flow_marker, TAU_MIN, DESPIKE_MIN
 
 ROOT = Path(__file__).resolve().parents[2]
 PLOT_DIR = ROOT / 'writeup' / 'figures' / 'channel_evolution'
 PLOT_DIR.mkdir(parents=True, exist_ok=True)
 
 CHANNELS = ['CLE', 'CRE', 'CH', 'CLE-CRE']
+DIFF_CHANNELS = ['CLE-CRE', 'CH']       # channels a signed flow direction exists for
 CH_COLOR = {'CLE': CAP_COLORS['CLE'], 'CRE': CAP_COLORS['CRE'],
             'CH': CAP_COLORS['CH'], 'CLE-CRE': CAP_COLORS['CLE-CRE']}
 CH_LONG = {'CLE': 'left temple (CLE)', 'CRE': 'right temple (CRE)',
-           'CH': 'differential (CH)', 'CLE-CRE': 'CSF flow (CLE−CRE)'}
-FLOW_CH = 'CLE-CRE'        # channel treated as directional CSF flow (L−R)
+           'CH': 'hardware difference (CH)',
+           'CLE-CRE': 'arithmetic difference (CLE−CRE)'}
+MAG_COLOR = '#B9380B'
+DIR_COLOR = '#1F618D'
+HEAD_COLOR = '#16A085'
+MOTION_PCT = 90            # top-decile accelerometer activity counts as motion
 
 # Hypnogram ladder: stage code -> vertical position. Ordered by STRENGTH OF SLEEP
 # DEPTH, so descending the ladder is monotonically deeper sleep: Wake, N1, N2, N3,
@@ -84,8 +116,6 @@ LADDER_Y = {c: len(LADDER_ORDER) - 1 - i for i, c in enumerate(LADDER_ORDER)}
 
 BLOCK_SEC = 10.0            # window for mean / variance / motion (display rows)
 LP_CAP_HZ = 10.0           # low-pass cap applied to raw signal before mean/variance
-VEL_BLOCK_SEC = 1.0        # finer block for the velocity baseline (1 Hz series)
-VEL_SLOPE_WIN_MIN = 25.0   # window for the local-slope (super-slow drift rate)
 SPEC_FMAX = 5.0            # spectrogram top frequency (Hz)
 
 # ── Journal styling ───────────────────────────────────────────────────────────
@@ -136,43 +166,6 @@ def adaptive_ylim(y, k=5.0, pad=0.08):
     return (lo - pad * span, hi + pad * span)
 
 
-def tight_sym_ylim(y, k=4.0, pad=0.1):
-    """Tight window symmetric about 0 for the velocity: +/- k*MAD, so the small
-    slow drift-rate fills the axis while big coupling-step pulses clip. Never
-    zoomed out past the data."""
-    y = np.asarray(y, float)
-    y = y[np.isfinite(y)]
-    if y.size < 3:
-        return (-1, 1)
-    mad = np.median(np.abs(y - np.median(y))) * 1.4826
-    half = min(max(k * mad, 1e-6), float(np.max(np.abs(y))))
-    half *= (1 + pad)
-    return (-half, half)
-
-
-def flow_balance(flow, t_hr):
-    """Directional CSF-flow balance from the L−R differential, offset-invariant.
-    The static per-mount offset is removed (centre on the session median, the
-    neutral coupling point), then balance is described by the flow dynamics:
-    reversals (side-to-side alternation) and the longest one-sided run (minutes).
-    A balanced flow alternates often with short runs; an imbalanced flow stays
-    stuck on one side. Returns (median, n_reversals, longest_run_min)."""
-    flow = np.asarray(flow, float)
-    med = np.median(flow[np.isfinite(flow)])
-    sign = np.sign(flow - med)
-    nz = sign[sign != 0]
-    reversals = int(np.sum(nz[1:] != nz[:-1])) if nz.size > 1 else 0
-    dt_min = (t_hr[1] - t_hr[0]) * 60 if len(t_hr) > 1 else 0.5
-    runs, cur = [], 1
-    for i in range(1, len(sign)):
-        if sign[i] == sign[i - 1] and sign[i] != 0:
-            cur += 1
-        else:
-            runs.append(cur); cur = 1
-    runs.append(cur)
-    return med, reversals, (max(runs) * dt_min if runs else 0.0)
-
-
 def block_reduce(x, n, fn):
     m = len(x) // n
     return fn(x[: m * n].reshape(m, n), axis=1)
@@ -183,28 +176,15 @@ def lowpass(x, fs, fc):
     return sosfiltfilt(sos, x)
 
 
-def regress_out(y, regressors):
-    """Return y with the (intercept + standardized regressors) OLS fit removed.
-    Continuous — no gaps. Regressors are z-scored for conditioning."""
-    cols = [np.ones_like(y)]
-    for r in regressors:
-        r = np.asarray(r, float)
-        cols.append((r - np.nanmean(r)) / (np.nanstd(r) + 1e-9))
-    R = np.column_stack(cols)
-    beta, *_ = np.linalg.lstsq(R, y, rcond=None)
-    return y - R @ beta
-
-
-def slope_rate(y, fs_series, win_min, polyorder=2):
-    """Super-slow rate of change: local least-squares slope over a long window
-    (Savitzky-Golay 1st derivative). Averages out oscillations faster than the
-    window, so it shows the drift trend, not the wiggles. Returns units/hour."""
-    win = int(round(win_min * 60 * fs_series))
-    win += (win % 2 == 0)                      # force odd
-    win = min(win, len(y) - (1 - len(y) % 2))  # <= length, odd
-    if win < polyorder + 2:
-        return np.gradient(y, 1.0 / fs_series) * 3600.0
-    return savgol_filter(y, win, polyorder, deriv=1, delta=1.0 / fs_series) * 3600.0
+def sleep_window(codes):
+    """Mask over the sleep period (first to last scored sleep epoch)."""
+    is_sleep = np.isin(codes, [0, 1, 2, 3])
+    if is_sleep.sum() < 20:
+        return np.ones(len(codes), bool)
+    on = int(np.argmax(is_sleep))
+    off = len(is_sleep) - 1 - int(np.argmax(is_sleep[::-1]))
+    m = np.zeros(len(codes), bool); m[on:off + 1] = True
+    return m
 
 
 def compute_features(s):
@@ -217,45 +197,47 @@ def compute_features(s):
             sig = s.cap[ch].astype(np.float64)
         raw[ch] = sig * CAP_SCALE_TO_FF        # -> femtofarads
     acc = s.cap['acc_mag'].astype(np.float64)
-    aXYZ = {a: s.cap[a].astype(np.float64) for a in ('aX', 'aY', 'aZ')}
 
     # ── Display rows (mean / variance / motion) at 10 s blocks ──
     n = int(round(fs * BLOCK_SEC))
     m = min(min(len(v) for v in raw.values()), len(acc)) // n
     t_hr = (np.arange(m) + 0.5) * BLOCK_SEC / 3600.0
     motion = block_reduce(acc[: m * n], n, np.std)
+    is_motion = motion > np.nanpercentile(motion, MOTION_PCT)
 
-    # ── Velocity baseline at a finer 1 Hz block so the 0.15 Hz low-pass is valid ──
-    nv = int(round(fs * VEL_BLOCK_SEC))
-    mv = min(min(len(v) for v in raw.values()), len(acc)) // nv
-    t_vel = (np.arange(mv) + 0.5) * VEL_BLOCK_SEC / 3600.0
-    fs_v = 1.0 / VEL_BLOCK_SEC
-    dt_v_hr = VEL_BLOCK_SEC / 3600.0
-    # Motion regressors at 1 Hz: per-axis accel MEAN (gravity vector = head
-    # orientation, which drives the sensor-coupling baseline) + movement magnitude.
-    motion_v = block_reduce(acc[: mv * nv], nv, np.std)
-    regs_v = [block_reduce(aXYZ['aX'][: mv * nv], nv, np.mean),
-              block_reduce(aXYZ['aY'][: mv * nv], nv, np.mean),
-              block_reduce(aXYZ['aZ'][: mv * nv], nv, np.mean),
-              motion_v]
+    # ── Head angle, corrected definition (0.05 Hz gravity cutoff, full +/-180) ──
+    # Block-reduce the angle through sin/cos so the +/-180 seam cannot average a
+    # left-turned head into "supine".
+    ang = head_angle(s.cap['aX'], s.cap['aY'], s.cap['aZ'], fs)
+    tr = np.radians(ang['turn_deg'])
+    turn = np.degrees(np.arctan2(block_reduce(np.sin(tr)[: m * n], n, np.mean),
+                                 block_reduce(np.cos(tr)[: m * n], n, np.mean)))
 
-    feats = {'t_hr': t_hr, 't_vel': t_vel, 'motion': motion}
+    # ── Sleep-period mean, used as the zero of every level row ──
+    sp = s.sleep_profile
+    codes = np.asarray(sp['codes'], int)
+    t_ep = np.asarray(sp['t_ep_hr'], float)
+    win = sleep_window(codes)
+    ep_of_block = np.searchsorted(t_ep, t_hr, side='right') - 1
+    ok = (ep_of_block >= 0) & (ep_of_block < len(codes))
+    in_sleep = np.zeros(len(t_hr), bool)
+    in_sleep[ok] = win[np.clip(ep_of_block, 0, len(codes) - 1)[ok]]
+    if in_sleep.sum() < 10:
+        in_sleep[:] = True
+
+    feats = {'t_hr': t_hr, 'motion': motion, 'is_motion': is_motion,
+             'turn_deg': turn, 'in_sleep': in_sleep}
     for ch, sig in raw.items():
         filt = lowpass(sig, fs, LP_CAP_HZ)          # <10 Hz cap before mean/var
         mean_b = block_reduce(filt[: m * n], n, np.mean)
         var_b = block_reduce(filt[: m * n], n, np.var)
-        # Continuous, motion-suppressed velocity: regress the accelerometer out of
-        # the 1 Hz baseline (nothing cut), low-pass the baseline at 0.15 Hz
-        # (Butterworth-4, zero-phase), then differentiate. The velocity is thus the
-        # rate of change of the sub-0.15 Hz baseline.
-        # Super-slow drift rate: regress the accelerometer out of the 1 Hz baseline
-        # (nothing cut), then take the local linear slope over a long window
-        # (Savitzky-Golay derivative). This is the trend rate of the mean, not the
-        # derivative of oscillations — oscillations faster than the window average out.
-        mean_v = block_reduce(filt[: mv * nv], nv, np.mean)
-        resid = regress_out(mean_v, regs_v)
-        vel = slope_rate(resid, fs_v, VEL_SLOPE_WIN_MIN)
-        feats[ch] = {'mean': mean_b, 'var': var_b, 'vel': vel}
+        mu = float(np.nanmean(mean_b[in_sleep]))
+        d = mean_b - mu
+        # Same marker as flow_marker.py, evaluated on this figure's 10 s blocks.
+        A, D, d_lp = flow_marker(d, is_motion, TAU_MIN, DESPIKE_MIN,
+                                 block_min=BLOCK_SEC / 60.0)
+        feats[ch] = {'mean': mean_b, 'centred': d, 'mu': mu, 'var': var_b,
+                     'flow_mag': A, 'flow_dir': D, 'flow_lp': d_lp}
     return feats, raw
 
 
@@ -267,8 +249,92 @@ def stage_shading(ax, sp, alpha=0.10):
 
 
 def panel_letter(ax, k):
-    ax.text(-0.055, 1.02, PANEL[k], transform=ax.transAxes, fontsize=13,
+    ax.text(-0.092, 1.02, PANEL[k], transform=ax.transAxes, fontsize=13,
             fontweight='bold', va='bottom', ha='right')
+
+
+def draw_ladder(ax, sp, title=None):
+    """
+    Hypnogram as a depth-ordered ladder.
+
+    Contiguous epochs of the same stage are merged into one coloured rung and the
+    connectors between rungs are drawn thin and faint. The previous version drew
+    a full-weight per-epoch step trace, so on a fragmented night the vertical
+    connectors were visually heavier than the rungs and the ladder read as a
+    picket fence.
+    """
+    t_ep = np.asarray(sp['t_ep_hr'], float)
+    codes = np.asarray(sp['codes'], int)
+    nep = min(len(codes), len(t_ep) - 1)
+    y = np.array([LADDER_Y.get(int(c), np.nan) for c in codes[:nep]], float)
+
+    # merge contiguous same-stage runs
+    runs, start = [], 0
+    for j in range(1, nep + 1):
+        if j == nep or codes[j] != codes[start]:
+            runs.append((start, j)); start = j
+    for a, b in runs:
+        if not np.isfinite(y[a]):
+            continue
+        ax.plot([t_ep[a], t_ep[b]], [y[a]] * 2, lw=4.0, solid_capstyle='butt',
+                color=STAGE_COLORS.get(int(codes[a]), '#AAA'), zorder=4)
+    # faint connectors so transitions are visible without dominating the rungs
+    for (a0, b0), (a1, _) in zip(runs[:-1], runs[1:]):
+        if np.isfinite(y[a0]) and np.isfinite(y[a1]):
+            ax.plot([t_ep[b0]] * 2, [y[a0], y[a1]], lw=0.7, color='#2C3E50',
+                    alpha=0.35, zorder=3)
+
+    ax.set_yticks(list(LADDER_Y.values()))
+    ax.set_yticklabels([STAGE_LABELS[c] for c in LADDER_ORDER], fontsize=9.5)
+    ax.set_ylim(-0.6, len(LADDER_ORDER) - 0.4)
+    ax.set_ylabel('Sleep stage', fontsize=10)
+    ax.grid(True, axis='y', alpha=0.25, lw=0.6)
+    for yv in LADDER_Y.values():                       # rung guides
+        ax.axhline(yv, color='#CCCCCC', lw=0.5, zorder=1)
+    if title:
+        ax.set_title(title, fontsize=13, fontweight='bold')
+
+
+def draw_flow_row(ax, t, mag, dirn, label):
+    """Flow magnitude (fF, left) and direction (dimensionless, right)."""
+    ax.plot(t, mag, lw=1.4, color=MAG_COLOR, zorder=3)
+    ax.set_ylabel(f'Flow magnitude\nLP|Δ|  ({CAP_UNIT})', color=MAG_COLOR)
+    ax.tick_params(axis='y', labelcolor=MAG_COLOR)
+    ax.set_ylim(0, max(np.nanpercentile(mag, 99) * 1.15, 1e-3))
+    ax2 = ax.twinx()
+    ax2.axhline(0, color='#2C3E50', ls='--', lw=0.8, zorder=2)
+    ax2.plot(t, dirn, lw=1.8, color=DIR_COLOR, zorder=4)
+    ax2.fill_between(t, 0, dirn, where=(dirn >= 0), color='#C0392B', alpha=0.18,
+                     interpolate=True, zorder=1)
+    ax2.fill_between(t, 0, dirn, where=(dirn < 0), color='#2980B9', alpha=0.18,
+                     interpolate=True, zorder=1)
+    ax2.set_ylim(-1.15, 1.15)
+    ax2.set_ylabel('Flow direction  [−1,+1]', color=DIR_COLOR)
+    ax2.tick_params(axis='y', labelcolor=DIR_COLOR)
+    ax.text(0.006, 0.94, f'{label} · low pass {TAU_MIN:.0f} min, motion excluded · '
+            f'direction + = left-dominant, − = right-dominant',
+            transform=ax.transAxes, fontsize=8, style='italic', color='#555',
+            va='top', zorder=6)
+    return ax2
+
+
+def draw_head_row(ax, t, turn, motion):
+    """Head-turn angle over accelerometer activity."""
+    ax.fill_between(t, 0, motion, color='#7F8C8D', alpha=0.35, zorder=1)
+    ax.plot(t, motion, lw=0.6, color='#7F8C8D', zorder=2)
+    ax.set_ylabel('Motion\n(acc. std)', color='#5D6D7E')
+    ax.tick_params(axis='y', labelcolor='#5D6D7E')
+    ax.set_ylim(*robust_ylim(motion, floor0=True))
+    ax2 = ax.twinx()
+    ax2.plot(t, turn, lw=1.3, color=HEAD_COLOR, zorder=4)
+    for lv, lb in [(90, 'left'), (0, 'supine'), (-90, 'right')]:
+        ax2.axhline(lv, color='#555', ls=':', lw=0.7, zorder=3)
+        ax2.annotate(lb, (0.995, lv), xycoords=('axes fraction', 'data'),
+                     fontsize=7.5, color='#555', va='bottom', ha='right')
+    ax2.set_ylim(-185, 185); ax2.set_yticks([-180, -90, 0, 90, 180])
+    ax2.set_ylabel('Head turn (deg)', color=HEAD_COLOR)
+    ax2.tick_params(axis='y', labelcolor=HEAD_COLOR)
+    return ax2
 
 
 def plot_channel(s, ch, feats, raw, out):
@@ -279,55 +345,22 @@ def plot_channel(s, ch, feats, raw, out):
 
     fig, axes = plt.subplots(
         6, 1, figsize=(14, 12.6), sharex=True,
-        gridspec_kw={'height_ratios': [0.55, 1.0, 1.0, 1.0, 0.7, 1.1]})
+        gridspec_kw={'height_ratios': [0.6, 1.0, 1.0, 1.0, 0.85, 1.1]})
 
-    # A — hypnogram ladder: stage depth on the y-axis (Wake top ... N3 bottom) as a
-    # step trace, so sleep depth is read from the geometry, not from colour alone.
+    # A — hypnogram ladder, depth-ordered (Wake top ... N3, REM at the bottom)
     ax = axes[0]
-    t_ep = np.asarray(sp['t_ep_hr'], float)
-    codes = np.asarray(sp['codes'], int)
-    nep = min(len(codes), len(t_ep) - 1)
-    y_lad = np.array([LADDER_Y.get(int(c), np.nan) for c in codes[:nep]], float)
-    # step trace (NaN at unscored epochs leaves a gap rather than a false level)
-    ax.step(np.append(t_ep[:nep], t_ep[nep]), np.append(y_lad, y_lad[-1]),
-            where='post', color='#2C3E50', lw=1.0, solid_joinstyle='miter', zorder=3)
-    # colour the horizontal run of each epoch so the ladder stays stage-coded too
-    for j in range(nep):
-        if not np.isfinite(y_lad[j]):
-            continue
-        ax.plot([t_ep[j], t_ep[j + 1]], [y_lad[j]] * 2, lw=3.0, solid_capstyle='butt',
-                color=STAGE_COLORS.get(int(codes[j]), '#AAA'), zorder=4)
-    ax.set_yticks(list(LADDER_Y.values()))
-    ax.set_yticklabels([STAGE_LABELS[c] for c in LADDER_ORDER], fontsize=9)
-    ax.set_ylim(-0.6, len(LADDER_ORDER) - 0.4)
-    ax.set_ylabel('Sleep stage', fontsize=10)
-    ax.grid(True, axis='y', alpha=0.2, lw=0.6)
-    ax.set_title(f'{s.label} — {CH_LONG[ch]} channel: overnight evolution',
-                 fontsize=13, fontweight='bold')
+    draw_ladder(ax, sp, f'{s.label} — {CH_LONG[ch]}: overnight evolution')
     panel_letter(ax, 0)
 
-    # B — mean value (adaptive, mean-centred y-axis: huge coupling swings clip so
-    # the structure around the baseline stays visible). For the CLE−CRE channel
-    # this row is the directional CSF flow (L−R): two-colour fill about the neutral
-    # (median) shows which side dominates, with a balance readout.
+    # B — mean value referenced to the session mean, in fF (mean printed, not hidden)
     ax = axes[1]; stage_shading(ax, sp)
-    if ch == FLOW_CH:
-        flow = f['mean']
-        med, reversals, max_run = flow_balance(flow, t)
-        ax.axhline(med, color='#2C3E50', ls='--', lw=0.8, zorder=2)
-        ax.fill_between(t, med, flow, where=(flow >= med), interpolate=True,
-                        color='#C0392B', alpha=0.25, zorder=1)
-        ax.fill_between(t, med, flow, where=(flow < med), interpolate=True,
-                        color='#2980B9', alpha=0.25, zorder=1)
-        ax.plot(t, flow, lw=0.9, color=col, zorder=3)
-        ax.set_ylabel(f'Flow  L−R\n({CAP_UNIT})'); ax.set_ylim(*adaptive_ylim(flow))
-        ax.text(0.006, 0.93, f'CSF flow (CLE−CRE) — ▲ L-dominant / ▼ R-dominant · '
-                f'balance: {reversals} reversals, longest one-sided run {max_run:.0f} min',
-                transform=ax.transAxes, fontsize=8, style='italic', color='#555', va='top')
-    else:
-        ax.plot(t, f['mean'], lw=0.9, color=col)
-        ax.set_ylabel(f'Mean capacitance\n({CAP_UNIT})')
-        ax.set_ylim(*adaptive_ylim(f['mean']))
+    ax.plot(t, f['centred'], lw=0.9, color=col, zorder=3)
+    ax.axhline(0, color='#2C3E50', ls='--', lw=0.9, zorder=2)
+    ax.set_ylabel(f'Mean value − session mean\n({CAP_UNIT})')
+    ax.set_ylim(*adaptive_ylim(f['centred']))
+    ax.text(0.006, 0.93, f'session mean = {f["mu"]:,.0f} {CAP_UNIT} '
+            f'(zero of this axis) · y-axis zoomed, large coupling swings clip',
+            transform=ax.transAxes, fontsize=8, style='italic', color='#555', va='top', bbox=dict(facecolor='white', alpha=0.72, edgecolor='none', pad=1.5), zorder=7)
     ax.grid(True, alpha=0.15); panel_letter(ax, 1)
 
     # C — variance
@@ -337,23 +370,26 @@ def plot_channel(s, ch, feats, raw, out):
     ax.set_ylim(*robust_ylim(f['var'], floor0=True))
     ax.grid(True, alpha=0.15); panel_letter(ax, 2)
 
-    # D — baseline velocity: motion regressed out, low-passed at 0.15 Hz (1 Hz base)
+    # D — night-scale flow marker (difference channels), or the same low pass of
+    #     the level where a signed direction is not defined.
     ax = axes[3]; stage_shading(ax, sp)
-    ax.axhline(0, color='gray', ls=':', lw=0.8)
-    ax.plot(feats['t_vel'], f['vel'], lw=0.7, color='#2980B9')
-    ax.set_ylabel(f'Baseline drift rate\n({CAP_UNIT_RATE})')
-    ax.set_ylim(*tight_sym_ylim(f['vel']))
-    ax.text(0.006, 0.92, f'super-slow drift rate · motion regressed out · '
-            f'{VEL_SLOPE_WIN_MIN:g}-min local slope · y-axis zoomed (pulses clip)',
-            transform=ax.transAxes, fontsize=8, style='italic', color='#555', va='top')
+    if ch in DIFF_CHANNELS:
+        draw_flow_row(ax, t, f['flow_mag'], f['flow_dir'], f'flow from {ch}')
+    else:
+        ax.plot(t, f['flow_lp'], lw=1.6, color=MAG_COLOR, zorder=3)
+        ax.axhline(0, color='#2C3E50', ls='--', lw=0.9, zorder=2)
+        ax.set_ylabel(f'Slow level\nLP{TAU_MIN:.0f}min ({CAP_UNIT})')
+        ax.set_ylim(*adaptive_ylim(f['flow_lp']))
+        ax.text(0.006, 0.93, f'{TAU_MIN:.0f} min low pass of the mean-centred level · '
+                f'a signed flow direction needs a difference channel, so it is not '
+                f'defined for {ch}',
+                transform=ax.transAxes, fontsize=8, style='italic', color='#555',
+                va='top')
     ax.grid(True, alpha=0.15); panel_letter(ax, 3)
 
-    # E — motion
+    # E — head turn angle (corrected definition) over motion
     ax = axes[4]; stage_shading(ax, sp)
-    ax.plot(t, feats['motion'], lw=0.7, color='#7F8C8D')
-    ax.fill_between(t, 0, feats['motion'], color='#7F8C8D', alpha=0.3)
-    ax.set_ylabel('Motion\n(acc. std)')
-    ax.set_ylim(*robust_ylim(feats['motion'], floor0=True))
+    draw_head_row(ax, t, feats['turn_deg'], feats['motion'])
     ax.grid(True, alpha=0.15); panel_letter(ax, 4)
 
     # F — spectrogram (0-SPEC_FMAX Hz) + inset colorbar
@@ -390,6 +426,108 @@ def plot_channel(s, ch, feats, raw, out):
     return out
 
 
+def plot_ch_vs_diff(s, feats, out):
+    """
+    The two difference channels side by side, on one time axis.
+
+    They are kept apart from the per-channel figures because they are not the
+    same quantity: across the cohort the static offset is ~-742 fF and the gain
+    of CH on CLE-CRE runs from -1.9 to +6.5, changing sign between subjects
+    (ch_vs_clecre_sessions.py). Row C is the payoff — the two flow DIRECTIONS are
+    dimensionless and bounded, so unlike the raw levels they can share one axis
+    and be compared directly.
+    """
+    sp = s.sleep_profile
+    t = feats['t_hr']
+    fd, fc = feats['CLE-CRE'], feats['CH']
+    ok = np.isfinite(fd['centred']) & np.isfinite(fc['centred']) & feats['in_sleep']
+
+    slope = float(np.polyfit(fd['centred'][ok], fc['centred'][ok], 1)[0]) \
+        if ok.sum() > 20 else np.nan
+    r_lvl = float(np.corrcoef(fc['centred'][ok], fd['centred'][ok])[0, 1]) \
+        if ok.sum() > 20 else np.nan
+    dd = np.diff(fd['centred'], n=6); dc = np.diff(fc['centred'], n=6)   # 1 min
+    mk = np.isfinite(dd) & np.isfinite(dc)
+    r_chg = float(np.corrcoef(dc[mk], dd[mk])[0, 1]) if mk.sum() > 20 else np.nan
+    dsel = np.isfinite(fd['flow_dir']) & np.isfinite(fc['flow_dir'])
+    r_dir = float(np.corrcoef(fc['flow_dir'][dsel], fd['flow_dir'][dsel])[0, 1]) \
+        if dsel.sum() > 20 else np.nan
+    agree = float(np.mean(np.sign(fc['flow_dir'][dsel]) == np.sign(fd['flow_dir'][dsel]))) \
+        if dsel.sum() > 20 else np.nan
+
+    fig, axes = plt.subplots(
+        5, 1, figsize=(14, 11.4), sharex=True,
+        gridspec_kw={'height_ratios': [0.6, 1.15, 1.0, 1.0, 0.85]})
+
+    ax = axes[0]
+    draw_ladder(ax, sp, f'{s.label} — CH vs CLE−CRE: the two difference channels '
+                        f'compared')
+    panel_letter(ax, 0)
+
+    # B — mean-centred levels, independent axes (they differ in scale)
+    ax = axes[1]; stage_shading(ax, sp)
+    ax.plot(t, fd['centred'], lw=1.1, color=CH_COLOR['CLE-CRE'], zorder=4)
+    ax.axhline(0, color='#2C3E50', ls='--', lw=0.9, zorder=2)
+    ax.set_ylabel(f'CLE−CRE − mean\n({CAP_UNIT})', color=CH_COLOR['CLE-CRE'])
+    ax.tick_params(axis='y', labelcolor=CH_COLOR['CLE-CRE'])
+    ax.set_ylim(*adaptive_ylim(fd['centred']))
+    ax2 = ax.twinx()
+    ax2.plot(t, fc['centred'], lw=1.1, color=CH_COLOR['CH'], alpha=0.9, zorder=3)
+    ax2.set_ylabel(f'CH − mean ({CAP_UNIT})', color=CH_COLOR['CH'])
+    ax2.tick_params(axis='y', labelcolor=CH_COLOR['CH'])
+    ax2.set_ylim(*adaptive_ylim(fc['centred']))
+    ax.text(0.006, 0.95,
+            f'means: CLE−CRE {fd["mu"]:,.0f} {CAP_UNIT}, CH {fc["mu"]:,.0f} {CAP_UNIT} '
+            f'(offset {fc["mu"] - fd["mu"]:,.0f}) · gain of CH on CLE−CRE = {slope:.2f} '
+            f'(1 if identical) · r level {r_lvl:+.2f}, r 1-min change {r_chg:+.2f}',
+            transform=ax.transAxes, fontsize=8, style='italic', color='#555', va='top', bbox=dict(facecolor='white', alpha=0.72, edgecolor='none', pad=1.5), zorder=7)
+    ax.grid(True, alpha=0.15); panel_letter(ax, 1)
+
+    # C — the two flow DIRECTIONS on one shared, dimensionless axis
+    ax = axes[2]; stage_shading(ax, sp)
+    ax.axhline(0, color='#2C3E50', ls='--', lw=0.9, zorder=2)
+    ax.plot(t, fd['flow_dir'], lw=1.9, color=CH_COLOR['CLE-CRE'],
+            label='CLE−CRE', zorder=4)
+    ax.plot(t, fc['flow_dir'], lw=1.5, color=CH_COLOR['CH'], alpha=0.9,
+            label='CH', zorder=3)
+    ax.set_ylim(-1.15, 1.15)
+    ax.set_ylabel('Flow direction\n[−1,+1]')
+    ax.legend(loc='lower left', fontsize=8.5, ncol=2, framealpha=0.9)
+    ax.text(0.006, 0.95, f'directions are dimensionless, so they share an axis · '
+            f'r = {r_dir:+.2f}, same sign in {agree*100:.0f}% of blocks · '
+            f'+ = left-dominant',
+            transform=ax.transAxes, fontsize=8, style='italic', color='#555', va='top', bbox=dict(facecolor='white', alpha=0.72, edgecolor='none', pad=1.5), zorder=7)
+    ax.grid(True, alpha=0.15); panel_letter(ax, 2)
+
+    # D — flow magnitudes, independent axes
+    ax = axes[3]; stage_shading(ax, sp)
+    ax.plot(t, fd['flow_mag'], lw=1.5, color=CH_COLOR['CLE-CRE'], zorder=4)
+    ax.set_ylabel(f'CLE−CRE flow mag.\n({CAP_UNIT})', color=CH_COLOR['CLE-CRE'])
+    ax.tick_params(axis='y', labelcolor=CH_COLOR['CLE-CRE'])
+    ax.set_ylim(0, max(np.nanpercentile(fd['flow_mag'], 99) * 1.15, 1e-3))
+    ax2 = ax.twinx()
+    ax2.plot(t, fc['flow_mag'], lw=1.3, color=CH_COLOR['CH'], alpha=0.9, zorder=3)
+    ax2.set_ylabel(f'CH flow mag. ({CAP_UNIT})', color=CH_COLOR['CH'])
+    ax2.tick_params(axis='y', labelcolor=CH_COLOR['CH'])
+    ax2.set_ylim(0, max(np.nanpercentile(fc['flow_mag'], 99) * 1.15, 1e-3))
+    ax.text(0.006, 0.94, f'magnitudes keep their own axes — CH moves '
+            f'{np.nanmedian(fc["flow_mag"]) / max(np.nanmedian(fd["flow_mag"]), 1e-9):.1f}x '
+            f'as far on this night',
+            transform=ax.transAxes, fontsize=8, style='italic', color='#555', va='top', bbox=dict(facecolor='white', alpha=0.72, edgecolor='none', pad=1.5), zorder=7)
+    ax.grid(True, alpha=0.15); panel_letter(ax, 3)
+
+    # E — head turn + motion
+    ax = axes[4]; stage_shading(ax, sp)
+    draw_head_row(ax, t, feats['turn_deg'], feats['motion'])
+    ax.set_xlabel('Time (hours)')
+    ax.grid(True, alpha=0.15); panel_letter(ax, 4)
+
+    fig.tight_layout()
+    fig.savefig(out, dpi=200, bbox_inches='tight')
+    plt.close(fig)
+    return out
+
+
 def run_session(label):
     idx = next((i for i, m in enumerate(SESSION_META) if m['label'] == label), None)
     if idx is None:
@@ -404,7 +542,10 @@ def run_session(label):
     for ch in CHANNELS:
         out = plot_channel(s, ch, feats, raw, PLOT_DIR / f'{label}_{ch}.png')
         outs.append(out)
-        print(f'  {label} {ch:4s} -> {out.name}')
+        print(f'  {label} {ch:8s} -> {out.name}')
+    out = plot_ch_vs_diff(s, feats, PLOT_DIR / f'{label}_CH_vs_CLE-CRE.png')
+    outs.append(out)
+    print(f'  {label} {"compare":8s} -> {out.name}')
     return outs
 
 

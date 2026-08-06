@@ -103,7 +103,8 @@ def _roll(x, win_epochs, how):
                        .aggregate(how).to_numpy()
 
 
-def flow_marker(d, motion, tau_min=TAU_MIN, despike_min=DESPIKE_MIN):
+def flow_marker(d, motion, tau_min=TAU_MIN, despike_min=DESPIKE_MIN,
+                block_min=EPOCH_MIN):
     """
     Magnitude and direction of the differential flow.
 
@@ -115,12 +116,15 @@ def flow_marker(d, motion, tau_min=TAU_MIN, despike_min=DESPIKE_MIN):
     +/-1. The mean keeps D graded: |D| = 1 only when the window is strictly
     one-signed, and near 0 when the two sides are balanced.
 
-    d       : mean-centred CLE-CRE per epoch (fF)
-    motion  : bool per epoch — excluded from the low pass (electrode re-seats)
+    d         : mean-centred CLE-CRE per block (fF)
+    motion    : bool per block — excluded from the low pass (electrode re-seats)
+    block_min : duration of one sample of d, in minutes. Defaults to the 30 s PSG
+                epoch; channel_evolution.py passes its own 10 s block so the two
+                figures show the same marker at different resolutions.
     Returns (A, D, d_lp) with A the low-passed |d| in fF and D in [-1, +1].
     """
-    win = max(3, int(round(tau_min / EPOCH_MIN)))
-    wsp = max(3, int(round(despike_min / EPOCH_MIN)))
+    win = max(3, int(round(tau_min / block_min)))
+    wsp = max(3, int(round(despike_min / block_min)))
     dm = np.where(motion, np.nan, d)
     dc = _roll(dm, wsp, 'median')             # de-spike
     A = _roll(np.abs(dc), win, 'mean')        # low pass on the ABSOLUTE
