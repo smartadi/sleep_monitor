@@ -2117,3 +2117,59 @@ equals the 0.1 Hz band floor in 5 of 6 subjects.
 
 **Open item.** The delta-burst figure (now Figure 8) is referenced in §4.5 but has no caption
 or image in the manuscript — a pre-existing gap, not introduced here.
+
+---
+
+## 2026-08-06 — Rate-detection audit: the night-level positive claims do not survive
+
+Full audit in `writeup/edits/RATE_AUDIT_2026-08-06.md`; everything recomputed by
+`analysis/rates/audit_rate_claims.py` from `artifacts/mask_phase_a.parquet` (93,190 rows).
+
+**1. The respiratory spectral estimator is a constant.** `rate_spectral()` uses
+`nperseg = 4 s` at fs = 100 Hz, so df = 0.25 Hz and the 0.1–0.5 Hz band holds two bins. It
+returns exactly 15.0 br/min in **9,317 of 9,319 epochs (99.98%)**; 10 of 12 sessions have zero
+within-session variance. Therefore `k_resp ≡ 15 / median(reference RR)` (verified to 5e-4), the
+"calibrated respiratory rate" is identically the session's median reference rate, and the
+headline MAE of 0.91 br/min equals the best-possible constant predictor (0.912 vs 0.912). Every
+respiratory-k statement — night-to-night reproducibility, the age decline, the "mechanical
+coupling" interpretation — is a statement about the reference rate, not the sensor.
+
+**2. Neither band beats a no-sensor baseline once k is held out.** k is fitted on the same night
+it is scored on. Running the held-out tests the paper never ran (6 subjects × 2 nights),
+medians over 12 nights:
+
+| Cardiac (CRE/peaks_loose) | night-level err | per-epoch MAE |
+|---|---|---|
+| k from the same night (published) | 1.56 BPM | 3.41 BPM |
+| k from the subject's other night | 3.77 | 4.64 |
+| population k = 1.96 | 2.60 | 5.09 |
+| **no sensor — constant 61.4 BPM** | **2.53** | **4.52** |
+
+The paper's own published population-k figure (4.56 BPM) is no better than a fixed 61 BPM
+(4.52). Excluding S6 does not change it (2.38 vs 2.34 night-level). Respiratory is identical by
+construction (population k 0.99 vs no-sensor 0.99).
+
+**3. Window geometry misreported.** `WIN_SEC = 30.0` and `starts = arange(0, n-win_n+1, win_n)`
+— windows are 30 s **non-overlapping**. The manuscript says "60-second windows, 30-second step"
+in §3.3, §4.2 and the Figure 3 caption, and Table 1's header says "Analysis epochs (60s)"; the
+epoch counts match the code, not the text.
+
+**4. Table 3 mixes three pipelines.** Resp median 0.91 + min 0.56 come from the whole-night-k
+unsmoothed diff pipeline; q3 1.19 and max 2.26 from `per_session_summary.csv`; q1 0.81 from no
+file. Card 3.41 [3.06–8.38] is CRE single-channel whole-night-k (reproduces exactly) while
+Table S1 reports the fused pipeline (3.36). The k IQRs are full ranges (card [0.94–2.24] vs true
+[1.79–1.99]). The "error-to-variation ratio" row uses the spectral estimator for respiration and
+detB for cardiac — and the respiratory 0.77 is the mathematical identity MAE(median) ≈ 0.8σ.
+
+**5. Two claims fail.** (a) "50-window k agrees with whole-night k to within 0.04 for all
+sessions" — fails for resp S3N1 (0.061) and S3N2 (0.080); holds for all cardiac (max 0.029).
+(b) k-vs-age p: exact permutation p = **0.058**, not the reported 0.042 (t-approximation,
+invalid at n = 6); and under whole-night k instead of 50-window k, ρ = −0.771, exact p = 0.103.
+
+**Unaffected.** The entire epoch-level negative reproduces exactly (r = +0.06 / −0.19,
+p = 0.68 / 0.34, 8/12 and 5/12, detrended +0.02 / −0.15), as do the Flow-vs-RIPSum bound
+(r = 0.47) and cardiac k ≈ 2 as a peaks-per-beat morphology count (1.70–2.43, median 2.02).
+
+**Status.** All of the above is live in the canonical `writeup/main/CAP_sleep_mask_manuscript_main.docx`.
+The 2026-07-30 review copy fixes items 3–5 and discloses item 1, but was never merged and does
+not address item 2 at all.
