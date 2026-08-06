@@ -2,8 +2,12 @@
 Per-session channel "evolution" panels (journal figures).
 
 The point of these figures: show how the raw sensor value evolves across a night,
-and how that evolution carries a directional capacitance-imbalance signal. The capacitance-imbalance marker is still
-being tuned — it is drawn here as the current best definition, not a settled one.
+and how that evolution carries a directional capacitance imbalance. The marker is
+still being tuned — it is drawn here as the current best definition, not a
+settled one.
+
+Panels carry numbers, not prose: anything that needs a sentence to explain
+belongs in this docstring, not on top of the data.
 
 Two figures per session, grouped by what the channels are:
 
@@ -25,11 +29,12 @@ Rows (both figures)
                       everything else into a flat line.
     C  imbalance      sits directly under the mean it is derived from.
                       Difference figure: the signed 30-min low pass of the
-                      mean-centred difference, LP(d), filled two-colour about
-                      zero and drawn inside the +/-LP(|d|) envelope — sign is the
-                      direction, height is the strength, and everything is in fF
-                      on one axis. The second difference channel is overlaid on
-                      its own axis.
+                      mean-centred difference, LP(d), for BOTH channels. Fill
+                      colour encodes SIGN (red = left-dominant, blue = right),
+                      line colour encodes CHANNEL, and the dashed outline is the
+                      +/-LP(|d|) envelope. Keeping the two encodings separate
+                      means a sign disagreement between the channels shows up as
+                      red and blue in the same column instead of being hidden.
                       Absolute figure: the same low pass of each level. A signed
                       imbalance direction needs a difference channel, so it is not
                       defined for CLE or CRE on their own.
@@ -145,6 +150,8 @@ CH_LONG = {'CLE': 'left temple (CLE)', 'CRE': 'right temple (CRE)',
 # magnitude/direction colours -- those existed only while the two quantities were
 # split across different axes.
 HEAD_COLOR = '#16A085'
+POS_COLOR  = '#C0392B'      # imbalance above zero: left-dominant
+NEG_COLOR  = '#2980B9'      # imbalance below zero: right-dominant
 MOTION_PCT = 90            # top-decile accelerometer activity counts as motion
 HEAD_MIN_SPAN_DEG = 25.0   # floor on the head-angle axis span, so a still
                            # night does not zoom in on sensor noise
@@ -378,18 +385,20 @@ def draw_imbalance_row(ax, t, feats, chans, shared_axis):
     information and read as clipping).
 
     Unified presentation, one definition per channel, both in femtofarads:
-        line  = LP(d)   the signed slow imbalance; sign is the direction
-        band  = +/-LP|d|  the envelope of the imbalance
-    How close the line runs to its band edge is the old normalised direction,
-    without the saturation artefact. Each channel is drawn in its own colour
-    with identical styling.
+        fill  = LP(d) about zero, RED above / BLUE below — the sign, i.e. which
+                side leads, readable at a glance without reading the axis
+        line  = LP(d) in the channel's own colour — which channel
+        band  = +/-LP|d| as a dashed outline — the envelope of the imbalance
+    Two encodings kept separate on purpose: colour of the FILL means sign,
+    colour of the LINE means channel. Where the two channels disagree in sign
+    the row shows red and blue in the same column, which is the disagreement
+    made visible rather than hidden.
 
     POLARITY: + on CLE-CRE means the left temple reads higher. CH is the
     sensor's own difference channel and its polarity is NOT assumed to match --
-    the gain of CH on CLE-CRE changes sign between subjects, so the caption
+    the gain of CH on CLE-CRE changes sign between subjects, so the panel
     reports the measured sign agreement rather than asserting a shared meaning.
     """
-    c0, c1 = chans
     ax.axhline(0, color='#2C3E50', ls='--', lw=1.0, zorder=3)
     handles = []
     axes_for = {}
@@ -398,14 +407,21 @@ def draw_imbalance_row(ax, t, feats, chans, shared_axis):
         a = ax if (shared_axis or k == 0) else ax.twinx()
         axes_for[ch] = a
         col = CH_COLOR[ch]
-        a.fill_between(t, -f['imb_mag'], f['imb_mag'], color=col, alpha=0.13,
+        y = f['imb_lp']
+        a.fill_between(t, 0, y, where=(y >= 0), interpolate=True,
+                       color=POS_COLOR, alpha=0.28 if k == 0 else 0.16,
                        lw=0, zorder=1)
-        ln, = a.plot(t, f['imb_lp'], lw=2.0 if k == 0 else 1.6, color=col,
+        a.fill_between(t, 0, y, where=(y < 0), interpolate=True,
+                       color=NEG_COLOR, alpha=0.28 if k == 0 else 0.16,
+                       lw=0, zorder=1)
+        for sgn in (1, -1):
+            a.plot(t, sgn * f['imb_mag'], lw=0.9, ls='--', color=col,
+                   alpha=0.55, zorder=2)
+        ln, = a.plot(t, y, lw=2.2 if k == 0 else 1.7, color=col,
                      zorder=5 - k, label=ch)
         handles.append(ln)
         if not shared_axis:
             a.set_ylim(*sym_zero_ylim(f['imb_lp'], f['imb_mag'], -f['imb_mag']))
-            side = 'left' if k == 0 else 'right'
             a.set_ylabel(f'{ch} imbalance\n({CAP_UNIT})' if k == 0
                          else f'{ch} imbalance ({CAP_UNIT})', color=col)
             a.tick_params(axis='y', labelcolor=col)
@@ -414,9 +430,11 @@ def draw_imbalance_row(ax, t, feats, chans, shared_axis):
                                    *[feats[c]['imb_mag'] for c in chans],
                                    *[-feats[c]['imb_mag'] for c in chans]))
         ax.set_ylabel(f'Slow imbalance\n({CAP_UNIT})')
-    handles.append(mpatches.Patch(color='#888888', alpha=0.3,
-                                  label='± low-passed |Δ| (envelope)'))
-    ax.legend(handles=handles, loc='lower left', fontsize=8.5, ncol=3,
+    handles += [mpatches.Patch(color=POS_COLOR, alpha=0.35, label='left-dominant'),
+                mpatches.Patch(color=NEG_COLOR, alpha=0.35, label='right-dominant'),
+                plt.Line2D([], [], color='#666', ls='--', lw=0.9,
+                           label='±LP|Δ|')]
+    ax.legend(handles=handles, loc='lower left', fontsize=8, ncol=5,
               framealpha=0.9)
     return axes_for
 
@@ -476,9 +494,6 @@ def draw_head_row(ax, t, turn):
     ax.grid(True, axis='y', alpha=0.18, lw=0.6)
     over = (f' · {n_over * BLOCK_SEC / 60:.0f} min of brief excursions off-axis'
             if n_over else '')
-    _caption(ax, f'axis scaled to this night\'s sustained movement (span '
-                 f'{hi - lo:.0f}°), not the full ±180° range{over}',
-             y=0.045, va='bottom')
     return ax
 
 
@@ -578,13 +593,6 @@ def draw_rate_panel(ax, ridges, fs, fig, label):
     cb.ax.tick_params(labelsize=7)
 
 
-def _caption(ax, txt, y=0.95, va='top'):
-    ax.text(0.006, y, txt, transform=ax.transAxes, fontsize=8, style='italic',
-            color='#555', va=va,
-            bbox=dict(facecolor='white', alpha=0.72, edgecolor='none', pad=1.5),
-            zorder=7)
-
-
 def plot_pair(s, feats, raw, chans, out, title, shared_level_axis, ridges=None):
     """
     One figure for a pair of channels.
@@ -618,22 +626,21 @@ def plot_pair(s, feats, raw, chans, out, title, shared_level_axis, ridges=None):
         ax.plot(t, f0['centred'], lw=1.0, color=CH_COLOR[c0], label=c0, zorder=3)
         ax.plot(t, f1['centred'], lw=1.0, color=CH_COLOR[c1], label=c1, zorder=3)
         ax.set_ylim(*sym_zero_ylim(f0['centred'], f1['centred']))
-        ax.set_ylabel(f'\u0394 from session\nmean ({CAP_UNIT})')
-        ax.legend(loc='upper right', fontsize=9, ncol=2, framealpha=0.9)
+        ax.set_ylabel(f'\u0394 from mean\n({CAP_UNIT})')
+        ax.legend([f'{c0}  \u03bc {f0["mu"]:,.0f}', f'{c1}  \u03bc {f1["mu"]:,.0f}'],
+                  loc='upper right', fontsize=9, ncol=2, framealpha=0.9)
     else:
         ax.plot(t, f0['centred'], lw=1.1, color=CH_COLOR[c0], zorder=4)
         ax.set_ylim(*sym_zero_ylim(f0['centred']))
-        ax.set_ylabel(f'{c0} \u2212 mean\n({CAP_UNIT})', color=CH_COLOR[c0])
+        ax.set_ylabel(f'{c0} \u2212 mean\n({CAP_UNIT};  \u03bc {f0["mu"]:,.0f})',
+                      color=CH_COLOR[c0])
         ax.tick_params(axis='y', labelcolor=CH_COLOR[c0])
         axr = ax.twinx()
         axr.plot(t, f1['centred'], lw=1.1, color=CH_COLOR[c1], alpha=0.9, zorder=3)
         axr.set_ylim(*sym_zero_ylim(f1['centred']))
-        axr.set_ylabel(f'{c1} \u2212 mean ({CAP_UNIT})', color=CH_COLOR[c1])
+        axr.set_ylabel(f'{c1} \u2212 mean ({CAP_UNIT};  \u03bc {f1["mu"]:,.0f})',
+                       color=CH_COLOR[c1])
         axr.tick_params(axis='y', labelcolor=CH_COLOR[c1])
-    _caption(ax, f'zero = session mean ({c0} {f0["mu"]:,.0f}, '
-                 f'{c1} {f1["mu"]:,.0f} {CAP_UNIT}) \u00b7 axis symmetric about '
-                 f'zero, scaled to the bulk \u2014 big steps overflow',
-             y=0.045, va='bottom')
     ax.grid(True, alpha=0.15)
     panel_letter(ax, 1)
 
@@ -657,21 +664,14 @@ def plot_pair(s, feats, raw, chans, out, title, shared_level_axis, ridges=None):
         r = float(np.corrcoef(g0[ok], g1[ok])[0, 1]) if ok.sum() > 20 else np.nan
         agree = (float(np.mean(np.sign(g0[ok]) == np.sign(g1[ok])))
                  if ok.sum() > 20 else np.nan)
-        left = float(np.mean(g0[np.isfinite(g0)] > 0))
-        _caption(ax, f'same computation for both channels: {TAU_MIN:.0f} min low '
-                     f'pass of the mean-centred difference, motion excluded \u00b7 '
-                     f'line = LP(\u0394) signed imbalance, band = \u00b1LP|\u0394| envelope\n'
-                     f'{c0} > 0 = left temple higher ({left * 100:.0f}% of the night)'
-                     f' \u00b7 {c1} polarity is not assumed to match: measured sign '
-                     f'agreement {agree * 100:.0f}%, r = {r:+.2f}',
-                 y=0.95, va='top')
-    else:
-        _caption(ax, f'same {TAU_MIN:.0f} min low pass applied to each channel '
-                     f'\u00b7 line = LP(\u0394), band = \u00b1LP|\u0394| \u00b7 these '
-                     f'are single-ended levels, so the sign is drift about the '
-                     f'session mean, not a imbalance direction \u2014 see the '
-                     f'CH / CLE\u2212CRE figure for that',
-                 y=0.95, va='top')
+        lv = np.isfinite(f0['centred']) & np.isfinite(f1['centred']) & feats['in_sleep']
+        gain = (float(np.polyfit(f0['centred'][lv], f1['centred'][lv], 1)[0])
+                if lv.sum() > 20 else np.nan)
+        ax.text(0.994, 0.95, f'gain {gain:+.2f} · r {r:+.2f} · '
+                f'{agree * 100:.0f}% same sign',
+                transform=ax.transAxes, fontsize=8.5, color='#444', va='top',
+                ha='right', zorder=7,
+                bbox=dict(facecolor='white', alpha=0.75, edgecolor='none', pad=1.5))
     ax.grid(True, alpha=0.15)
     panel_letter(ax, 2)
 
