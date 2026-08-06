@@ -37,8 +37,11 @@ other two but with a *positive* twist, so it belongs right after them:
 
 Analysis: `analysis/delta_onset/delta_onset_detection.py` (trigger),
 `analysis/delta_onset/delta_cap_precursor.py` (peri-onset, xcorr, forecasting).
-Figures: `writeup/figures/delta_onset/fig_precursor_{grid,xcorr,auc}_{q15,q30}.png`
-(+ `fig_onset{s_overview,_gallery}_S2N2_q30.png` for the trigger).
+Figures: `writeup/figures/delta_onset/fig_precursor_grid_causal_q30.png` (Figure 9),
+`fig_lowband_causal_check_q30.png` (causal control), `fig_precursor_{xcorr,auc}_q30.png`
+(+ `fig_onset{s_overview,_gallery}_S2N2_q30.png` for the trigger). The q15 and zero-phase
+q30 grids were removed as redundant (2026-08-06); q15 robustness lives in
+`precursor_summary_q15.csv`.
 Data: `analysis/delta_onset/outputs/precursor_summary_{q15,q30}.csv`.
 
 ---

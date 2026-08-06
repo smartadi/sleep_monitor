@@ -4,6 +4,12 @@ Records all code changes to library modules, scripts, and notebooks.
 
 ---
 
+## 2026-08-06
+
+- **Removed** four redundant figures from `writeup/figures/delta_onset/`. (a) `fig_precursor_grid_q30.png` — the zero-phase peri-onset grid, superseded as the paper figure by `fig_precursor_grid_causal_q30.png` (Figure 9); its only content the causal grid does not carry is the acausal 0-0.5 Hz pre-onset ramp, and that is exactly the top row of `fig_lowband_causal_check_q30.png`, so the artifact evidence is unaffected. (b) `fig_precursor_{grid,xcorr,auc}_q15.png` — the q15 quiescence-window set duplicates the q30 set panel for panel with the same conclusions; the section draft cites `precursor_summary_q15.csv` (not the figures) for the q15 robustness claim, which is retained. Kept: causal grid, lowband causal check, xcorr/auc at q30 (each is distinct evidence cited in §3.y), and both trigger-illustration figures. All four are recoverable from git history.
+- **Changed** `writeup/figures/delta_onset/README.md` — rewritten. It still described the pre-2026-07-30 state: it documented the removed zero-phase/q15 figures as the main result and never listed `fig_precursor_grid_causal_q30.png`, `fig_lowband_causal_check_q30.png`, `lowband_precursor_check_q30.csv` or `response_consistency_q30.csv` at all. Now names the causal grid as Figure 9, states q30 as the reported set, and records the removals.
+- **Changed** `writeup/edits/delta_onset_section_draft.md` — the figure pointer listed `fig_precursor_{grid,xcorr,auc}_{q15,q30}.png`, which named deleted files; updated to the surviving set.
+
 ## 2026-08-05 (session 2)
 
 - **Added** `sleep_monitor/loader.py` — PSG interval/step-signal loaders that were missing: `load_arousals` (EEG-scored 'Classification Arousal'), `load_autonomic_arousals` (pleth-derived), `load_position` (scored body position) and `position_at` for sampling the step signal. All go through a new `_tod_sec_to_session_hr` helper applying the same wall-clock alignment `load_sleep_profile` uses; the existing `load_apnea_events` reads time-of-day as hours-from-start, which is only accidentally right for recordings that begin near midnight. Exported from `sleep_monitor/__init__.py`.
