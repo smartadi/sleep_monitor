@@ -213,11 +213,16 @@ through the movement.
       0–10 s window mean, cross-subject scale changed to median/MAD, null selection-matched
       on EEG-delta quiescence.
 - [x] Results / Methods / Limitations text above rewritten for the new framing.
+- [x] **Motion is reported alongside the bands, inside the figure.** `fig_delta_onset_cohort.png`
+      now shades the head-motion profile behind the band curves in every channel panel (right
+      axis, % samples with motion) and devotes panel B to the motion-free subset and panel C to
+      its amplitude. The effect and its confound cannot be looked at separately. One figure
+      therefore carries the whole result; `fig_delta_onset_motion_control.png` becomes
+      supplementary rather than required.
 - [ ] **Docx not touched.** §4.5 still carries the old mechanism paragraphs and the old
-      Figure 9. Replace the prose with the Results text above; replace Figure 9 with
-      `fig_delta_onset_cohort.png` and add `fig_delta_onset_motion_control.png` as Figure 9b
-      (or as a supplementary figure — but the motion panel must appear somewhere the reader
-      meets it alongside the effect, not only in a limitations sentence).
+      Figure 9. Replace the prose with the Results text above and Figure 9 with
+      `fig_delta_onset_cohort.png`. Caption must name the motion shading explicitly — the
+      figure only protects the reader if the caption says what the red backdrop is.
 - [ ] Decide where the age observation goes, if anywhere: no amplitude–age relation on the
       robust scale; half-rise latency rises with age (CH 0–0.5 Hz rho = +0.94, p = 0.005,
       8/9 combinations positive), but given the above that is movement timing, and it is

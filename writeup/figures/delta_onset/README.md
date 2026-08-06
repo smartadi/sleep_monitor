@@ -37,9 +37,9 @@ withdrawn, because it predicts a response on movement-free onsets.
 
 | File | What it shows |
 |------|----------------|
-| `fig_delta_onset_cohort.png` | The main view: EEG trigger, motion control, response amplitude, and all three bands × three channels, mean ± SEM across subjects vs matched null (n = 6, 339 onsets). |
-| `fig_delta_onset_motion_control.png` | **The decisive panel.** Faint = all 339 onsets, bold = the 150 motion-clean ones. Bold is flat at zero in every channel and band. |
-| `fig_delta_onset_session.png` | The same view inside one night (S2N2, 80 onsets). |
+| `fig_delta_onset_cohort.png` | **Figure 9 candidate — self-contained.** (A) EEG delta trigger. (B) CH with motion-free onsets only, faint = all 339, bold = the 150 motion-free. (C) response amplitude per channel × band, with open red circles marking the motion-free value (≈ 0). (D–F) all three bands per channel, mean ± SEM vs matched null, **with the head-motion profile shaded behind the curves on the right axis** so the band-power rise and the movement that occupies the same window are read together, not in separate panels. |
+| `fig_delta_onset_motion_control.png` | The full three-channel version of panel B — all bands, all channels, all onsets vs motion-free. Supplementary; panel B carries the point in the main figure. |
+| `fig_delta_onset_session.png` | The same view inside one night (S2N2, 80 onsets), motion likewise shaded behind each channel. |
 | `fig_delta_onset_subjects.png` | Per subject × channel, all bands. Per-panel y-scale with the peak printed — a shared scale is unreadable because S5 (6 onsets, quietest night) peaks 5–13 z against 1–3 z elsewhere. |
 | `fig_delta_onset_age.png` | Response amplitude and half-rise latency vs subject age (n = 6, exploratory). |
 | `delta_onset_response_summary.csv` | Per channel × band: response amplitude vs both nulls and vs the motion-clean null, latencies raw and bias-corrected, per-subject direction counts. |

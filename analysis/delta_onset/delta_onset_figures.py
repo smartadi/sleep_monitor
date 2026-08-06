@@ -348,6 +348,28 @@ def per_subject(sessions, key):
 
 
 # ── Small plotting helpers ─────────────────────────────────────────────────────
+def motion_backdrop(ax, tax, motion, mmax, label=False):
+    """Shade the head-motion profile behind a channel's band curves.
+
+    Motion is drawn inside every channel panel rather than in a panel of its own, so the
+    band-power rise cannot be read without also seeing the movement that occupies the same
+    window. Placed on a twinned axis underneath the curves.
+    """
+    ax2 = ax.twinx()
+    ax2.fill_between(tax, 0, motion * 100, color='#C0392B', alpha=0.11, lw=0, zorder=0)
+    ax2.plot(tax, motion * 100, color='#C0392B', lw=0.7, alpha=0.40, zorder=0)
+    ax2.set_ylim(0, mmax * 100 * 1.75)       # keep the backdrop subordinate to the curves
+    ax2.spines['top'].set_visible(False)
+    if label:
+        ax2.set_ylabel('% samples with motion', color='#C0392B', fontsize=8.5)
+        ax2.tick_params(axis='y', colors='#C0392B', labelsize=7.5)
+    else:
+        ax2.set_yticks([])
+    ax.set_zorder(ax2.get_zorder() + 1)      # band curves draw on top of the shading
+    ax.patch.set_visible(False)
+    return ax2
+
+
 def band_panel(ax, tax, curves, nulls=None, sem=None, mark_peak=True, lw=1.5):
     """One channel panel: the three band curves (+ optional SEM band and null)."""
     for bn in BANDS:
@@ -381,8 +403,8 @@ def fig_cohort(sessions, tag, cal):
     ns = len(subj)
 
     fig = plt.figure(figsize=(11.0, 6.4))
-    gs = fig.add_gridspec(2, 3, height_ratios=[0.85, 1.25], hspace=0.42, wspace=0.28,
-                          left=0.07, right=0.985, top=0.90, bottom=0.09)
+    gs = fig.add_gridspec(2, 3, height_ratios=[0.85, 1.25], hspace=0.42, wspace=0.30,
+                          left=0.07, right=0.925, top=0.90, bottom=0.09)
 
     # A — the trigger itself
     ax = fig.add_subplot(gs[0, 0])
@@ -395,40 +417,63 @@ def fig_cohort(sessions, tag, cal):
     ax.set_xlim(tax[0], tax[-1]); ax.set_title('EEG delta (trigger)', fontsize=9.5)
     ax.set_ylabel('z'); ax.set_xlabel('s from delta onset')
 
-    # B — motion control
+    # B — the same measurement with movement excluded (CH, the largest channel).
+    # The motion profile itself is drawn behind every channel panel below, so this slot
+    # carries the consequence rather than repeating the motion trace.
     ax = fig.add_subplot(gs[0, 1])
-    _, R = per_subject(sessions, 'motion_real'); _, N = per_subject(sessions, 'motion_nullm')
-    ax.plot(tax, np.nanmean(R, 0) * 100, color='#C0392B', lw=1.5)
-    ax.plot(tax, np.nanmean(N, 0) * 100, color=NULL_COLOR, ls='--', lw=0.8)
-    ax.axvline(0, color=ONSET_COLOR, lw=1.1)
-    ax.set_xlim(tax[0], tax[-1]); ax.set_ylim(bottom=0)
-    ax.set_title('Head motion (control)', fontsize=9.5)
-    ax.set_ylabel('% samples flagged'); ax.set_xlabel('s from delta onset')
+    clean_s = [s for s in sessions if int(s['n_onsets_clean']) >= MIN_ONSETS]
+    for bn in BANDS:
+        _, R = per_subject(sessions, f'ca_real_CH_{bn}')
+        _, C = per_subject(clean_s, f'ca_realc_CH_{bn}')
+        ax.plot(tax, np.nanmean(R, 0), color=BAND_COLORS[bn], lw=0.9, alpha=0.35)
+        ax.plot(tax, np.nanmean(C, 0), color=BAND_COLORS[bn], lw=1.5)
+    ax.axvline(0, color=ONSET_COLOR, lw=1.1); ax.axhline(0, color='k', lw=0.5)
+    ax.set_xlim(tax[0], tax[-1])
+    ax.set_title(f'CH — motion-free onsets only ({sum(int(s["n_onsets_clean"]) for s in sessions)}'
+                 f'/{sum(int(s["n_onsets"]) for s in sessions)})', fontsize=9.5)
+    ax.set_ylabel('CAP band power (z)'); ax.set_xlabel('s from delta onset')
+    ax.legend(handles=[Line2D([], [], color='#555', lw=0.9, alpha=0.5, label='all onsets'),
+                       Line2D([], [], color='#555', lw=1.5, label='motion-free')],
+              frameon=False, fontsize=7, loc='upper left')
 
     # C — response amplitude. A window MEAN, not a peak: the max of a noisy per-subject
     # curve is biased upward, and the bias is largest for the subjects with fewest
     # onsets, which inflates the null as much as the response.
     ax = fig.add_subplot(gs[0, 2])
     win = (tax >= RESP_WIN[0]) & (tax <= RESP_WIN[1])
+    clean = [s for s in sessions if int(s['n_onsets_clean']) >= MIN_ONSETS]
     width = 0.26
     for bi, bn in enumerate(BANDS):
-        amp, nul = [], []
+        amp, nul, cln = [], [], []
         for ch in CHANNELS:
             _, R = per_subject(sessions, f'ca_real_{ch}_{bn}')
             _, N = per_subject(sessions, f'ca_nullm_{ch}_{bn}')
+            _, C = per_subject(clean, f'ca_realc_{ch}_{bn}')
             amp.append(np.nanmean(R[:, win], axis=1)); nul.append(np.nanmean(N[:, win], axis=1))
+            cln.append(np.nanmean(C[:, win], axis=1))
         x = np.arange(len(CHANNELS)) + (bi - 1) * width
         ax.bar(x, [a.mean() for a in amp], width * 0.9, color=BAND_COLORS[bn], alpha=0.85)
         for xi, a in zip(x, amp):
             ax.plot(np.full(len(a), xi), a, 'o', ms=2.6, color='k', alpha=0.55, zorder=3)
         ax.plot(x, [n.mean() for n in nul], '_', ms=9, color=NULL_COLOR, mew=1.6, zorder=4)
+        # motion-free onsets: same measurement, movement excluded
+        ax.plot(x, [c.mean() for c in cln], 'o', ms=5, mfc='none', mec='#C0392B', mew=1.3,
+                zorder=5)
     ax.set_xticks(np.arange(len(CHANNELS))); ax.set_xticklabels(CHANNELS)
     ax.axhline(0, color='k', lw=0.5)
     ax.set_title(f'Response, {RESP_WIN[0]:.0f}–{RESP_WIN[1]:.0f} s', fontsize=9.5)
     ax.set_ylabel('mean (z)')
+    ax.legend(handles=[Line2D([], [], ls='none', marker='o', mfc='none', mec='#C0392B',
+                              mew=1.3, ms=5, label='motion-free onsets'),
+                       Line2D([], [], ls='none', marker='_', color=NULL_COLOR, mew=1.6,
+                              ms=9, label='null')],
+              frameon=False, fontsize=7, loc='upper left')
 
-    # D-F — the response, all bands, per channel (shared y so channel rank is readable)
+    # D-F — the response, all bands, per channel (shared y so channel rank is readable),
+    # with the motion profile shaded behind each panel so the two are read together
     axes = [fig.add_subplot(gs[1, j]) for j in range(3)]
+    _, MO = per_subject(sessions, 'motion_real')
+    mo = np.nanmean(MO, 0)
     lim = 0
     for j, ch in enumerate(CHANNELS):
         cur, nul, sem = {}, {}, {}
@@ -438,6 +483,7 @@ def fig_cohort(sessions, tag, cal):
             cur[bn] = np.nanmean(R, 0); sem[bn] = np.nanstd(R, 0) / np.sqrt(ns)
             nul[bn] = np.nanmean(N, 0)
             lim = max(lim, np.nanmax(cur[bn] + sem[bn]), np.nanmax(nul[bn]))
+        motion_backdrop(axes[j], tax, mo, np.nanmax(mo), label=(j == len(CHANNELS) - 1))
         band_panel(axes[j], tax, cur, nul, sem)
         axes[j].set_title(ch, fontsize=9.5)
         axes[j].set_xlabel('s from delta onset')
@@ -516,7 +562,7 @@ def fig_session(sessions, tag):
     s = next((x for x in sessions if x['label'] == EXEMPLAR), sessions[0])
     tax = s['tax']
     fig, axes = plt.subplots(1, 4, figsize=(12.2, 3.1), sharex=True)
-    fig.subplots_adjust(left=0.055, right=0.99, top=0.80, bottom=0.30, wspace=0.24)
+    fig.subplots_adjust(left=0.055, right=0.925, top=0.80, bottom=0.30, wspace=0.30)
 
     ax = axes[0]
     ax.plot(tax, s['eeg_real'], color='#2C3E50', lw=1.5)
@@ -526,9 +572,11 @@ def fig_session(sessions, tag):
     ax.set_ylabel('z'); ax.set_xlabel('s from delta onset')
 
     lim = 0
+    mo = s['motion_real']
     for j, ch in enumerate(CHANNELS):
         cur = {bn: s[f'ca_real_{ch}_{bn}'] for bn in BANDS}
         nul = {bn: s[f'ca_nullm_{ch}_{bn}'] for bn in BANDS}
+        motion_backdrop(axes[j + 1], tax, mo, np.nanmax(mo), label=(j == len(CHANNELS) - 1))
         band_panel(axes[j + 1], tax, cur, nul)
         lim = max(lim, max(np.nanmax(v) for v in cur.values()),
                   max(np.nanmax(v) for v in nul.values()))
