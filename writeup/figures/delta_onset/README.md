@@ -9,24 +9,31 @@ Regenerate the current set with
 
     .venv/Scripts/python.exe analysis/delta_onset/delta_onset_figures.py --tag q30
 
-## The result changed on 2026-08-06 — read this first
+## What these figures report — read this first
 
-The CAP band-power event at delta onset is **head movement**. Onsets were screened for a
-motion-clean *pre*-onset window only; the post-onset window, where the response sits, was
-never constrained. Post-onset motion flags run at **14.6 %** of samples on average
-(3.0–31.6 % per session) against ~1 % before onset, peaking at ~30 % at +4 s — the same
-place the CAP peak sits. Restricting to the **150 of 339 onsets that are also motion-clean
-after t = 0**, and comparing against a null carrying the identical gate, the response is
-**gone in all nine channel × band combinations** (real − null −0.05 to −0.17 z; 0–3 of 5
-subjects positive, i.e. below chance).
+**During EEG delta bursts the capacitive channels show a broadband band-power rise, and
+these trials also carry head movement in the same window.** Both halves belong in the
+result; the second is not a footnote.
 
-The delta bursts themselves are real: motion-clean onsets still carry an EEG delta peak of
-**2.47 z** (vs 3.13 z for all onsets), so the detector is not firing on EEG movement
-artifact. Genuine cortical bursts, no capacitive correlate without movement.
+Onsets were screened for a motion-clean *pre*-onset window only; the post-onset window,
+where the rise sits, was never constrained. Post-onset motion flags run at **14.6 %** of
+samples on average (3.0–31.6 % per session) against ~1 % before onset, peaking at ~30 % at
++4 s — the same place the capacitive peak sits. On the **150 of 339 onsets that are also
+motion-clean after t = 0**, against a null carrying the identical gate, no capacitive
+change is detectable in any of the nine channel × band combinations (real − null −0.045 to
+−0.170 z; 0–3 of 5 evaluable subjects positive). One subject supplied 179 of the 339 onsets
+and is the most affected night (26/99 and 9/80 clean), so the pooled average is weighted
+toward the recordings where movement most often follows a burst.
 
-So §4.5's "mechanical/autonomic co-activation … amplitude modulation of the ongoing
-respiratory/cardiac signals" is **not supported by this analysis** — that mechanism
-predicts a response on movement-free onsets, and there is none.
+The delta bursts themselves are genuine: motion-clean onsets still carry an EEG delta peak
+of **2.47 z** (vs 3.13 z for all onsets), so the detector is not firing on EEG movement
+artifact. Real cortical bursts; no capacitive correlate without movement.
+
+Mechanism is left open. At n = 6 these data cannot separate "movement is incidental and the
+mask records the movement" from "movement is K-complex-associated motor activation and the
+mask registers it as movement". The earlier §4.5 claim — a mechanical/hemodynamic
+co-activation, an amplitude modulation of the ongoing respiratory/cardiac signals — is
+withdrawn, because it predicts a response on movement-free onsets.
 
 | File | What it shows |
 |------|----------------|

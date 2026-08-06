@@ -1,61 +1,56 @@
 # Delta-onset seen in CAP — consolidated story / ready-to-shape manuscript text
 
-> **STOP — 2026-08-06. The claim below does not survive a motion control.** Onsets were
-> screened for a motion-clean *pre*-onset window only. Post-onset head motion runs at
-> 14.6 % of samples (3.0–31.6 % per session, ~30 % at +4 s) against ~1 % pre-onset. On the
-> **150 of 339 onsets that are motion-clean after t = 0**, against a null carrying the same
-> gate, the CAP response is **absent in all nine channel × band combinations** (real − null
-> −0.05 to −0.17 z; 0–3 of 5 subjects positive). The delta bursts are genuine — motion-clean
-> onsets still show an EEG delta peak of 2.47 z — but there is no capacitive correlate
-> without movement. A "mechanical/hemodynamic co-activation" or "amplitude modulation of the
-> ongoing respiratory/cardiac signals" predicts a response on movement-free onsets; there is
-> none. §4.5 as written (heading + 3 paragraphs + Figure 9, already inserted in the docx)
-> needs to be revised or withdrawn — that is a call for the author, not a mechanical edit.
-> Evidence: `writeup/figures/delta_onset/fig_delta_onset_motion_control.png`,
-> `delta_onset_response_summary.csv` (`clean_resp_minus_null_z`).
->
-> Two further corrections regardless of what happens to the section:
-> - **Latencies are upper bounds.** The causal estimator reports events +0.76 to +2.35 s late
->   and the trigger fires −0.88 s early (`delta_onset_timing_calibration.csv`). The "+2.4→+4.9 s"
->   peaks below correct to roughly +1 to +2 s. Direction is unaffected: both biases push the
->   measured event later, never earlier.
-> - **`response_consistency_q30.csv`'s "6/6 subjects" is stale.** It predates the motion
->   control, a selection-matched null, and a filter-startup fix, and it counts a max-of-noise
->   statistic that is biased upward for the low-n subjects. Do not quote it.
+> **REFRAMED 2026-08-06 — observational, mechanism left open.** The earlier claim (a
+> mechanical/hemodynamic co-activation of the respiratory/cardiac signals) is withdrawn: it
+> predicts a capacitive response on movement-free onsets, and there is none. What replaces
+> it is a description of what the mask records during delta bursts, with the movement
+> co-occurrence stated as part of the observation rather than as a caveat bolted on. At
+> n = 6 we cannot separate a movement artifact from K-complex-associated motor activation,
+> and the section should not pretend otherwise. Superseded numbers not to quote:
+> `response_consistency_q30.csv`'s "6/6 subjects" (max-of-noise statistic, pre-dates the
+> motion control and the filter fix) and the "+2.4→+4.9 s" latencies (uncorrected for a
+> +0.76→+2.35 s estimator delay and a −0.88 s trigger lead). §4.5 in the docx still carries
+> the old mechanism text and Figure 9 — replace both.
 
 **One-sentence claim (the story we are reporting):**
-*The onset of a cortical delta burst in EEG is accompanied by a robust, time-locked
-band-power event in the capacitive temple channels — i.e. EEG delta onset is visible in
-the CAP signal — but as a mechanical/hemodynamic **response that follows** the cortical
-event (~2–5 s later), not as an electrical copy of delta and not as a precursor.*
+*During EEG delta bursts the capacitive temple channels show a broadband band-power
+increase in all three bands and all three channels, beginning at or after cortical onset
+and never before it; the great majority of these trials also carry head movement in the
+same window, and on the movement-free trials no capacitive change is detectable — so what
+the mask registers around a delta burst is a movement-associated event whose physiological
+status this cohort cannot resolve.*
 
 ---
 
 ## Where this sits in the paper
 
-This is a **third capacitive-vs-cortical result**, and it resolves the same way as the
-other two but with a *positive* twist, so it belongs right after them:
+This is the **third capacitive-vs-cortical result**, and it now resolves the same way as
+the other two rather than against them:
 
 - §3.5 — capacitive vs contact-EEG SWA: spectral r = 0.015 (mask does **not** transduce
   cortical delta electrically).
-- §3.6 — sleep spindles: sigma AUC = 0.50 (no cortical sigma), **but** a small 0–3 Hz
-  mechanical bump time-locked to N2 spindles (indirect low-frequency correlate).
+- §3.6 — sleep spindles: sigma AUC = 0.50 (no cortical sigma), **but** a small 0.1–3 Hz
+  mechanical bump time-locked to N2 spindles. *Note: that bump has not had the motion
+  control applied to it, and the spindle audit found it tail-driven (top 5 % of spindles
+  carry 121 % of the mean) — the same signature that turned out to explain this section.*
 - §3.x (CAP-SWA) — a *tonic* mechanical score marks N3 (per-subject AUC 0.675, 6/6).
-- **§3.y (this) — a *phasic*, event-locked companion to CAP-SWA:** lock to individual
-  EEG delta-burst *onsets* and the mask shows a sharp multi-band co-activation. Same
-  thesis (SEC sees the *mechanical/autonomic shadow* of cortical events, not their
-  electrical signal), now demonstrated at single-event time resolution.
+  *Note: accelerometer quiescence is one of its criteria, so part of that AUC may be "N3 is
+  stiller", not capacitive sensing.*
+- **§3.y (this) — event-locked, and movement-confounded:** locking to individual delta-burst
+  onsets shows a sharp multi-band capacitive event, which the motion control attributes to
+  movement in the same window.
 
 **Framing discipline (must hold in the text):**
-1. **Positive, honest:** "delta onset is *seen in* / *accompanied by a signature in* CAP,"
-   never "CAP measures delta" or "CAP detects delta electrically."
-2. **Direction is established, not hypothesized.** The capacitive event *follows* cortical
-   onset (peak +2–5 s; CAP→EEG xcorr lag ≈ 0). An apparent pre-onset rise in the slow
-   0–0.5 Hz band is a **zero-phase-filter artifact** (acausal backward power leakage) that
-   vanishes under strictly causal filtering (§3.y control), so we make **no precursor claim
-   in any band**. The section is **not** framed around the earlier guess that CAP might
-   *precede* delta — that hypothesis is dropped from the paper.
-3. **n = 6 honest-negative rule:** per-subject direction counts, not p-values (Wilcoxon
+1. **Descriptive, not mechanistic.** "During delta bursts the capacitive channels show X,
+   and these trials also carry movement." Never "CAP measures delta", never "CAP transduces
+   a hemodynamic response to delta". We report the co-occurrence and stop.
+2. **The movement co-occurrence is part of the result, quantified, not a limitation.** State
+   in the same paragraph as the effect that it is absent without movement. A reader must not
+   be able to come away thinking movement is a partial contaminant on top of a real signal.
+3. **No precursor, and that part is solid.** No band rises before onset; the apparent slow-band
+   pre-onset ramp is a zero-phase-filter artifact that vanishes under causal filtering, and
+   this survives a selection-matched null.
+4. **n = 6 honest-negative rule:** per-subject direction counts, not p-values (Wilcoxon
    floors at p = 0.031). AUCs reported as discrimination metrics.
 
 Analysis: `analysis/delta_onset/delta_onset_detection.py` (trigger),
@@ -91,76 +86,108 @@ drift), took each band's amplitude envelope, z-scored it within NREM, and averag
 **random-NREM null** (count-matched, motion-clean, ≥ 60 s from any real onset); (ii) a
 **CAP→EEG cross-correlation** over NREM with a circular-shift null (positive lag = CAP
 leads); (iii) a **forecasting AUC** — can CAP band power in a −12→−2 s pre-onset window
-separate "about to onset" from random NREM. As a directionality control, all envelopes
-were also recomputed with a **strictly causal** estimator (forward-only Butterworth +
-trailing RMS, no zero-phase filtering or centered smoothing) to rule out acausal filter
-leakage as a source of any apparent pre-onset rise (`lowband_precursor_check.py`).
+separate "about to onset" from random NREM.
+
+All envelopes are computed with a **strictly causal** estimator (forward-only Butterworth
+initialised to the signal's steady state, then trailing RMS), because a zero-phase envelope
+has a symmetric impulse response and leaks a large post-onset rise backward into the
+pre-onset window. The cost is that a causal estimator reports events late, so its timing
+bias was measured directly — on synthetic bursts that truly begin at t = 0 the estimator
+reads +1.90 / +2.35 / +0.76 s late in the three bands and the zero-phase detector envelope
+reads −0.88 s early — and latencies are quoted bias-corrected. Because both biases push the
+measured event later, no correction can create a precursor that is not there.
+
+**Motion control.** The detector screens the pre-onset window for movement but leaves the
+post-onset window unconstrained, so the peri-onset analysis was repeated on the subset of
+onsets whose −30→+15 s window is motion-free throughout, against a null carrying the
+identical post-window gate (`delta_onset_figures.py`). Motion is flagged where the rolling
+standard deviation of accelerometer magnitude exceeds the night's 90th percentile, and a
+window counts as free if ≤ 10 % of its samples are flagged — the same criterion the detector
+already applied to the pre-window.
+
+**Aggregation and scale.** Response amplitude is the mean of the 0–10 s post-onset window,
+not its peak: the maximum of a noisy per-subject curve is biased upward, and the bias grows
+as onset count falls, inflating the null as much as the effect. Cross-subject amplitude
+comparisons use a median/MAD normalisation rather than mean/SD, because these envelopes are
+heavy-tailed (a night's peak runs ~10³× its median) so an SD-based scale is set by each
+night's movement-artifact load and is not comparable across recordings.
 
 ---
 
 ## Results addition (§3.y)
 
-**A capacitive event is time-locked to EEG delta onset, and it follows the cortex.**
-Locking the capacitive envelopes to EEG delta-burst onset revealed a sharp, unambiguous
-band-power increase in every channel and every band, rising at onset and peaking
-**+2–5 s later**, far above the flat random-NREM null (Figure Y, grid). The effect is
-strongest on the central channel and larger in the 0.5–1 and 1–3 Hz bands than in
-0–0.5 Hz, and it is consistent across subjects.
+**What the capacitive channels do during an EEG delta burst.** Locking the capacitive
+envelopes to delta-burst onset (339 onsets, 6 subjects) shows a clear band-power increase
+in every channel and every band, beginning at onset and peaking a few seconds later,
+against a selection-matched null that stays flat (Figure 9). The rise is broadband — the
+0–0.5, 0.5–1 and 1–3 Hz bands move together with a common shape and a common latency
+rather than one band leading or dominating — and it is present in all six subjects, though
+its amplitude varies about tenfold between them (per-subject peaks 0.4–13 z; Figure S1).
+Response amplitude, measured as the 0–10 s mean against the matched null, is
+0.38–0.91 z depending on channel and band, largest on CRE and CH in 0.5–1 and 1–3 Hz.
 
-**Post-onset peak of the capacitive response (q30; across-subject mean z, n = 6).**
-Every band × channel peaks within +2.4→+4.9 s of onset, against a random-NREM null that
-never leaves ≈ 0. CH (central) is the dominant channel; the 0.5–1 and 1–3 Hz bands carry
-the largest deflections.
+Corrected for the timing bias of the estimators (a strictly causal envelope reports events
++0.76→+2.35 s late; the zero-phase detector envelope fires −0.88 s early), the rise reaches
+half its peak **1.2–2.7 s after cortical onset**. Nothing precedes onset in any band: the
+pre-onset lead window sits at or slightly below the matched null throughout (−0.007 to
+−0.171 z, 1–3 of 6 subjects positive), the CAP→EEG cross-correlation peaks at lag ≈ 0 with
+its shoulder on the EEG-leads side, and pre-onset capacitive power does not forecast an
+imminent onset (AUC 0.42–0.56). The apparent slow-band pre-onset ramp reported in earlier
+versions of this analysis is a zero-phase-filter artifact — the estimator leaking the large
+post-onset rise backward in time — and it disappears under causal filtering while the
+post-onset rise is unchanged.
 
-| Channel | 0–0.5 Hz | 0.5–1 Hz | 1–3 Hz | null peak (max) |
-|---------|----------|----------|--------|-----------------|
-| **CLE** | 0.60 z @ +2.5 s | 0.67 z @ +2.6 s | 0.62 z @ +2.4 s | ≤ 0.24 |
-| **CRE** | 0.52 z @ +4.9 s | 0.96 z @ +4.2 s | 0.94 z @ +4.0 s | ≤ 0.12 |
-| **CH**  | 0.71 z @ +3.8 s | **1.77 z @ +4.1 s** | **1.76 z @ +4.1 s** | ≤ 0.01 |
+**These trials also carry head movement, and that accounts for the effect.** The onsets
+were selected to have a motion-free 30 s *pre*-window, but nothing constrained the window
+in which the capacitive rise occurs. Accelerometer-flagged motion runs at ~1 % of samples
+throughout the pre-onset baseline and rises to **~30 % at +4 s**, averaging **14.6 % across
+the post-onset window (3.0–31.6 % per session)** — the same time course as the capacitive
+rise. Restricting to the **150 of 339 onsets whose post-onset window is also motion-free**,
+and comparing them against control epochs passing that identical gate, no capacitive change
+is detectable in any of the nine channel × band combinations (0–10 s mean, real minus null
+**−0.045 to −0.170 z**, with 0–3 of 5 evaluable subjects positive; Figure 9b). The
+contamination is unevenly distributed: one subject contributed 179 of the 339 onsets and is
+the most affected night (26/99 and 9/80 onsets motion-free), so the pooled average is
+weighted toward the recordings in which movement most often follows a delta burst.
 
-(q15 reproduces this — same rank order, peaks +5→+8 s; `precursor_summary_q15.csv`.)
+The delta bursts themselves are not in question. Motion-free onsets still carry an EEG
+delta peak of **2.47 z** (versus 3.13 z for all onsets), so the trigger is detecting genuine
+cortical events rather than movement artifact in the EEG; it is the capacitive correlate,
+not the cortical event, that is absent without movement. A broadband, simultaneous rise
+across bands spanning 0.03–3 Hz is also what electrode–skin displacement produces, whereas
+a modulation of the respiratory or cardiac mechanical signals the mask resolves would be
+concentrated in the bands those rhythms occupy.
 
-Crucially, the coupling is **directional — the capacitive event follows the cortex**:
-(i) the pre-onset lead window sat *at or below* the random-NREM null in every band and
-channel (lead amplitude −0.02 to −0.11 z), i.e. no CAP rise *before* onset; (ii) the
-CAP→EEG cross-correlation peaked at lag ≈ 0 s (within ±0.2 s) with its shoulder on the
-EEG-leads side, never on the CAP-leads side; and (iii) pre-onset CAP band power did not
-forecast an imminent onset — AUC 0.42–0.56 pooled, per-subject straddling chance.
-
-The one apparent exception is instructive and is **not** a precursor: the slow **0–0.5 Hz**
-band seems to ramp up ~15–24 s before onset (6/6 subjects, real−null +0.35–0.41 z at
-[−3,0] s) — but this is an artifact of the **zero-phase envelope filter leaking the large
-post-onset response backward in time**. Recomputed with a strictly causal (forward-only
-Butterworth + trailing-RMS) estimator, the pre-onset rise disappears — real−null at
-[−3,0] s falls to +0.03/−0.03 z (2–3/6 subjects) and the rise-onset moves from −15→−24 s
-to ≈ 0 s — while the post-onset peak is unchanged (Figure Z; `lowband_precursor_check.py`).
-**No band, slow or fast, carries a capacitive precursor**; the CAP event begins at/after
-cortical delta onset throughout.
-
-Because the mask carries no cortical delta spectrally (§3.5) and no cortical sigma (§3.6),
-this post-onset event cannot be electrical pickup. It is a **mechanical/autonomic
-co-activation** — most parsimoniously a slow-wave/K-complex-associated transient in the
-respiratory/cardiac mechanical coupling and micro-vascular pulsation that the temple
-electrodes transduce (the three bands overlap the respiratory 0.1–0.5 Hz and cardiac
-0.5–3 Hz signatures the mask already resolves, so the "band power" rise is best read as a
-brief **amplitude modulation of the ongoing mechanical signals at delta onset**, not a
-new oscillation). It is the phasic, single-event counterpart of the tonic CAP-SWA state
-marker (§3.x) and the direct-event analogue of the spindle-locked 0–3 Hz bump (§3.6).
-
-Both quiescence windows (q15, q30) give the same picture, so the result is not an artifact
-of the onset definition.
+We therefore report this as an observation rather than a mechanism. Two readings remain
+open and this cohort cannot separate them: the movement is incidental to the delta burst
+and the mask is recording the movement; or the movement is K-complex-associated motor
+activation, in which case the mask is registering a real physiological accompaniment of the
+cortical event — but registering it *as movement*, not as a hemodynamic or respiratory
+transient. Distinguishing them requires either a movement-free subsample far larger than
+six subjects affords, or an independent autonomic reference (pulse or effort) recorded
+through the movement.
 
 ---
 
 ## Limitations (fold into the discussion)
 
+- **The movement confound is not resolvable here.** Excluding movement removes the effect
+  entirely, so we cannot report a capacitive correlate of delta onset that is independent of
+  movement; and because movement genuinely accompanies K-complexes, we equally cannot call
+  the effect a pure artifact. The honest position is that the two are inseparable at n = 6.
 - Onsets are **isolated N2 slow-wave / K-complex onsets** by construction (the quiescence
-  gate removes sustained N3, which has no discrete quiet onset). The claim is about
+  gate removes sustained N3, which has no discrete quiet onset). The observation is about
   *delta-burst onset events*, not deep-sleep SWA en masse.
-- We exclude gross motion in the pre-window, but cannot fully separate an **autonomic**
-  (pulse/vascular/respiratory) from a **micro-motor** (tone/K-complex-linked movement)
-  contribution to the post-onset event with these channels alone.
-- n = 6; direction is reported per-subject.
+- **Motion is defined by a threshold, not measured absolutely** — a flag on the rolling
+  standard deviation of accelerometer magnitude above the night's 90th percentile, with
+  "motion-free" meaning ≤ 10 % of window samples flagged. Sub-threshold micro-movement is
+  neither excluded by the gate nor measured.
+- Amplitudes vary ~tenfold across subjects on the standard z scale, largely because that
+  scale divides by each night's envelope standard deviation, which is itself set by that
+  night's movement artifact load. Cross-subject amplitude comparisons use a median/MAD scale
+  for this reason.
+- n = 6; direction is reported per-subject. The motion-free analysis rests on 5 evaluable
+  subjects and 150 onsets.
 
 ## Status — REOPENED 2026-08-06 (see the box at the top; the list below is what was believed on 07-30)
 - [x] Exact post-onset peak table filled (q30).
@@ -177,3 +204,23 @@ of the onset definition.
       + 3 paragraphs + embedded Figure 9 + caption), after §4.4 spindles, before §5. Validated
       (XSD passed); image rId resolves. Backup: `…BACKUP_2026-07-30.docx`. **Verify render in Word.**
 - [ ] Optional: xcorr + auc panels as supplement; formal consistency table in the docx.
+
+## Status — 2026-08-06 (current)
+- [x] Motion control run; response absent on motion-free onsets. Section reframed as an
+      observation with the movement co-occurrence stated as part of the result.
+- [x] Timing bias measured and latencies corrected (half-rise 1.2–2.7 s).
+- [x] Estimator fixed (filter startup transient), amplitude metric changed from max to a
+      0–10 s window mean, cross-subject scale changed to median/MAD, null selection-matched
+      on EEG-delta quiescence.
+- [x] Results / Methods / Limitations text above rewritten for the new framing.
+- [ ] **Docx not touched.** §4.5 still carries the old mechanism paragraphs and the old
+      Figure 9. Replace the prose with the Results text above; replace Figure 9 with
+      `fig_delta_onset_cohort.png` and add `fig_delta_onset_motion_control.png` as Figure 9b
+      (or as a supplementary figure — but the motion panel must appear somewhere the reader
+      meets it alongside the effect, not only in a limitations sentence).
+- [ ] Decide where the age observation goes, if anywhere: no amplitude–age relation on the
+      robust scale; half-rise latency rises with age (CH 0–0.5 Hz rho = +0.94, p = 0.005,
+      8/9 combinations positive), but given the above that is movement timing, and it is
+      exploratory at n = 6 with 18 uncorrected tests. Recommend supplementary or omit.
+- [ ] `lowband_precursor_check.py` is superseded by `delta_onset_figures.py` and still
+      carries the filter-startup bug — retire it, or fix it if its CSV is to stay cited.
