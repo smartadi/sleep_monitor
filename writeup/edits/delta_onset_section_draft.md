@@ -178,10 +178,20 @@ through the movement.
 - Onsets are **isolated N2 slow-wave / K-complex onsets** by construction (the quiescence
   gate removes sustained N3, which has no discrete quiet onset). The observation is about
   *delta-burst onset events*, not deep-sleep SWA en masse.
-- **Motion is defined by a threshold, not measured absolutely** — a flag on the rolling
-  standard deviation of accelerometer magnitude above the night's 90th percentile, with
-  "motion-free" meaning ≤ 10 % of window samples flagged. Sub-threshold micro-movement is
-  neither excluded by the gate nor measured.
+- **Motion is defined by a per-night threshold, not measured absolutely** — a flag on the
+  rolling standard deviation (2 s) of accelerometer magnitude above that night's 90th
+  percentile, with "motion-free" meaning ≤ 10 % of window samples flagged. Exactly 10 % of
+  every recording is therefore flagged by construction, so the criterion is top-decile
+  variability for that subject on that night rather than a fixed amount of movement, and
+  sub-threshold micro-movement is neither excluded nor measured.
+- **The accelerometer measures acceleration, not orientation, and is not head-specific.**
+  Magnitude |a| sits at ~1 g for a static head at any angle, so the flag responds to dynamic
+  transients and registers a slow re-orientation only through its acceleration; and because
+  the sensor rides on the mask, trunk movement transmitted through the neck or a disturbance
+  of the mask itself flags identically to a head movement. We therefore cannot say from
+  these data whether the capacitive event tracks head *displacement* (electrode–skin
+  geometry changing) or acceleration transients that leave the head in place — a
+  distinction the gravity-vector head angle could resolve in future work.
 - Amplitudes vary ~tenfold across subjects on the standard z scale, largely because that
   scale divides by each night's envelope standard deviation, which is itself set by that
   night's movement artifact load. Cross-subject amplitude comparisons use a median/MAD scale
