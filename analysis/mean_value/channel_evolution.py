@@ -37,7 +37,18 @@ Rows (both figures)
     E  head angle     head TURN angle from the accelerometer (0 supine, +90 left,
                       -90 right), on an axis scaled to the movement that actually
                       happened on that night.
-    F,G  spectrograms 0-5 Hz spectrogram of each channel + dB colorbar
+    F,G  ridge panels  one per channel. On the DIFFERENCE figure these carry the
+                      tracked respiratory and cardiac ridges from the ridge
+                      analysis (sleep_monitor.harmonics.detect_persistent_ridges
+                      with the band configs imported from
+                      analysis/slow_wave/ridge_harmonic_revamp.py, and its
+                      accelerometer-regressed preprocessing) drawn over the
+                      channel's spectrogram. The frequency axis is LOGARITHMIC:
+                      on a linear 0-3 Hz axis the respiratory band is squeezed
+                      into the bottom sixth, whereas in log f the two bands split
+                      the axis almost evenly (resp 47%, cardiac 53%) and both
+                      ridge sets are legible in one panel.
+                      The ABSOLUTE figure keeps the plain 0-5 Hz spectrogram.
 
 CH is the sensor's own hardware difference channel and is NOT the arithmetic
 CLE-CRE: across the cohort the offset is ~-742 fF and the gain of CH on CLE-CRE
@@ -100,6 +111,13 @@ from sleep_monitor.sessions import SESSION_META
 # One definition of the flow marker, shared with flow_marker.py so the two
 # figures cannot drift apart.
 from flow_marker import flow_marker, TAU_MIN, DESPIKE_MIN
+# Same for the ridge detector and its band configs: imported from the ridge
+# analysis rather than restated here, so the bottom panels of this figure and the
+# ridge figures cannot disagree about what a ridge is.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'slow_wave'))
+from sleep_monitor.harmonics import detect_persistent_ridges
+from sleep_monitor.preprocessing import remove_acc_artifact
+from ridge_harmonic_revamp import BANDS as RIDGE_BANDS, BAND_COLOR as RIDGE_COLOR
 
 ROOT = Path(__file__).resolve().parents[2]
 PLOT_DIR = ROOT / 'writeup' / 'figures' / 'channel_evolution'
@@ -130,7 +148,9 @@ LADDER_Y = {c: len(LADDER_ORDER) - 1 - i for i, c in enumerate(LADDER_ORDER)}
 
 BLOCK_SEC = 10.0            # window for mean / variance / motion (display rows)
 LP_CAP_HZ = 10.0           # low-pass cap applied to raw signal before mean/variance
-SPEC_FMAX = 5.0            # spectrogram top frequency (Hz)
+SPEC_FMAX = 5.0            # plain-spectrogram top frequency (Hz)
+RIDGE_FMIN = 0.1           # ridge panel spans resp+cardiac on a LOG axis,
+RIDGE_FMAX = 3.0           # which splits the two bands ~evenly (47/53%)
 
 # ── Journal styling ───────────────────────────────────────────────────────────
 plt.rcParams.update({
@@ -479,6 +499,79 @@ def draw_spectrogram(ax, sig, fs, fig, label):
     cb.ax.tick_params(labelsize=7)
 
 
+def compute_ridges(sig, acc, fs):
+    """
+    Respiratory and cardiac persistent ridges for one channel.
+
+    Uses the ridge analysis's own detector and band configs (imported, not
+    restated) and its preprocessing: the accelerometer is regressed out first,
+    exactly as ridge_harmonic_revamp._sig does, so a ridge here is the same
+    object as a ridge there.
+    """
+    clean = remove_acc_artifact(np.asarray(sig, float), np.asarray(acc, float),
+                                0.05, 4.0)
+    out = {}
+    for band in ('resp', 'card'):
+        out[band] = detect_persistent_ridges(
+            clean, fs=fs, acc_mag=acc, fill_gaps=True, **dict(RIDGE_BANDS[band]))
+    return out
+
+
+def draw_ridge_panel(ax, sig, ridges, fs, fig, label):
+    """
+    0-3 Hz spectrogram with the tracked respiratory and cardiac ridges on top.
+
+    Replaces the plain spectrogram that used to sit here. The spectrogram alone
+    showed that a respiratory and a cardiac band exist; overlaying the tracked
+    ridges shows the sensor following each rate continuously through the night,
+    which is the point this figure is making about what the CAP channel can do.
+    """
+    fr, tsp, Sxx = sp_spectrogram(sig, fs=fs, nperseg=int(30 * fs),
+                                  noverlap=int(15 * fs))
+    m = (fr >= RIDGE_FMIN) & (fr <= RIDGE_FMAX)
+    Sdb = 10 * np.log10(Sxx[m] + 1e-20)
+    vmin, vmax = np.nanpercentile(Sdb, [5, 97])
+    pcm = ax.pcolormesh(tsp / 3600.0, fr[m], Sdb, shading='gouraud', cmap='magma',
+                        vmin=vmin, vmax=vmax, rasterized=True)
+    n_r = {}
+    for band in ('resp', 'card'):
+        rr = ridges[band]
+        n_r[band] = len(rr['ridges'])
+        for r in rr['ridges']:
+            ax.plot(rr['t_hr'], r['freq_trace'], color=RIDGE_COLOR[band], lw=1.5,
+                    alpha=0.92, solid_capstyle='round', zorder=4)
+
+    # LOG frequency axis. On a linear 0-3 Hz axis the respiratory band (0.1-0.5)
+    # is squeezed into the bottom sixth and its ridges are unreadable. In log f
+    # the two bands split the axis almost evenly (resp 47%, cardiac 53%), so both
+    # sets of ridges are legible without needing a panel each.
+    ax.set_yscale('log')
+    ax.set_ylim(RIDGE_FMIN, RIDGE_FMAX)
+    ax.set_yticks([0.1, 0.2, 0.3, 0.5, 1.0, 2.0, 3.0])
+    ax.set_yticklabels(['0.1', '0.2', '0.3', '0.5', '1', '2', '3'])
+    ax.minorticks_off()
+    ax.axhline(RESP_HI, color='white', ls='--', lw=0.7, alpha=0.6, zorder=3)
+    trans = ax.get_yaxis_transform()
+    bbox = dict(facecolor='black', alpha=0.4, edgecolor='none', pad=1.2)
+    ax.text(0.012, np.sqrt(RESP_LO * RESP_HI), 'Resp', transform=trans,
+            color='white', fontsize=8, fontweight='bold', va='center', bbox=bbox)
+    ax.text(0.012, np.sqrt(CARD_LO * CARD_HI), 'Cardiac', transform=trans,
+            color='white', fontsize=8, fontweight='bold', va='center', bbox=bbox)
+    ax.set_ylabel(f'{label}\nFreq (Hz, log)')
+    ax.legend(handles=[
+        plt.Line2D([], [], color=RIDGE_COLOR['resp'], lw=2,
+                   label=f'respiratory ridge ×{n_r["resp"]}'),
+        plt.Line2D([], [], color=RIDGE_COLOR['card'], lw=2,
+                   label=f'cardiac ridge ×{n_r["card"]}')],
+        loc='upper right', fontsize=8, ncol=2, framealpha=0.85)
+    cax = inset_axes(ax, width='1.4%', height='85%', loc='center left',
+                     bbox_to_anchor=(1.005, 0., 1, 1), bbox_transform=ax.transAxes,
+                     borderpad=0)
+    cb = fig.colorbar(pcm, cax=cax)
+    cb.set_label(f'PSD (dB re 1 {CAP_UNIT_SQ}/Hz)', fontsize=8)
+    cb.ax.tick_params(labelsize=7)
+
+
 def _caption(ax, txt, y=0.95, va='top'):
     ax.text(0.006, y, txt, transform=ax.transAxes, fontsize=8, style='italic',
             color='#555', va=va,
@@ -486,7 +579,7 @@ def _caption(ax, txt, y=0.95, va='top'):
             zorder=7)
 
 
-def plot_pair(s, feats, raw, chans, out, title, shared_level_axis):
+def plot_pair(s, feats, raw, chans, out, title, shared_level_axis, ridges=None):
     """
     One figure for a pair of channels.
 
@@ -504,8 +597,8 @@ def plot_pair(s, feats, raw, chans, out, title, shared_level_axis):
     is_diff = c0 in DIFF_CHANNELS and c1 in DIFF_CHANNELS
 
     fig, axes = plt.subplots(
-        7, 1, figsize=(14, 15.2), sharex=True,
-        gridspec_kw={'height_ratios': [0.55, 1.25, 1.35, 0.80, 1.15, 0.95, 0.95]})
+        7, 1, figsize=(14, 16.0), sharex=True,
+        gridspec_kw={'height_ratios': [0.55, 1.25, 1.35, 0.80, 1.15, 1.15, 1.15]})
 
     # A -- hypnogram ladder
     draw_ladder(axes[0], sp, title)
@@ -593,9 +686,14 @@ def plot_pair(s, feats, raw, chans, out, title, shared_level_axis):
     draw_head_row(ax, t, feats['turn_deg'])
     panel_letter(ax, 4)
 
-    # F, G -- spectrograms, one per channel
+    # F, G -- one bottom panel per channel. The difference channels get the
+    # tracked respiratory/cardiac ridges over their spectrogram; the absolute
+    # channels keep the plain spectrogram.
     for k, ch in enumerate((c0, c1)):
-        draw_spectrogram(axes[5 + k], raw[ch], s.fs, fig, ch)
+        if ridges is not None:
+            draw_ridge_panel(axes[5 + k], raw[ch], ridges[ch], s.fs, fig, ch)
+        else:
+            draw_spectrogram(axes[5 + k], raw[ch], s.fs, fig, ch)
         panel_letter(axes[5 + k], 5 + k)
     axes[-1].set_xlabel('Time (hours)')
 
@@ -616,12 +714,17 @@ def run_session(label):
     s.sleep_profile = sp
     feats, raw = compute_features(s)
     outs = []
+    acc = s.cap['acc_mag'].astype(np.float64)
     for chans, tag, shared in ((('CLE', 'CRE'), 'CLE_CRE', True),
                                (('CLE-CRE', 'CH'), 'CH_CLE-CRE', False)):
         title = (f'{s.label} \u2014 {chans[0]} and {chans[1]}: overnight evolution '
                  f'of the sensor value')
+        # Ridge panels only on the difference figure: those are the channels the
+        # flow story is about, and ridge detection is the expensive step here.
+        ridges = ({ch: compute_ridges(raw[ch], acc, s.fs) for ch in chans}
+                  if tag == 'CH_CLE-CRE' else None)
         out = plot_pair(s, feats, raw, chans, PLOT_DIR / f'{label}_{tag}.png',
-                        title, shared)
+                        title, shared, ridges=ridges)
         outs.append(out)
         print(f'  {label} {tag:12s} -> {out.name}')
     return outs
