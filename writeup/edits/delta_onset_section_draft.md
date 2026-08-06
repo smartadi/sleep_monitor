@@ -1,5 +1,28 @@
 # Delta-onset seen in CAP — consolidated story / ready-to-shape manuscript text
 
+> **STOP — 2026-08-06. The claim below does not survive a motion control.** Onsets were
+> screened for a motion-clean *pre*-onset window only. Post-onset head motion runs at
+> 14.6 % of samples (3.0–31.6 % per session, ~30 % at +4 s) against ~1 % pre-onset. On the
+> **150 of 339 onsets that are motion-clean after t = 0**, against a null carrying the same
+> gate, the CAP response is **absent in all nine channel × band combinations** (real − null
+> −0.05 to −0.17 z; 0–3 of 5 subjects positive). The delta bursts are genuine — motion-clean
+> onsets still show an EEG delta peak of 2.47 z — but there is no capacitive correlate
+> without movement. A "mechanical/hemodynamic co-activation" or "amplitude modulation of the
+> ongoing respiratory/cardiac signals" predicts a response on movement-free onsets; there is
+> none. §4.5 as written (heading + 3 paragraphs + Figure 9, already inserted in the docx)
+> needs to be revised or withdrawn — that is a call for the author, not a mechanical edit.
+> Evidence: `writeup/figures/delta_onset/fig_delta_onset_motion_control.png`,
+> `delta_onset_response_summary.csv` (`clean_resp_minus_null_z`).
+>
+> Two further corrections regardless of what happens to the section:
+> - **Latencies are upper bounds.** The causal estimator reports events +0.76 to +2.35 s late
+>   and the trigger fires −0.88 s early (`delta_onset_timing_calibration.csv`). The "+2.4→+4.9 s"
+>   peaks below correct to roughly +1 to +2 s. Direction is unaffected: both biases push the
+>   measured event later, never earlier.
+> - **`response_consistency_q30.csv`'s "6/6 subjects" is stale.** It predates the motion
+>   control, a selection-matched null, and a filter-startup fix, and it counts a max-of-noise
+>   statistic that is biased upward for the low-n subjects. Do not quote it.
+
 **One-sentence claim (the story we are reporting):**
 *The onset of a cortical delta burst in EEG is accompanied by a robust, time-locked
 band-power event in the capacitive temple channels — i.e. EEG delta onset is visible in
@@ -37,11 +60,11 @@ other two but with a *positive* twist, so it belongs right after them:
 
 Analysis: `analysis/delta_onset/delta_onset_detection.py` (trigger),
 `analysis/delta_onset/delta_cap_precursor.py` (peri-onset, xcorr, forecasting).
-Figures: `writeup/figures/delta_onset/fig_precursor_grid_causal_q30.png` (Figure 9),
-`fig_lowband_causal_check_q30.png` (causal control), `fig_precursor_{xcorr,auc}_q30.png`
-(+ `fig_onset{s_overview,_gallery}_S2N2_q30.png` for the trigger). The q15 and zero-phase
-q30 grids were removed as redundant (2026-08-06); q15 robustness lives in
-`precursor_summary_q15.csv`.
+Figures (2026-08-06 set, from `analysis/delta_onset/delta_onset_figures.py`):
+`fig_delta_onset_{cohort,motion_control,session,subjects,age}.png`, plus
+`fig_precursor_{xcorr,auc}_q30.png` and `fig_onset{s_overview,_gallery}_S2N2_q30.png` for
+the trigger. The zero-phase/q15 grids, the lowband causal check and the superseded causal
+grid were removed as redundant; their numbers survive in the CSVs.
 Data: `analysis/delta_onset/outputs/precursor_summary_{q15,q30}.csv`.
 
 ---
@@ -139,7 +162,7 @@ of the onset definition.
   contribution to the post-onset event with these channels alone.
 - n = 6; direction is reported per-subject.
 
-## Status — LOCKED IN (2026-07-30)
+## Status — REOPENED 2026-08-06 (see the box at the top; the list below is what was believed on 07-30)
 - [x] Exact post-onset peak table filled (q30).
 - [x] 0–0.5 Hz "precursor" checked and **excluded** as a zero-phase-filter artifact
       (`lowband_precursor_check.py`). No precursor in any band.
