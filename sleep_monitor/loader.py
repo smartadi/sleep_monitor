@@ -108,6 +108,25 @@ _APNEA_LINE_RE = re.compile(
 )
 
 
+def _tod_sec_to_session_hr(tod_sec: np.ndarray, session: SleepSession) -> np.ndarray:
+    """
+    Convert PSG time-of-day (seconds since midnight) to hours from CSV start.
+
+    Same wall-clock alignment used by load_sleep_profile: without it a time-of-day
+    stamp is only accidentally correct for recordings that begin near midnight.
+    """
+    if session.time_start is None:
+        return tod_sec / 3600.0
+    ts = session.time_start
+    if getattr(ts, 'tz', None) is not None:
+        ts = ts.tz_localize(None) if hasattr(ts, 'tz_localize') else ts.replace(tzinfo=None)
+    start_tod = ts.hour * 3600 + ts.minute * 60 + ts.second + ts.microsecond / 1e6
+    off = np.asarray(tod_sec, float) - start_tod
+    off = np.where(off < -43200, off + 86400, off)
+    off = np.where(off > 43200, off - 86400, off)
+    return off / 3600.0
+
+
 def load_sleep_profile(session: SleepSession) -> Optional[dict]:
     """
     Parse the PSG Sleep Profile text file for the given session.
@@ -279,3 +298,121 @@ def load_apnea_events(session: SleepSession) -> Optional[dict]:
         'types':      [e['type'] for e in merged],
         'codes':      np.array([e['code'] for e in merged], dtype=np.int8),
     }
+
+
+# ── PSG arousal / body-position loaders ──────────────────────────────────────
+#
+# Both file families live beside the Sleep Profile in PSG_analysis_*/ and both
+# stamp time-of-day, so they go through _tod_sec_to_session_hr rather than being
+# read as hours-from-start.
+
+_INTERVAL_RE = re.compile(
+    r'^(\d{2}):(\d{2}):(\d{2}),(\d{3})-(\d{2}):(\d{2}):(\d{2}),(\d{3});'
+    r'\s*([\d.]+);\s*(.+)$'
+)
+
+
+def _find_psg_file(session: SleepSession, stem: str) -> Optional[str]:
+    psg_dir = session.meta.get('psg_dir')
+    if psg_dir is None:
+        return None
+    matches = sorted(glob.glob(str(psg_dir / 'PSG_analysis_*' / f'{stem}*.txt')))
+    return matches[0] if matches else None
+
+
+def load_interval_events(session: SleepSession, stem: str) -> Optional[dict]:
+    """
+    Parse a PSG interval-event file ('hh:mm:ss,mmm-hh:mm:ss,mmm; dur; label').
+
+    Used for 'Classification Arousal' and 'Autonomic arousals'.
+
+    Returns dict with start_hr, end_hr, duration_s (arrays) and types (list of
+    label strings), all clipped to the CSV recording window. None if no file.
+    """
+    path = _find_psg_file(session, stem)
+    if path is None:
+        return None
+
+    starts, ends, durs, types = [], [], [], []
+    with open(path, 'r', encoding='utf-8', errors='replace') as f:
+        for line in f:
+            m = _INTERVAL_RE.match(line.strip())
+            if not m:
+                continue
+            g = m.groups()
+            starts.append(int(g[0]) * 3600 + int(g[1]) * 60 + int(g[2]) + int(g[3]) / 1e3)
+            ends.append(int(g[4]) * 3600 + int(g[5]) * 60 + int(g[6]) + int(g[7]) / 1e3)
+            durs.append(float(g[8]))
+            types.append(g[9].strip())
+    if not starts:
+        return None
+
+    s_hr = _tod_sec_to_session_hr(np.array(starts), session)
+    e_hr = s_hr + np.array(durs) / 3600.0     # duration is authoritative; avoids
+                                              # a midnight wrap splitting an event
+    dur_hr = float(session.time_hr[-1])
+    keep = (e_hr >= 0) & (s_hr <= dur_hr)
+    return {
+        'start_hr':   s_hr[keep],
+        'end_hr':     e_hr[keep],
+        'duration_s': np.array(durs)[keep],
+        'types':      [t for t, k in zip(types, keep) if k],
+    }
+
+
+def load_arousals(session: SleepSession) -> Optional[dict]:
+    """EEG-scored arousals ('Classification Arousal'): Arousal / Respiratory / LM."""
+    return load_interval_events(session, 'Classification Arousal')
+
+
+def load_autonomic_arousals(session: SleepSession) -> Optional[dict]:
+    """Pleth-derived autonomic arousals — the non-cortical arousal channel."""
+    return load_interval_events(session, 'Autonomic arousals')
+
+
+def load_position(session: SleepSession) -> Optional[dict]:
+    """
+    Parse the PSG 'Position' file — scored body position, the independent
+    reference for accelerometer-derived head angle.
+
+    The file is a step signal: each line marks the time a new position begins.
+
+    Returns dict with t_hr (change times, hours from CSV start) and labels
+    (Supine / Left / Right / Prone / Upright), clipped to the recording.
+    """
+    path = _find_psg_file(session, 'Position')
+    if path is None:
+        return None
+
+    tod, labels = [], []
+    with open(path, 'r', encoding='utf-8', errors='replace') as f:
+        for line in f:
+            m = _DATA_LINE_RE.match(line.strip())
+            if not m:
+                continue
+            tod.append(int(m.group(1)) * 3600 + int(m.group(2)) * 60
+                       + int(m.group(3)) + int(m.group(4)) / 1e3)
+            labels.append(m.group(5).strip())
+    if not tod:
+        return None
+
+    t_hr = _tod_sec_to_session_hr(np.array(tod), session)
+    order = np.argsort(t_hr)
+    t_hr = t_hr[order]
+    labels = [labels[i] for i in order]
+    dur_hr = float(session.time_hr[-1])
+    keep = (t_hr <= dur_hr)
+    return {
+        't_hr':   t_hr[keep],
+        'labels': [l for l, k in zip(labels, keep) if k],
+    }
+
+
+def position_at(pos: dict, t_hr: np.ndarray) -> np.ndarray:
+    """Sample a step-signal position record onto arbitrary times (string array)."""
+    if pos is None or len(pos['t_hr']) == 0:
+        return np.full(len(t_hr), 'Unknown', dtype=object)
+    idx = np.searchsorted(pos['t_hr'], np.asarray(t_hr, float), side='right') - 1
+    lab = np.array(pos['labels'], dtype=object)
+    out = np.where(idx >= 0, lab[np.clip(idx, 0, len(lab) - 1)], 'Unknown')
+    return out.astype(object)

@@ -23,7 +23,11 @@ from .config import (
     APNEA_CODES, APNEA_LABELS, APNEA_COLORS,
 )
 from .sessions import SESSION_META, SleepSession, find_meta, list_sessions
-from .loader import load_session as _load_session, load_sleep_profile, load_apnea_events, load_all_sessions
+from .loader import (
+    load_session as _load_session, load_sleep_profile, load_apnea_events,
+    load_all_sessions, load_arousals, load_autonomic_arousals, load_position,
+    position_at,
+)
 from .filters import bandpass, lowpass, highpass, detrend_segment, outlier_clip, moving_average, rolling_zscore
 from .preprocessing import (
     remove_acc_artifact, remove_acc_artifact_nlms,
@@ -80,8 +84,9 @@ from .ground_truth import (
     GTResult, gt_heart_rate, gt_resp_rate, gt_sliding_rates,
 )
 from .motion import (
-    head_orientation, dynamic_acceleration,
-    epoch_motion, epoch_cap_stats, classify_position,
+    head_orientation, head_angle, fit_accel_calibration, dynamic_acceleration,
+    epoch_motion, epoch_cap_stats, classify_position, classify_head_position,
+    GRAVITY_LP_HZ,
 )
 from .viz import (
     plot_hypnogram, plot_session_overview, plot_all_sessions_grid,
@@ -125,6 +130,7 @@ __all__ = [
     'SESSION_META', 'SleepSession', 'find_meta', 'list_sessions',
     # loading
     'load_session', 'load_sleep_profile', 'load_apnea_events', 'load_all_sessions',
+    'load_arousals', 'load_autonomic_arousals', 'load_position', 'position_at',
     # filters
     'bandpass', 'lowpass', 'highpass', 'detrend_segment',
     'outlier_clip', 'moving_average', 'rolling_zscore',
@@ -171,8 +177,10 @@ __all__ = [
     # metrics
     'accuracy_metrics', 'metrics_table', 'summary_by_method',
     # motion
-    'head_orientation', 'dynamic_acceleration',
+    'head_orientation', 'head_angle', 'fit_accel_calibration',
+    'dynamic_acceleration', 'GRAVITY_LP_HZ',
     'epoch_motion', 'epoch_cap_stats', 'classify_position',
+    'classify_head_position',
     # viz
     'plot_hypnogram', 'plot_session_overview', 'plot_all_sessions_grid',
     'plot_rates_vs_gt', 'plot_window_inspection', 'plot_eeg_spectrogram',
