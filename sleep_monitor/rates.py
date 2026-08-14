@@ -39,6 +39,47 @@ def rate_spectral(x: np.ndarray, f_lo: float, f_hi: float, fs: float = FS) -> fl
     return float(freqs[mask][np.argmax(psd[mask])])
 
 
+def rate_spectral_interp(x: np.ndarray, f_lo: float, f_hi: float,
+                         fs: float = FS, pad: int = 8) -> float:
+    """Peak frequency from a full-window periodogram, zero-padded and interpolated.
+
+    `rate_spectral` fixes nperseg at 4 s, which is Δf = 0.25 Hz at fs = 100. The
+    0.1–0.5 Hz respiratory band then holds two usable bins, so that estimator
+    returns 0.25 Hz (15 br/min) for almost every epoch and carries no sensor
+    information; in the cardiac band the same Δf quantizes the output to 15 BPM
+    steps. Both are artifacts of the segment length, not of the signal.
+
+    Here the whole window is one Hann-tapered segment, so Δf is 1/T (0.033 Hz
+    for a 30 s window) instead of 0.25 Hz. The spectrum is zero-padded by `pad`
+    to interpolate the DTFT between bins, and the peak is refined by a parabolic
+    fit in log power, which locates a dominant sinusoid to well inside one bin.
+    The trade is variance: a single segment gives a noisier PSD than Welch
+    averaging, which is the price of resolving a band this narrow in 30 s.
+    """
+    x = np.asarray(x, dtype=np.float64)
+    n = len(x)
+    if n < int(fs * 4) or not np.isfinite(x).all():
+        return np.nan
+    x = x - x.mean()
+    if not np.any(x):
+        return np.nan
+    nfft = int(2 ** np.ceil(np.log2(max(n * pad, 8))))
+    spec = np.abs(np.fft.rfft(x * np.hanning(n), n=nfft)) ** 2
+    freqs = np.fft.rfftfreq(nfft, d=1.0 / fs)
+    band = np.flatnonzero((freqs >= f_lo) & (freqs <= f_hi))
+    if not band.size:
+        return np.nan
+    j = int(band[np.argmax(spec[band])])
+    delta = 0.0
+    if 0 < j < len(spec) - 1:
+        a, b, c = np.log(spec[j - 1] + 1e-30), np.log(spec[j] + 1e-30), np.log(spec[j + 1] + 1e-30)
+        denom = a - 2.0 * b + c
+        if abs(denom) > 1e-12:
+            delta = float(np.clip(0.5 * (a - c) / denom, -0.5, 0.5))
+    f = freqs[j] + delta * (freqs[1] - freqs[0])
+    return float(f) if f_lo <= f <= f_hi else float(freqs[j])
+
+
 def rate_acf(x: np.ndarray, f_lo: float, f_hi: float,
              fs: float = FS, prominence: float = 0.10) -> float:
     """
