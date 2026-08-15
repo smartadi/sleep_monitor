@@ -270,6 +270,56 @@ def main() -> None:
     fig_calibration(d)
     fig_estimators(tab)
     fig_within_night(df, choice)
+    fig_bland_altman(df, choice)
+
+
+
+
+# ─────────────────────────────────────────────── Bland-Altman, operational
+
+def fig_bland_altman(df, choice) -> None:
+    """Epoch-level agreement for the operational estimator, per-session k."""
+    fig, axes = plt.subplots(1, 2, figsize=(183 * MM, 72 * MM))
+    for ax, band in zip(axes, ['resp', 'card']):
+        est, ch = choice[band]
+        g0 = df[(df.band == band) & (df.channel == ch)].dropna(subset=['gt_hz'])
+        m_all, d_all = [], []
+        for _, g in g0.groupby('session'):
+            raw, gt = g[est].values * 60.0, g.gt_hz.values * 60.0
+            m = np.isfinite(raw) & np.isfinite(gt) & (gt > 0)
+            ratios = raw[m] / gt[m]
+            ratios = ratios[(ratios > 0.3) & (ratios < 5.0)]
+            if len(ratios) < 10:
+                continue
+            r = raw[m] / float(np.median(ratios))       # per-session k
+            m_all.append((r + gt[m]) / 2.0)
+            d_all.append(r - gt[m])
+        mean = np.concatenate(m_all)
+        diff = np.concatenate(d_all)
+        bias, sd = float(np.mean(diff)), float(np.std(diff))
+        lo, hi = bias - 1.96 * sd, bias + 1.96 * sd
+
+        ax.plot(mean, diff, '.', ms=1.1, color=C_SELF, alpha=0.16, zorder=2,
+                rasterized=True)
+        for y, ls, lab in [(bias, '-', f'bias {bias:+.2f}'),
+                           (lo, (0, (4, 2)), f'−1.96 SD  {lo:+.2f}'),
+                           (hi, (0, (4, 2)), f'+1.96 SD  {hi:+.2f}')]:
+            ax.axhline(y, color=C_INK if ls == '-' else C_NULL, lw=0.7, ls=ls, zorder=3)
+            ax.text(0.995, y, ' ' + lab, transform=ax.get_yaxis_transform(),
+                    ha='right', va='bottom', fontsize=6, color=C_MUTED)
+        ax.set_xlabel(f'mean of mask and PSG  ({UNIT[band]})')
+        ax.set_ylabel(f'mask − PSG  ({UNIT[band]})')
+        ax.set_title(f'{BAND_NAME[band]} — {est} on {ch}', color=C_INK, pad=6)
+        panel_letter(ax, 'AB'[['resp', 'card'].index(band)], dx=-0.17)
+    fig.text(0.5, -0.03,
+             'One point per 30-second epoch, all twelve recordings pooled, after '
+             'per-session calibration. Limits are epoch-level, not night-level.',
+             ha='center', fontsize=6.5, color=C_MUTED)
+    fig.tight_layout(w_pad=2.8)
+    out = FIG / 'fig_bland_altman.png'
+    fig.savefig(out)
+    plt.close(fig)
+    print(f'  {out}')
 
 
 if __name__ == '__main__':

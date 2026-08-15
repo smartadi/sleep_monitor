@@ -145,6 +145,49 @@ def main() -> None:
     print('figures ->')
     for band in ['resp', 'card']:
         plot_band(df, band)
+    plot_representative(df)
+
+
+
+
+# ─────────────────────────────────────────── compact main-text version
+
+def plot_representative(df: pd.DataFrame, session: str = 'S1N1') -> None:
+    """One night, both bands — the main-text 'what the sensor produces' figure.
+
+    The twelve-panel versions carry the cohort; this carries the reader.
+    """
+    fig, axes = plt.subplots(2, 1, figsize=(183 * MM, 88 * MM), sharex=True)
+    for ax, band in zip(axes, ['resp', 'card']):
+        g = (df[(df.band == band) & (df.channel == CHANNEL) & (df.session == session)]
+             .dropna(subset=['gt_hz']).sort_values('epoch'))
+        t = g.t_hr.values
+        gt = g.gt_hz.values * 60.0
+        raw = g.peaks_loose.values * 60.0
+        m = np.isfinite(raw) & np.isfinite(gt) & (gt > 0)
+        k = fit_k(raw[m], gt[m])
+        ax.plot(t[m], raw[m] / k, '-', color=C_PK, lw=0.55, alpha=0.9, zorder=2,
+                label='capacitive mask (peak counting, per-session k)')
+        ax.plot(t, gt, '-', color=C_REF, lw=1.0, zorder=3, label='PSG reference')
+        ax.set_ylim(*YLIM[band])
+        ax.set_ylabel(f'{BAND_NAME[band].lower()} rate\n({UNIT[band]})')
+        ax.grid(axis='y', color=C_FAINT, lw=0.4)
+        ax.set_axisbelow(True)
+        err = np.median(np.abs(raw[m] / k - gt[m]))
+        ax.text(0.995, 0.94, f'k = {k:.2f}   median |error| {err:.2f} {UNIT[band]}',
+                transform=ax.transAxes, ha='right', va='top', fontsize=6.5,
+                color=C_MUTED)
+        ax.text(-0.075, 1.02, 'AB'['resp card'.split().index(band)], transform=ax.transAxes,
+                fontsize=9, fontweight='bold', va='bottom', color=C_INK)
+    axes[1].set_xlabel('time (h)')
+    axes[0].legend(loc='lower left', ncol=2, handlelength=1.6, borderpad=0.2)
+    fig.suptitle(f'Respiratory and cardiac rate across one night ({session})',
+                 fontsize=8.5, y=0.995)
+    fig.tight_layout(h_pad=1.4)
+    out = FIG / 'fig_representative_night.png'
+    fig.savefig(out)
+    plt.close(fig)
+    print(f'  {out}')
 
 
 if __name__ == '__main__':
