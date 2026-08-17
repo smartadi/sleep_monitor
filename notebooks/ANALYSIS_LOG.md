@@ -2462,3 +2462,54 @@ numbers behind it. Since averaging is linear noise reduction and it does not hel
 failure is either that the estimator extracts the wrong feature or that the information is
 absent — which is precisely what a decoding test separates, and makes that test more
 interesting rather than less.
+
+## 2026-08-17 — §4.5 delta-burst response: the arousal control cannot be passed
+
+`analysis/delta_onset/arousal_control.py`. Reuses `lowband_precursor_check.process`
+unchanged and swaps only the onset list, so the peri-onset maths, causal envelope,
+NREM z-scoring and count-matched null are identical to the published analysis.
+
+**Most delta-burst onsets are arousal-associated.** Onsets within ±10 s of any scored
+arousal (cortical 'Classification Arousal' or autonomic):
+
+| session | onsets | arousals scored | arousal-free onsets | removed |
+|---|---|---|---|---|
+| S1N1 | 24 | 416 | 11 | 54% |
+| S1N2 | 9 | 367 | 4 | 56% |
+| S2N1 | 99 | 508 | 33 | 67% |
+| S2N2 | 80 | 533 | 15 | 81% |
+| S3N1 | 31 | 665 | 5 | 84% |
+| S3N2 | 44 | 882 | 11 | 75% |
+| S4N1 | 17 | 511 | 6 | 65% |
+| S5N2 | 6 | 188 | 3 | 50% |
+| S6N1 | 12 | 228 | 6 | 50% |
+| S6N2 | 17 | 297 | 9 | 47% |
+
+S4N2 (4 onsets) and S5N1 (1 onset) are below the 5-onset floor and drop out entirely.
+
+**The response attenuates when they are removed.** Per-subject mean post-onset peak, causal
+estimator (z):
+
+| subject | all onsets | arousal-free | null (arousal-free) |
+|---|---|---|---|
+| S1 | 0.81 | 1.00 | 0.02 |
+| S2 | 0.65 | 0.10 | 0.07 |
+| S3 | 1.30 | 0.29 | 0.09 |
+| S4 | 1.54 | 0.25 | 0.48 |
+| S5 | 8.85 | — (3 onsets) | — |
+| S6 | 0.48 | 0.21 | −0.00 |
+
+Channel-band combinations beating their null: all onsets S1 12/18, S2 18/18, S3 16/18,
+S4 9/9, S5 9/9, S6 11/18 → arousal-free S1 9/9, S2 14/18, S3 16/18, **S4 2/9**, S5 —,
+S6 8/18.
+
+**Conclusion: the control cannot be passed with this dataset.** It does not refute the
+finding — S1 and S3 hold up — but roughly two thirds of the driving events are
+arousal-associated, and with them removed only 3 to 33 onsets per session survive, so the
+attenuation is partly lost averaging power and partly lost effect, and the two cannot be
+separated at this n. **§4.5 cannot claim the response is to the cortical event rather than
+to the arousal that accompanies it.**
+
+The mechanical reading of §4.4/§4.5 is unaffected — whatever the trigger, the response is
+low-frequency and non-electrical. What is affected is the attribution of the trigger.
+Manuscript NOT edited pending a decision.
