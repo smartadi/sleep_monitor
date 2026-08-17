@@ -7,10 +7,10 @@ Two words that look British and are not, and are therefore left alone:
 
   analyses   plural of analysis, correct in American English. Both occurrences
              are nouns ("surrogate analyses", "ridge analyses"), not the verb.
-  canceller  kept as the term of art. Strict American style would give
-             "canceler", but the signal-processing literature, including US
-             journals, writes "adaptive noise canceller". Flagged rather than
-             changed silently -- say the word and it becomes "canceler".
+  canceller  changed to "canceler" on 2026-08-17 at the user's direction
+             ("americanize everything"). The signal-processing literature
+             commonly writes "canceller" even in US journals, so this is a
+             house-style choice rather than a correction.
 
 Run from the repo root:  python writeup/edits/apply_us_spelling.py
 """
@@ -26,7 +26,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from apply_review_edits import Doc, W  # noqa: E402
 from target_doc import DOC  # noqa: E402
 
-BACKUP = Path("writeup/_archive/CAP_sleep_mask_manuscript_main_PRE_USSPELL_20260817.docx")
+BACKUP = Path("writeup/_archive/CAP_sleep_mask_manuscript_main_PRE_USSPELL2_20260817.docx")
 
 # British -> American, applied as whole words, case preserved on the first letter.
 MAP = {
@@ -59,6 +59,7 @@ MAP = {
     "labelled": "labeled", "labelling": "labeling",
     "modelled": "modeled", "modelling": "modeling",
     "cancelled": "canceled", "cancelling": "canceling",
+    "canceller": "canceler", "cancellers": "cancelers",
     "signalled": "signaled", "signalling": "signaling",
     "travelled": "traveled", "totalled": "totaled",
     "centre": "center", "centres": "centers", "centred": "centered",

@@ -105,3 +105,8 @@
 - Figure 5 -> Figure S6, at the end of supplementary S1 with the rest of the per-session rate material
 - main Figures 6-9 -> 5-8; supplementary S6-S10 -> S7-S11
 - bias and limits of agreement stay in 4.2 and Table 3; only the plot moved
+
+## American spelling (2026-08-17)
+
+- 2 substitutions in the body; bibliography untouched so reference titles keep their published spelling
+- 'analyses' left alone (plural noun, correct in American English); 'canceller' left as the signal-processing term of art
