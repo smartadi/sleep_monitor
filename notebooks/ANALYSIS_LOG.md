@@ -2550,3 +2550,36 @@ explains about 6% of the variance — real, and small.
 must become "no rate estimator follows it, and the information is partly present." §5.3's
 mechanistic account explains why *peak counting* fails, which remains correct and is now
 the explanation for a narrower claim.
+
+### 2026-08-17 (cont.) — the decoder transfers for respiration, not for cardiac
+
+`analysis/rates/rate_decoder_transfer.py`.
+
+**No single feature carries it.** Spectral centroid, argmax peak frequency, in-band median
+frequency and ACF lag, each k-scaled like the operational estimator: the best respiratory
+result is ACF lag on CH at r = +0.039 (1/12 nights beat the null), the best cardiac is ACF
+lag on CRE at r = −0.003 (0/12). The signal is distributed across features, so there is no
+simpler estimator to recommend.
+
+**Transfer:**
+
+| band | training set | median r | nights beating null | median MAE | Wilcoxon p |
+|---|---|---|---|---|---|
+| resp | subject's other night | +0.281 | **11/11** | 1.27 | 0.001 |
+| resp | **other subjects (LOSO)** | **+0.237** | **11/12** | 1.55 | 0.0002 |
+| card | subject's other night | +0.385 | 9/11 | 5.78 | 0.001 |
+| card | other subjects (LOSO) | −0.023 | 3/12 | 12.30 | 0.850 |
+
+**Respiratory rate variation is followable with no calibration on the wearer at all.** A
+model trained on five other subjects tracks a held-out subject's within-night respiratory
+variation in 11 of 12 recordings. This is the only result in the project that beats a
+no-sensor baseline without same-night fitting.
+
+**Cardiac is subject-specific.** It transfers across a subject's own two nights (+0.385,
+9/11) and collapses entirely across subjects (−0.023, 3/12, p = 0.85). Consistent with the
+k story: cardiac coupling depends on individual vascular anatomy and pulse morphology,
+respiratory coupling does not.
+
+Absolute accuracy is still poor — respiratory LOSO MAE 1.55 br/min against a reference SD
+of 1.56 — so the model tracks the shape of the variation without being accurate in level.
+Both claims should be stated that way.
