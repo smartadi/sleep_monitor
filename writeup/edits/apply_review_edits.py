@@ -103,20 +103,25 @@ class Doc:
                 head = s[: max(0, at - lo)]
                 tail = s[max(0, end - lo):] if hi > end else ""
                 out.append(head + ("\x00" if lo <= at < hi else "") + tail)
-            merged = "".join(out).replace("\x00", new, 1)
-            # write back: first touched run takes everything, others emptied
-            first = None
+            # Write back into the touched runs only. Emptying every run, as this
+            # used to, discards the formatting of runs outside the replaced span
+            # -- which repeatedly flattened superscript citation markers.
             pos = 0
+            first_touched = None
             for t in ts:
                 s = t.text or ""
                 lo, hi = pos, pos + len(s)
                 pos = hi
-                if first is None and hi > at:
-                    first = t
-            for t in ts:
-                t.text = ""
+                if hi <= at or lo >= end:          # untouched: leave it alone
+                    continue
+                head = s[: max(0, at - lo)]
+                tail = s[max(0, end - lo):] if hi > end else ""
+                if first_touched is None:
+                    first_touched = t
+                    t.text = head + new + tail
+                else:
+                    t.text = head + tail
                 t.set("{http://www.w3.org/XML/1998/namespace}space", "preserve")
-            (first if first is not None else ts[0]).text = merged
             ts = el.findall(".//" + W + "t")
             full = "".join(t.text or "" for t in ts)
             done += 1

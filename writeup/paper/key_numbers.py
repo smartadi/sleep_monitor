@@ -111,12 +111,20 @@ def _gt(out):
     _add(out, "gt_coverage_flow", int(round(100 * float(np.isfinite(d.rate_flow).mean()))),
          "%", src, text="97%")
 
-    src2 = "reports/rates/mask/gt_cross_signal_agreement.csv"
+    # Two scripts compute Flow-vs-RIPSum agreement slightly differently:
+    # gt_cross_signal_agreement.csv gives 0.50 [0.32-0.65], the tracking-ceiling
+    # file 0.47 [0.33-0.67]. The paper cites the ceiling file; bind to that.
+    src2 = "reports/rates/mask/symmetric_tracking_ceiling.csv"
     a = pd.read_csv(ROOT / src2)
-    _add(out, "gt_r_raw", round(float(a.r_flow_ripsum.mean()), 2), "", src2,
-         text="+%.2f" % a.r_flow_ripsum.mean())
-    _add(out, "gt_r_detrended", round(float(a.r_flow_ripsum_fluct.mean()), 2), "", src2,
-         text="+%.2f" % a.r_flow_ripsum_fluct.mean())
+    a = a.rename(columns={"dr_flow_ripsum": "r_flow_ripsum_fluct"})
+    # median [IQR], the form used throughout the paper and in analysis/rates/CLAUDE.md
+    _add(out, "gt_r_raw", round(float(a.r_flow_ripsum.median()), 2), "", src2,
+         text="%.2f" % a.r_flow_ripsum.median())
+    _add(out, "gt_r_raw_iqr", (round(float(a.r_flow_ripsum.quantile(.25)), 2),
+                               round(float(a.r_flow_ripsum.quantile(.75)), 2)), "", src2,
+         text="%.2f to %.2f" % (a.r_flow_ripsum.quantile(.25), a.r_flow_ripsum.quantile(.75)))
+    _add(out, "gt_r_detrended", round(float(a.r_flow_ripsum_fluct.median()), 2), "", src2,
+         text="%.2f" % a.r_flow_ripsum_fluct.median())
 
     src3 = "reports/rates/mask/gt_quality_gate.csv"
     q = pd.read_csv(ROOT / src3)
@@ -134,13 +142,13 @@ def _gt(out):
 def _ridges(out):
     src = "reports/slow_wave/band_ridge_stage_summary.csv"
     d = pd.read_csv(ROOT / src)
-    resp = d[(d.band == "resp") & (d.feature == "n_ridges")]
-    card = d[(d.band == "card") & (d.feature == "n_ridges")]
-    if len(resp):
-        _add(out, "ridge_resp_n3_down", int(resp.n_subj_N3_dn.iloc[0]), "of 6", src,
-             text="all six subjects")
-    if len(card):
-        _add(out, "ridge_card_n3_dn", int(card.n_subj_N3_dn.iloc[0]), "of 6", src)
+    # Only total ridge power survives the tie audit of 2026-08-17; the count
+    # features tie in most subjects and their "6/6" was an artifact.
+    power = d[(d.band == "resp") & (d.feature == "total_ridge_power")]
+    if len(power):
+        _add(out, "ridge_resp_power_n3_down", int(power.n_subj_N3_dn.iloc[0]), "of 6", src,
+             text="four of six",
+             note="the only ridge feature with a genuine per-subject direction")
     p_min = float(d.kw_p.min())
     exp = int(np.floor(np.log10(p_min)))
     _add(out, "ridge_min_p", p_min, "", src,

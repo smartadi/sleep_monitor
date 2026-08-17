@@ -151,6 +151,9 @@ def check_conflicts(doc):
             # numbers inside one sentence are being contrasted deliberately
             if si.strip()[:40] == sj.strip()[:40]:
                 continue
+            # "moves from 3.41 to 3.39" states a change, not a disagreement
+            if re.search(r"from %s" % re.escape(vi), si) or                re.search(r"from %s" % re.escape(vj), sj):
+                continue
             key = tuple(sorted([vi + ui, vj + uj]))
             if key in flagged:
                 continue

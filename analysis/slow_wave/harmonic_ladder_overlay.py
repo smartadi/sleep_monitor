@@ -81,9 +81,22 @@ MIN_RUN_SEC = 180.0      # a ladder is a sustained block >= 3 min
 # flat bands (peaks of the time-averaged episode spectrum), NOT forced onto a
 # k*f0 grid — so quasi-harmonic / variable-spacing rungs land at their true
 # frequencies and the rung count is determined automatically.
-PEAK_DB = 2.0            # a rung = peak >= this dB in the episode-averaged spectrum
-PEAK_PROM = 1.0          # ... with at least this prominence
-PEAK_DIST_HZ = 0.08      # minimum separation between distinct rungs (Hz)
+PEAK_DIST_HZ = 0.06      # minimum separation between distinct bands (Hz)
+# RUNGS via a sensitive HORIZONTAL-BAND TRACKER (not episode-averaged peak-
+# picking, which dilutes a band present in only part of the episode).  Per window
+# we take LOW-threshold spectral peaks (sensitive) and LINK them across time;
+# only bands that PERSIST survive (temporal stability, which rejects noise).  A
+# band present for part of the episode shows as a shorter flat segment instead of
+# vanishing.
+BAND_DB = 3.0            # per-window peak height (dB above background)
+BAND_PROM = 1.5          # ... minimum prominence (a real rung is a clear local peak)
+BAND_JUMP = 0.035        # max freq step between linked windows (Hz) — keeps bands flat
+BAND_GAP = 3             # bridge only brief dropouts (real rungs are near-continuous)
+MIN_BAND_SEC = 90.0      # a band must persist >= 1.5 min (temporal-stability gate)
+BAND_COVER = 0.6         # ... and be actually PRESENT in >= this fraction of its span
+                         # (a real flat rung is consistent; noise flickers)
+TSMOOTH = 7              # time-smoothing (windows) of the spectrogram before band
+                         # peak-finding — suppresses transient noise, keeps rungs
 
 # Sleep-stage ladder, top -> bottom = Wake, N1, N2, N3, REM (strict NREM depth,
 # REM at the bottom).  Stage codes: 0=REM 1=N3 2=N2 3=N1 4=Wake.
@@ -91,6 +104,8 @@ _LADDER_Y = {4: 4, 3: 3, 2: 2, 1: 1, 0: 0}
 
 
 def draw_stage_ladder(ax, sp):
+    """Hypnogram as a connected stepped LADDER (staircase), not colour-coded
+    dashes.  Top->bottom = Wake, N1, N2, N3, REM."""
     ax.set_yticks([0, 1, 2, 3, 4])
     ax.set_yticklabels(['REM', 'N3', 'N2', 'N1', 'Wake'], fontsize=7)
     ax.set_ylim(-0.5, 4.5)
@@ -99,12 +114,9 @@ def draw_stage_ladder(ax, sp):
         return
     t = np.asarray(sp['t_ep_hr'], float)
     codes = np.asarray(sp['codes'])
-    for j in range(min(len(t), len(codes)) - 1):
-        c = int(codes[j])
-        if c in _LADDER_Y:
-            y = _LADDER_Y[c]
-            ax.plot([t[j], t[j + 1]], [y, y], color=STAGE_COLORS.get(c, '#AAA'),
-                    lw=2.2, solid_capstyle='butt')
+    n = min(len(t), len(codes))
+    ys = np.array([_LADDER_Y.get(int(c), np.nan) for c in codes[:n]], float)
+    ax.step(t[:n], ys, where='post', color='#2c3e50', lw=1.3)
     ax.grid(True, axis='y', alpha=0.15)
 
 
@@ -159,6 +171,54 @@ def _comb_count(col, freqs, f0, db):
         consec += 1
         kk += 1
     return len(ks) if consec >= MIN_CONSEC else 0
+
+
+def track_bands(enh, freqs, lo, hi):
+    """Sensitive horizontal-band tracker over windows [lo, hi).
+
+    Per window: low-threshold spectral peaks (catches faint bands).  Peaks are
+    linked greedily across time within BAND_JUMP Hz; a band ends after a gap of
+    > BAND_GAP windows.  Only bands lasting >= MIN_BAND_SEC survive.  Returns a
+    list of (freq_median, start_idx, end_idx) — flat horizontal segments at their
+    true frequencies (band present part of the episode -> shorter segment)."""
+    df = freqs[1] - freqs[0]
+    dist = max(1, int(round(PEAK_DIST_HZ / df)))
+    # time-smooth the spectrogram first: a persistent rung reinforces, transient
+    # noise peaks average down — so peak-finding returns mostly REAL flat bands
+    enh = median_filter(enh, size=(1, TSMOOTH | 1), mode='nearest')
+    active, done = [], []
+    for w in range(lo, hi):
+        pk, _ = find_peaks(enh[:, w], height=BAND_DB, prominence=BAND_PROM, distance=dist)
+        peaks = list(freqs[pk])
+        used = set()
+        for b in active:
+            best, bd = -1, BAND_JUMP + 9
+            for pi, fr in enumerate(peaks):
+                if pi in used:
+                    continue
+                d = abs(fr - b['f'])
+                if d < bd:
+                    bd, best = d, pi
+            if best >= 0 and bd <= BAND_JUMP:
+                b['fs'].append(peaks[best]); b['f'] = peaks[best]
+                b['end'] = w; b['gap'] = 0; used.add(best)
+            else:
+                b['gap'] += 1
+        keep = []
+        for b in active:
+            (done if b['gap'] > BAND_GAP else keep).append(b)
+        active = keep
+        for pi, fr in enumerate(peaks):
+            if pi not in used:
+                active.append({'f': fr, 'fs': [fr], 'start': w, 'end': w, 'gap': 0})
+    done += active
+    min_len = int(round(MIN_BAND_SEC / STEP_SEC))
+    out = []
+    for b in done:
+        span = b['end'] - b['start'] + 1
+        if span >= min_len and len(b['fs']) / span >= BAND_COVER:
+            out.append((float(np.median(b['fs'])), b['start'], b['end']))
+    return out
 
 
 def detect_channel(session, ch):
@@ -219,12 +279,11 @@ def detect_channel(session, ch):
                 while hi < n_win and _comb_count(enh[:, hi], f, f0b, RUNG_DB) >= EXTEND_RUNGS:
                     hi += 1
                 active[lo:hi] = True
-                # RUNGS = actual peaks of the time-averaged episode spectrum, at
-                # their true (possibly non-uniform) frequencies; count is automatic
-                mean_spec = enh[:, lo:hi].mean(axis=1)
-                pk, _ = find_peaks(mean_spec, height=PEAK_DB, prominence=PEAK_PROM,
-                                   distance=dist)
-                episodes.append({'lo': lo, 'hi': hi, 'rungs': f[pk]})
+                # RUNGS = sensitive horizontal-band tracker over the episode span:
+                # catches faint and partial-duration bands (drawn as flat segments)
+                # that the episode-averaged peak-pick used to dilute away.
+                bands = track_bands(enh, f, lo, hi)
+                episodes.append({'lo': lo, 'hi': hi, 'bands': bands})
                 i = hi
             else:
                 i = j
@@ -245,12 +304,11 @@ def overlay(session):
         f, t_hr, enh, active, episodes = detect_channel(session, ch)
         ax.pcolormesh(t_hr, f, enh, shading='gouraud', cmap='magma',
                       vmin=0, vmax=np.percentile(enh, 99.5), rasterized=True)
-        # draw each ACTUAL rung as a flat line at its true frequency over the
-        # episode span (rungs need not be evenly spaced)
+        # draw each detected band as a flat segment at its true frequency over the
+        # part of the episode where it actually persists
         for ep in episodes:
-            x0, x1 = t_hr[ep['lo']], t_hr[ep['hi'] - 1]
-            for fr in ep['rungs']:
-                ax.plot([x0, x1], [fr, fr], color='#00E5FF', lw=2.0, alpha=0.95)
+            for fr, s0, s1 in ep['bands']:
+                ax.plot([t_hr[s0], t_hr[s1]], [fr, fr], color='#00E5FF', lw=2.0, alpha=0.95)
         ax.set_ylim(0, FMAX)
         ax.set_ylabel(f'{ch}\nFreq (Hz)', fontsize=9)
         active_min = active.sum() * STEP_SEC / 60
@@ -260,9 +318,9 @@ def overlay(session):
             stages = [_stage_at(sp, t_hr[i]) for i in np.where(active)[0]]
             stages = [s for s in stages if s >= 0]
             dom = STAGE_LABELS.get(max(set(stages), key=stages.count), '?') if stages else '?'
-            n_rungs = [len(ep['rungs']) for ep in episodes]
-            med_n = int(np.median(n_rungs))
-            f0s = [ep['rungs'].min() for ep in episodes if len(ep['rungs'])]
+            n_rungs = [len(ep['bands']) for ep in episodes]
+            med_n = int(np.median(n_rungs)) if n_rungs else 0
+            f0s = [min(fr for fr, _, _ in ep['bands']) for ep in episodes if ep['bands']]
             med_f0 = float(np.median(f0s)) if f0s else np.nan
             summary.append(f'{ch}: {active_min:.0f}min ×{med_n} [{dom}]')
             rows.append(dict(session=session.label, subject=session.subject, channel=ch,

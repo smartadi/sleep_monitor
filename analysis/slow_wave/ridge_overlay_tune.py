@@ -48,14 +48,15 @@ BAND_COLOR = {'slow': '#00E5FF', 'resp': '#00E5FF', 'card': '#FF3B30'}
 BAND_LABEL = {'slow': 'Slow (0-0.3 Hz)', 'resp': 'Respiratory (0.1-0.5 Hz)',
               'card': 'Cardiac (0.5-3.0 Hz)'}
 
-# Stepped sleep-stage "ladder" hypnogram (Wake top -> N3 bottom, clinical depth)
-_LADDER_Y = {4: 4, 0: 3, 3: 2, 2: 1, 1: 0}          # Wake, REM, N1, N2, N3
+# Connected stepped hypnogram LADDER; top -> bottom = Wake, N1, N2, N3, REM.
+# Stage codes: 0=REM 1=N3 2=N2 3=N1 4=Wake.
+_LADDER_Y = {4: 4, 3: 3, 2: 2, 1: 1, 0: 0}
 _LADDER_TICKS = [0, 1, 2, 3, 4]
-_LADDER_LABELS = ['N3', 'N2', 'N1', 'REM', 'Wake']
+_LADDER_LABELS = ['REM', 'N3', 'N2', 'N1', 'Wake']
 
 
 def draw_stage_ladder(ax, sp):
-    """Draw the hypnogram as a stepped stage ladder (Wake top, N3 bottom)."""
+    """Hypnogram as a connected stepped ladder (staircase), Wake top / REM bottom."""
     ax.set_yticks(_LADDER_TICKS)
     ax.set_yticklabels(_LADDER_LABELS, fontsize=7)
     ax.set_ylim(-0.5, 4.5)
@@ -65,16 +66,8 @@ def draw_stage_ladder(ax, sp):
     t = np.asarray(sp['t_ep_hr'], float)
     codes = np.asarray(sp['codes'])
     n = min(len(t), len(codes))
-    for j in range(n - 1):
-        c = int(codes[j])
-        if c in _LADDER_Y:
-            y = _LADDER_Y[c]
-            ax.plot([t[j], t[j + 1]], [y, y], color=STAGE_COLORS.get(c, '#AAA'),
-                    lw=2.2, solid_capstyle='butt')
-            cn = int(codes[j + 1])
-            if cn in _LADDER_Y:
-                ax.plot([t[j + 1], t[j + 1]], [y, _LADDER_Y[cn]], color='0.6',
-                        lw=0.5, alpha=0.6)
+    ys = np.array([_LADDER_Y.get(int(c), np.nan) for c in codes[:n]], float)
+    ax.step(t[:n], ys, where='post', color='#2c3e50', lw=1.3)
     ax.grid(True, axis='y', alpha=0.15)
 
 # ── Detection config per band (edit these to tune sensitivity) ──────────────
