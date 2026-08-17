@@ -2393,3 +2393,39 @@ Reproduces §4.1's magnitude (0.31 resp / 0.16 card) in spirit. Note EEG itself 
 
 All effects are small in absolute terms and sit 1–3× above the coherence noise floor. Not
 yet in the manuscript.
+
+## 2026-08-17 — §4.1's coherence: the floor, the control, and the window
+
+`analysis/rates/coherence_control_and_window.py`, using the paper's own
+`coherence_at_frequency` so the numbers are directly comparable.
+
+**The estimator carries most of the 0.31.** Respiratory coherence uses 10 s segments inside
+a 30 s epoch — three to five segments — and MSC from N segments has expected value ≈ 1/N
+under independence.
+
+| band | window | reference | EEG | shifted | reversed | segments | 1/N |
+|---|---|---|---|---|---|---|---|
+| resp | 30 s | **0.302** | 0.222 | 0.193 | 0.246 | 3 | 0.33 |
+| resp | 5 min | 0.062 | 0.043 | 0.012 | 0.015 | 30 | 0.03 |
+| card | 30 s | **0.126** | 0.065 | 0.074 | 0.091 | 7 | 0.14 |
+| card | 5 min | 0.037 | 0.010 | 0.006 | 0.007 | 75 | 0.01 |
+
+The 30 s reference value reproduces the published 0.31. But a *circularly shifted* copy of
+the same reference scores 0.193 and a time-reversed copy 0.246 — so most of 0.3 is bias,
+not coupling.
+
+**The margin is the invariant.** Reference minus EEG:
+
+| band | 30 s | 5 min |
+|---|---|---|
+| resp | +0.062, 11/12 recordings, p = 0.001 | +0.014, 9/12, p = 0.034 |
+| card | +0.059, 12/12, p < 0.001 | +0.028, 10/12, p = 0.002 |
+
+Absolute values collapse by 5× between window lengths; the margin survives with the same
+sign and significance. So the coupling is real and the epoch length is not driving it — the
+two windows are one result seen through estimators with different bias. **The 30 s epoch is
+kept** for consistency with the rest of the paper; the value is now reported with its floor.
+
+**Also found:** §3.4 said the cardiac coherence reference is ECG. The code that produced the
+published values (`scripts/signal_validation_proof.py:191`) uses **photoplethysmography**.
+Text corrected to the code.

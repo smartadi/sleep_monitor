@@ -116,3 +116,9 @@
 - amplitude and coherence coupling reported per channel with EEG as the negative control, plus the coherence noise floor
 - supplementary S4, Figures S12 and S13
 - the new coherence statistic is kept separate from 4.1's existing at-reference-frequency value; they are not merged
+
+## Coherence control and window (2026-08-17)
+
+- 4.1: EEG negative control (0.222 resp / 0.065 card against 0.302 / 0.126), the estimator's own floor from shifted and reversed pairings, and the margin as the quantity to read
+- 4.1: the same comparison at a 5-minute window, showing the margin survives while absolute values collapse
+- 3.4: cardiac coherence reference corrected from ECG to photoplethysmography
