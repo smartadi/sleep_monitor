@@ -122,3 +122,9 @@
 - 4.1: EEG negative control (0.222 resp / 0.065 card against 0.302 / 0.126), the estimator's own floor from shifted and reversed pairings, and the margin as the quantity to read
 - 4.1: the same comparison at a 5-minute window, showing the margin survives while absolute values collapse
 - 3.4: cardiac coherence reference corrected from ECG to photoplethysmography
+
+## 4.5 arousal control (2026-08-17)
+
+- heading and text no longer attribute the response to the delta burst specifically
+- the control is reported in the Results: 47-84% of onsets carry a scored arousal, and the arousal-free subset attenuates in 4 of 5 testable subjects
+- the mechanical conclusion is stated as independent of which trigger is correct
