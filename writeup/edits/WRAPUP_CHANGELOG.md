@@ -128,3 +128,9 @@
 - heading and text no longer attribute the response to the delta burst specifically
 - the control is reported in the Results: 47-84% of onsets carry a scored arousal, and the arousal-free subset attenuates in 4 of 5 testable subjects
 - the mechanical conclusion is stated as independent of which trigger is correct
+
+## Decoding folded in (2026-08-17)
+
+- 3.5 method, 4.2.2 result, 5.2 reframed from 'the mask does not follow' to 'no rate estimator follows, and the information is partly present'
+- respiratory LOSO r = 0.237, 11/12 recordings above the null, no calibration on the wearer; cardiac transfers within subject only
+- bounds stated: ~6% of variance, MAE 1.55 against reference SD 1.56, no single feature carries it

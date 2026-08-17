@@ -116,6 +116,21 @@ def context_key(words):
     return frozenset(w for w in words if w not in STOP and len(w) > 2)
 
 
+def _contrasted(text, vi, vj, span=220):
+    """True if the two values appear close together joined by a comparison word."""
+    pi = [m.start() for m in re.finditer(re.escape(vi), text)]
+    pj = [m.start() for m in re.finditer(re.escape(vj), text)]
+    for a in pi:
+        for b in pj:
+            lo, hi = min(a, b), max(a, b)
+            if hi - lo > span:
+                continue
+            if re.search(r"(against|versus|compared|rather than|no better than|"
+                         r"comparable to)", text[lo:hi]):
+                return True
+    return False
+
+
 def check_conflicts(doc):
     text = doc.body_text()
     tokens = []
@@ -150,6 +165,11 @@ def check_conflicts(doc):
                 continue
             # numbers inside one sentence are being contrasted deliberately
             if si.strip()[:40] == sj.strip()[:40]:
+                continue
+            # Two values joined by a comparison word inside one clause are being
+            # contrasted on purpose: "1.55 br/min against a reference SD of 1.57".
+            # Searched over the whole text, since the context windows are narrow.
+            if _contrasted(text, vi, vj):
                 continue
             # "moves from 3.41 to 3.39" states a change, not a disagreement
             if any(re.search(r"from %s" % re.escape(v), s)
