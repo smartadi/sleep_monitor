@@ -298,6 +298,33 @@ def check_structure(doc):
     if empty:
         report("FAIL", "STRUCTURE", "empty heading paragraphs at %s" % empty)
 
+    check_acronyms(doc)
+
+
+# Channel and stage labels, address abbreviations, and organisation names that
+# are not expanded in any paper.
+ACRONYM_SKIP = {
+    "CLE", "CRE", "CH", "REM", "NREM", "IEEE", "MD", "WA", "UW", "US",
+    "PSG", "SEC", "AE", "A", "B", "C", "D", "E", "F", "G", "N1", "N2", "N3",
+}
+
+
+def check_acronyms(doc):
+    """Every abbreviation should be expanded where it is first used."""
+    text = doc.body_text()
+    for acr in sorted(set(re.findall(r"\b([A-Z]{2,6})\b", text))):
+        if acr in ACRONYM_SKIP or re.match(r"^S\d", acr):
+            continue
+        # "expansion (ACR)" or "ACR (expansion)" anywhere counts as defined
+        defined = (re.search(r"\([^()]{0,90}\b%s\b[^()]{0,12}\)" % acr, text)
+                   or re.search(r"\b%s\s*\([a-z]" % acr, text))
+        if not defined:
+            at = text.find(acr)
+            report("WARN", "ACRONYM",
+                   "%s used %d time(s), never expanded -- first use: ...%s..."
+                   % (acr, len(re.findall(r"\b%s\b" % acr, text)),
+                      text[max(0, at - 55):at + len(acr) + 10].replace("\n", " ")))
+
 
 def main():
     path = Path(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT_DOC
