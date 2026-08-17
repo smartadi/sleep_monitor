@@ -1,19 +1,18 @@
 """Which manuscript file the edit scripts write to.
 
-The user keeps the canonical file open in Word to read, so edits land on a
-working copy and are promoted afterwards. Override with the MS_DOC environment
-variable to target a different file.
+There is one manuscript: `writeup/main/CAP_sleep_mask_manuscript_main.docx`.
+The working copy used through 2026-08-17 was promoted into it and deleted, so
+edits land on the canonical file directly again.
 
-Promote the working copy when the canonical file is closed:
+Override with the MS_DOC environment variable to target a copy — useful when
+the canonical file is open in Word, which locks it against writing:
 
-    cp writeup/main/CAP_sleep_mask_manuscript_main_WORKING.docx \
-       writeup/main/CAP_sleep_mask_manuscript_main.docx
+    MS_DOC=writeup/main/scratch.docx python writeup/edits/<script>.py
 """
 
 import os
 from pathlib import Path
 
 CANONICAL = Path("writeup/main/CAP_sleep_mask_manuscript_main.docx")
-WORKING = Path("writeup/main/CAP_sleep_mask_manuscript_main_WORKING.docx")
 
-DOC = Path(os.environ.get("MS_DOC", WORKING))
+DOC = Path(os.environ.get("MS_DOC", CANONICAL))

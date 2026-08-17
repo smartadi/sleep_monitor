@@ -179,24 +179,36 @@ def stage_summary(all_epochs: pd.DataFrame) -> pd.DataFrame:
                 mwu_p = mannwhitneyu(n3, oth, alternative='two-sided')[1]
             else:
                 mwu_p = np.nan
-            dirs = []
+            # Per-subject direction. These features are small integer counts, so
+            # medians tie often; a tie is not evidence of a direction and must not
+            # be folded into one. Until 2026-08-17 every tie was silently counted
+            # as 'N3<', which manufactured the 6/6 counts the manuscript reported.
+            # Ties are now their own category, and the mean is recorded beside the
+            # median because that is what Figure 6 plots.
+            dirs, mean_dirs = [], []
             for subj in subjects:
                 sv = pool_ex_wake[pool_ex_wake['subject'] == subj]
                 a = sv.loc[sv['is_N3'], feat].dropna()
                 b = sv.loc[~sv['is_N3'], feat].dropna()
                 if len(a) > 3 and len(b) > 3:
-                    dirs.append('N3>' if a.median() > b.median() else 'N3<')
+                    am, bm = a.median(), b.median()
+                    dirs.append('N3=' if am == bm else ('N3>' if am > bm else 'N3<'))
+                    mean_dirs.append('N3>' if a.mean() > b.mean() else 'N3<')
                 else:
                     dirs.append('?')
+                    mean_dirs.append('?')
             n_up = dirs.count('N3>')
             n_dn = dirs.count('N3<')
+            n_tie = dirs.count('N3=')
             rows.append(dict(
                 band=band, channel=POOL_CH[band], feature=feat,
                 n3_median=float(n3.median()) if len(n3) else np.nan,
                 other_median=float(oth.median()) if len(oth) else np.nan,
                 kw_p=kw_p, mwu_p=mwu_p,
-                n_subj_N3_up=n_up, n_subj_N3_dn=n_dn,
+                n_subj_N3_up=n_up, n_subj_N3_dn=n_dn, n_subj_tied=n_tie,
+                n_subj_N3_dn_by_mean=mean_dirs.count('N3<'),
                 directions=','.join(dirs),
+                directions_by_mean=','.join(mean_dirs),
             ))
     return pd.DataFrame(rows)
 

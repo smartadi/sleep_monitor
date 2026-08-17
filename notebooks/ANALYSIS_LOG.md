@@ -2281,3 +2281,30 @@ was NOT edited pending a decision on how.
 Also computed this session: apnea epochs make no difference to rate accuracy (cardiac
 3.41 → 3.39, p = 0.90; respiratory 1.79 → 1.84, p = 0.024), and the imbalance burden
 tracks band SNR (rho = +0.86 respiratory, +0.66 cardiac) rather than motion (rho = +0.12).
+
+### 2026-08-17 (cont.) — tie handling fixed in code, summary regenerated
+
+`analysis/slow_wave/band_ridge_analysis.py` now records ties as their own category and
+also stores the direction by subject mean (`n_subj_tied`, `n_subj_N3_dn_by_mean`,
+`directions_by_mean`). `analysis/slow_wave/recompute_stage_summary.py` rebuilds the summary
+from the cached per-epoch parquet without a full recompute.
+
+**10 of 12 rows changed.** Every "6/6" became 0/6 or 1/6, all ties:
+
+| band | feature | was | now | tied |
+|---|---|---|---|---|
+| resp | ridge_present | 6/6 | 0/6 | 6 |
+| resp | n_ridges | 6/6 | 1/6 | 5 |
+| resp | min_ridge_freq | 4/6 | 0/6 | 4 |
+| resp | freq_spread | 4/6 | 3/6 | 1 |
+| resp | n_groups_active | 6/6 | 0/6 | 6 |
+| resp | **total_ridge_power** | 4/6 | **4/6** | **0** |
+| card | ridge_present | 6/6 | 0/6 | 6 |
+| card | n_ridges | 6/6 | 0/6 | 6 |
+| card | min_ridge_freq | 3/6 | 2/6 | 1 |
+| card | freq_spread | 3/6 | 0/6 | 3 |
+| card | n_groups_active | 6/6 | 0/6 | 6 |
+
+Respiratory total ridge power is the only feature with a genuine per-subject direction and
+no ties — which is exactly what §4.3 now claims. The stored artifact and the manuscript
+agree again.

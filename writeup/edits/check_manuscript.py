@@ -40,7 +40,7 @@ sys.path.insert(0, str(ROOT / "writeup" / "paper"))
 W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 A = "{http://schemas.openxmlformats.org/drawingml/2006/main}"
 
-DEFAULT_DOC = ROOT / "writeup/main/CAP_sleep_mask_manuscript_main_WORKING.docx"
+DEFAULT_DOC = ROOT / "writeup/main/CAP_sleep_mask_manuscript_main.docx"
 
 findings: list[tuple[str, str, str]] = []
 
@@ -152,7 +152,8 @@ def check_conflicts(doc):
             if si.strip()[:40] == sj.strip()[:40]:
                 continue
             # "moves from 3.41 to 3.39" states a change, not a disagreement
-            if re.search(r"from %s" % re.escape(vi), si) or                re.search(r"from %s" % re.escape(vj), sj):
+            if any(re.search(r"from %s" % re.escape(v), s)
+                   for v in (vi, vj) for s in (si, sj)):
                 continue
             key = tuple(sorted([vi + ui, vj + uj]))
             if key in flagged:
