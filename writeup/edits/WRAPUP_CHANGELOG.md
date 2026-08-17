@@ -94,3 +94,14 @@
 - superscript runs for references 22, 23,24 and 29
 - Figures S2 and S5 cited from 5.4 and 4.2.1
 - Figure S1 writeup no longer quotes the degenerate spectral estimator (0.95 br/min, raw_sd 0.000) as pipeline accuracy; channel spread 1.79-1.95 br/min and 3.41-4.39 BPM from the rerun instead
+
+## American spelling (2026-08-17)
+
+- 14 substitutions in the body; bibliography untouched so reference titles keep their published spelling
+- 'analyses' left alone (plural noun, correct in American English); 'canceller' left as the signal-processing term of art
+
+## Bland-Altman moved to the supplement (2026-08-17)
+
+- Figure 5 -> Figure S6, at the end of supplementary S1 with the rest of the per-session rate material
+- main Figures 6-9 -> 5-8; supplementary S6-S10 -> S7-S11
+- bias and limits of agreement stay in 4.2 and Table 3; only the plot moved

@@ -277,10 +277,18 @@ def check_structure(doc):
             report("WARN", "STRUCTURE", "placeholder present: %r" % bad)
 
     # spelling convention
-    brit = len(re.findall(r"characteris|summaris|normalis|minimis|behaviour|labelled|centre\b",
-                          text, re.I))
-    amer = len(re.findall(r"characteriz|summariz|normaliz|minimiz|behavior|labeled|center\b",
-                          text, re.I))
+    # Counted against the same word list the spelling pass uses, so the two
+    # cannot drift apart. A generic -ise pattern would flag "noise" and
+    # "characteristic"; only real pairs count.
+    try:
+        sys.path.insert(0, str(Path(__file__).parent))
+        from apply_us_spelling import MAP as SPELLING
+    except Exception:
+        SPELLING = {}
+    brit = amer = 0
+    for bword, aword in SPELLING.items():
+        brit += len(re.findall(r"\b%s\b" % bword, text, re.I))
+        amer += len(re.findall(r"\b%s\b" % aword, text, re.I))
     if brit and amer:
         report("WARN", "STRUCTURE",
                "mixed spelling convention: %d British, %d American forms" % (brit, amer))
