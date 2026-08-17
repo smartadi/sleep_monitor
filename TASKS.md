@@ -1,5 +1,8 @@
 # Tasks
 
+> **SUPERSEDED for rate results (2026-08-14).** Rate milestones here quote June-pipeline numbers. Current numbers and methods: `analysis/rates/CLAUDE.md`.
+
+
 ## 1. Preprocessing Pipeline [DONE]
 
 - [x] OLS accelerometer artifact removal on CLE, CRE, CLE-CRE channels

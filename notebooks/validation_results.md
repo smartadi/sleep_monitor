@@ -1,5 +1,8 @@
 # Validation Study — Results
 
+> **SUPERSEDED for rate results (2026-08-14).** Rate accuracy figures here predate the rerun. Current numbers and methods: `analysis/rates/CLAUDE.md`.
+
+
 ## 1. Dataset Summary
 
 12 sessions (6 subjects x 2 nights), totalling approximately _____ hours of recording and _____ 30-second epochs evaluated.

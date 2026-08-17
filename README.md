@@ -127,6 +127,6 @@ All listed in `requirements.txt`.
 ## Conventions
 
 - **Channel default:** CLE−CRE (OLS regression differential)
-- **Calibration:** per-session k from 50 random 1-min windows
+- **Calibration:** per-session k = whole-night median of estimate ÷ reference, ratios clipped 0.3–5.0 (older docs say "50 random 1-min windows"; that is not what the code does)
 - **Cross-validation:** LOSO (leave-one-subject-out)
 - **Frequency bands:** respiratory 0.1–0.5 Hz, cardiac 0.5–3.0 Hz

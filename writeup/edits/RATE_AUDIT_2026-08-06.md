@@ -1,5 +1,8 @@
 # Rate detection — full audit of the manuscript claims (2026-08-06)
 
+> **SUPERSEDED for rate results (2026-08-14).** Findings A.1, A.3, B and C are now fixed in the manuscript, and A.2 was confirmed by the 2026-08-14 rerun on a non-degenerate estimator. Retained as the record of how the errors were found. Current numbers and methods: `analysis/rates/CLAUDE.md`.
+
+
 **Scope.** Everything the manuscript says about rate detection: §3.3 (ground truth), §3.5
 (rate estimation + k), §3.7 (statistics), §4.2 and §4.2.1 (Results, Table 3, Figures 3–4),
 §5.1 / §5.3 / §5.4 / §5.5 (Discussion), Limitations 2–5, §7 (Conclusion), plus Table 1's

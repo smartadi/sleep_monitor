@@ -1,5 +1,8 @@
 # Claims Register
 
+> **SUPERSEDED for rate results (2026-08-14).** Every rate claim here predates the rerun: resp 0.91 br/min came from a constant estimator, k_resp 0.97 with it, and the k-vs-age result does not survive. Current numbers and methods: `analysis/rates/CLAUDE.md`.
+
+
 Each claim maps to: data → script → figure/table → manuscript section.
 Status: VERIFIED | REVISED | STALE | ADDED
 **Reconciled 2026-06-18** against consensus GT, tracking-FAIL, LOSO harmonics.

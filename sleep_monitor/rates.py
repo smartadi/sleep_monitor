@@ -1,13 +1,25 @@
 """
 Rate estimators for respiratory and cardiac rates from bandpassed signals.
 
-Six methods are implemented:
-  spectral        — Welch PSD peak frequency
+Eight methods are implemented:
+  spectral        — Welch PSD peak frequency.  SEE THE WARNING BELOW.
+  spectral_interp — full-window periodogram, zero-padded, interpolated peak
   acf             — ACF dominant lag (parabolic interpolation)
   hilbert         — Hilbert instantaneous frequency median
   zerocross       — Upward zero-crossing rate
   peaks           — Peak-counting with prominence threshold
+  envelope        — envelope-based rate
   adaptive_peaks  — Spectral-guided, amplitude-adaptive peak detector
+
+WARNING — `rate_spectral` is degenerate in the respiratory band.
+It fixes the Welch segment at 4 s, so df = 0.25 Hz at fs = 100 whatever the band
+is.  The 0.1-0.5 Hz respiratory band then holds two usable bins and the estimator
+returns 15.0 br/min in 99.98% of epochs; the cardiac band is quantized to 15 BPM
+steps.  Any k fitted to it is identically 15/median(reference), so its apparent
+accuracy is the accuracy of a constant.  It is kept unchanged so published
+numbers stay reproducible.  For new work use `rate_spectral_interp`, or better
+`rate_peaks`, which is the operational estimator in both bands.  See
+`analysis/rates/CLAUDE.md`.
 
 Public API
 ----------

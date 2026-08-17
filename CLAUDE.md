@@ -19,7 +19,7 @@ Core library — import with `from sleep_monitor import ...`
 | loader | CSV.GZ loading, sleep profile, apnea events |
 | preprocessing | Accel artifact removal (OLS+NLMS), bandpass filtering |
 | filters | Butterworth bandpass/lowpass/highpass, detrending, clipping |
-| rates | 5 base estimators + scaled variants (peaks/k, hilbert/k) |
+| rates | 8 base estimators + scaled variants. Operational: `rate_peaks` (loose) on CRE, per-session k. **`rate_spectral` is degenerate in the respiratory band** — see `analysis/rates/CLAUDE.md` |
 | ground_truth | PSG reference: ECG R-peaks, Flow peaks via neurokit2 |
 | quality | Per-window quality scoring (SNR, ACF prominence, spectral concentration) |
 | spectral | Sliding-window band powers (delta, theta, alpha, beta) |
@@ -42,7 +42,7 @@ Scoped workspaces with their own CLAUDE.md — work from these directories for f
 
 ## Conventions
 - Channel default: CLE-CRE (OLS regression differential)
-- k calibration: per-session, from 50 random 1-min windows
+- k calibration: per-session, whole-night median of estimate ÷ reference (ratios clipped 0.3–5.0). "50 random 1-min windows" appears in old docs and is not what any pipeline does
 - CV protocol: LOSO (leave-one-subject-out, not leave-one-session)
 - Quality gating: compute scores, let downstream set thresholds
 - Python: `from sleep_monitor import ...` — package is pip-installable via `setup.py`

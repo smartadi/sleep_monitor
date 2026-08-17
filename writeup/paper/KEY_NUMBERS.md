@@ -15,59 +15,56 @@ All quantitative results for the manuscript, grouped by section.
 - Resp freq match: 43% within ±0.05 Hz, median error 0.067 Hz
 - Surrogates: 14.7% resp, 9.1% cardiac exceed null at p<0.05 (200 surrogates/epoch, 8242 epochs)
 
-## Mean Rate Accuracy (§3.2)
+## Rate Accuracy (§4.2) — **rerun 2026-08-14**
 
-### Respiratory
-- Best method: spectral (any channel; channels equivalent, oracle-ch MAE 1.08 ≈ diff 1.09)
-- k_resp ≈ 0.97 [range 0.90–1.05] — near unity, negligible calibration
-- Per-session median MAE: **0.91 br/min** [IQR 0.81–1.19], range 0.56–2.26
-- ⚠️ Spectral at 30s is a constant predictor (df=0.25 Hz, 1.6 bins across resp band)
-- Pooled MAE (mask pipeline): **1.09 br/min**, bias −0.3, LoA [−4.7, +4.2]
-- S3 outlier: both nights MAE >1.9 (Thorax paradox, quality-gated in consensus)
+Operational estimator both bands: loose peak counting on CRE, per-session k (whole-night
+median of estimate ÷ reference, ratios clipped 0.3–5.0), causal 3-epoch median filter.
+Epochs 30 s non-overlapping. Source `reports/rates/rerun/per_session.csv`.
 
-### Cardiac
-- Best single-channel: peaks_loose/CRE, median MAE **3.41 BPM** [IQR 3.06–8.38]
-- Multi-channel agreement fusion: pooled MAE **3.91 BPM**, bias −0.6, LoA [−24.1, +22.9]
-- k_cardiac ≈ 1.95 [range 0.94–2.24] — consistent ~2:1 (biphasic pulse)
-- Per-session median MAE: **3.36 BPM** [IQR 2.64–6.62], range 2.07–17.96
-- S6 anomalous: k_card 1.35/0.94, MAE >8 BPM (different sensor coupling)
+| | respiratory | cardiac |
+|---|---|---|
+| per-epoch \|error\| | **1.79 br/min** [1.65–2.01] | **3.41 BPM** [3.06–8.38] |
+| night-mean \|error\| | **0.24 br/min** [0.14–0.34] | **1.56 BPM** [1.22–2.08] |
+| night-mean, worst | 1.00 br/min | 7.41 BPM |
+| Bland–Altman bias (95% LoA) | −0.10 (−5.85, +5.65) | −0.93 (−25.48, +23.62) |
+| k | **1.18** [1.12–1.27] | **1.96** [1.77–2.01] |
+| reference SD within night | 1.57 br/min | 6.58 BPM |
 
-### Per-stage
-- Resp worst: REM 2.31 br/min
-- Cardiac worst: Wake 4.73 BPM
+### Held-out calibration — nothing beats a no-sensor constant
+Night-mean error, paired Wilcoxon vs predicting the LOSO cohort median:
 
-### Oracle headroom
-- Resp: channel-oracle 1.08, method-oracle 0.54, full oracle 0.16
-- Cardiac: channel-oracle **1.58**, method-oracle 2.55, full oracle 0.51
+| | self-k | cross-night | population k | no sensor |
+|---|---|---|---|---|
+| respiratory | 0.24 (p=0.001) | 0.57 (p=0.110) | 0.94 (p=0.301) | 1.20 |
+| cardiac | 1.56 (p=0.077) | 3.77 (p=0.850) | 3.19 (p=0.622) | 2.76 |
 
-### k stability
-- |k_diag − k_whole| ≤ 0.04 all sessions
-- Night-to-night: 3/6 subjects delta_k ≤ 0.03, worst OS002 = 0.19
+Epoch level is worse than no-sensor in every regime. Only same-night k wins, and that is a
+fitting residual. Not reported in the main text; the section is framed as a demonstration.
 
-## Within-Session Tracking — NEGATIVE (§3.3)
+### k
+- Cardiac k ≈ 2 is a **morphology count**: R-peak-triggered counting gives 1.70–2.43
+  capacitive peaks per beat (median 2.02 CRE, 9 sessions), bracketing k = 1.96. Central
+  values agree; the across-subject correlation is r = 0.50 at n = 9, p = 0.17.
+- Respiratory k = 1.18 — peak counting registers ~18% more deflections than breaths.
+- Night-to-night |Δk|: resp median 0.027 (max 0.178), cardiac 0.146 (max 0.387).
+- **k vs age is dead**: resp ρ = −0.37 exact p = 0.50 (LOO sign flips), cardiac ρ = +0.26
+  p = 0.66; held-out age prior loses to a single constant in both bands. |ρ| ≥ 0.83 needed
+  at n = 6.
 
-### Detector B (responsive tracker)
-- Methods: peaks_loose + hilbert, 5-channel mean-fusion, k-calibrated, rolling-median k=3
-- Resp pooled MAE: 1.34 br/min; Cardiac pooled MAE: 4.31 BPM
+## Within-Session Tracking — NEGATIVE (§4.2)
 
-### Tracking battery
-- Resp within-session r: median **+0.058**, Wilcoxon p=0.34, **4/12** beat shuffle null 95th
-- Cardiac within-session r: median **−0.188**, Wilcoxon p=0.85, **3/12** beat null
-- Delta-tracking: resp +0.024, cardiac −0.148
-- No transient-vs-steady advantage for either band
+- Within-night r: resp median **−0.03** (p = 0.34, 5/12 positive), cardiac **−0.08**
+  (p = 0.30, 5/12). 0/12 and 1/12 nights above a circular-shift null.
+- Robust across every estimator, channel and fusion strategy tested.
+- Achievable ceiling (Flow vs RIPSum): r = **0.47** [0.33–0.67] raw, 0.27 detrended.
+- GT inter-sensor uncertainty: median diff 0.06 br/min, >1 br/min in 29% of epochs.
 
-### Two operating points
-- Spectral: lowest MAE (resp 0.91) but literal constant predictor (within-session r=0.00)
-- Detector B: moderate MAE but no significant tracking either
-
-### Achievable ceiling (Flow vs RIPSum)
-- Within-session r: median **+0.47** (raw), +0.27 (fluctuations-only)
-- Mask resp tracking (0.058) = 12% of ceiling
-- GT inter-sensor uncertainty: median diff 0.06 br/min, >1 br/min in 29% of epochs
-
-### 6 methods tested, all fail
-- peaks_loose, peaks_strict, hilbert, spectral, CWT ridge, continuous Viterbi ridge
-- All within-session r ≈ 0 across channels
+### The degeneracy that caused the old numbers
+`rate_spectral` fixes nperseg at 4 s → Δf = 0.25 Hz. Respiratory band = 2 usable bins;
+returns 15.0 br/min in **99.98%** of epochs, so k ≡ 15/median(reference) and the old
+**0.91 br/min** was the error of the best constant. Cardiac quantized to 15 BPM steps. A
+30 s epoch gives Δf = 2.0 br/min at best against a within-night SD of 1.57, so 30 s cannot
+support spectral respiratory estimation at all.
 
 ## Harmonics (§3.4)
 

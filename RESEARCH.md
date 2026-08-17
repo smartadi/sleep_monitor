@@ -1,5 +1,8 @@
 # Research Notes
 
+> **SUPERSEDED for rate results (2026-08-14).** The rate figures here (MAE 2.20 br/min, 4.19 BPM) are from a June pipeline. Current numbers and methods: `analysis/rates/CLAUDE.md`.
+
+
 ## Overview
 
 We analyze data from a sleep monitor — a wearable sensor with capacitive readouts from left and right temples (CLE, CRE) and a differential channel (CLE-CRE), accompanied by accelerometer readings. A clinical bio-marker sensor suite (PSG) records simultaneously and serves as ground truth for benchmarking.

@@ -1,4 +1,7 @@
 # Scaled-Peaks Respiratory Rate Estimator
+
+> **SUPERSEDED for rate results (2026-08-14).** Peak-ratio k values here predate the rerun. Current numbers and methods: `analysis/rates/CLAUDE.md`.
+
 **Cross-session validation on 12 overnight recordings**
 
 _Date: 2026-04-15  ·  Sessions: S1N1 – S6N2 (6 subjects × 2 nights)_

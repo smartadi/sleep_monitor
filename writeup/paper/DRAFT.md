@@ -1,3 +1,6 @@
+
+> **SUPERSEDED for rate results (2026-08-14).** The rate sections here predate the rerun. Current numbers and methods: `analysis/rates/CLAUDE.md`.
+
 <!--
 INTERNAL HEADER — not rendered into the docx (the builder skips HTML comments).
 This file is the single source of truth for manuscript prose.

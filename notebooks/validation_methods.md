@@ -1,5 +1,8 @@
 # Validation Study — Methods
 
+> **SUPERSEDED for rate results (2026-08-14).** The k calibration described here (50 random one-minute windows) is not what any reported pipeline does; k is the whole-night median. Current numbers and methods: `analysis/rates/CLAUDE.md`.
+
+
 ## 1. Data
 
 Six healthy subjects (OS001–OS006) each completed two overnight polysomnography (PSG) sessions, yielding 12 recordings. During each session a capacitive sleep monitor was worn on the temples, recording three channels — left electrode (CLE), right electrode (CRE), and a head channel (CH) — alongside a 3-axis accelerometer, all sampled at 100 Hz. Simultaneous PSG recorded ECG, nasal airflow (Flow), thoracic effort (Thorax), photoplethysmography (Pleth), EEG, and EOG at 100 Hz (resampled from native PSG rate). A board-certified sleep technologist scored 30-second epochs into Wake, N1, N2, N3, and REM stages per AASM criteria.

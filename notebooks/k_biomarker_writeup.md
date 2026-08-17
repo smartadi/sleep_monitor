@@ -1,5 +1,8 @@
 # k(t) as a Running Biomarker — Analysis Writeup
 
+> **SUPERSEDED for rate results (2026-08-14).** k here is from a superseded pipeline; the age relationship it reports is an artifact of a degenerate respiratory estimator. Current numbers and methods: `analysis/rates/CLAUDE.md`.
+
+
 ## Summary
 
 We computed the scaling factor k as a time series — k(t) = raw_CAP_rate(t) / GT_rate(t) — at every 60s window across all 12 sessions, for both respiratory (peaks_loose / Flow) and cardiac (Hilbert / ECG) bands. Previously k was treated as a static per-session calibration constant. This analysis asks: does the temporal variation in k carry physiological information?

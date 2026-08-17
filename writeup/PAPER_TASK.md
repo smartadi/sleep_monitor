@@ -1,5 +1,8 @@
 # Task: Write CAP Sleep Analysis Paper (Methods, Results, Discussion)
 
+> **SUPERSEDED for rate results (2026-08-14).** Rate numbers and the k-calibration description here predate the rerun. Current numbers and methods: `analysis/rates/CLAUDE.md`.
+
+
 ## How to resume
 Tell Claude: **"Pick up the paper writing task from `writeup/PAPER_TASK.md`"**
 
