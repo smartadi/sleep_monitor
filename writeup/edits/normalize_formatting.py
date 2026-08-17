@@ -129,7 +129,12 @@ def style_of(p):
 
 
 def apply_leadin(p, lead):
-    """Bold just the lead phrase, plain for the rest."""
+    """Bold just the lead phrase, plain for the rest.
+
+    Splits only the run the lead phrase ends in. Collapsing every run into one,
+    as this used to, destroys superscript citation runs further along the
+    paragraph -- that is how the reference 29 marker in 3.3 lost its formatting.
+    """
     runs = text_runs(p)
     if not runs:
         return False
@@ -137,23 +142,34 @@ def apply_leadin(p, lead):
     if not full.startswith(lead):
         return False
 
-    keep = runs[0]
-    for r in runs[1:]:
-        p.remove(r)
-    t = keep.find(W + "t")
-    t.text = lead
-    t.set("{http://www.w3.org/XML/1998/namespace}space", "preserve")
-    set_flag(keep, "b", True)
-    set_flag(keep, "i", False)
+    pos = 0
+    for run in runs:
+        t = run.find(W + "t")
+        s = t.text or ""
+        lo, hi = pos, pos + len(s)
+        pos = hi
+        if not (lo < len(lead) <= hi):
+            # runs entirely inside the lead are bold, the rest keep their own
+            if hi <= len(lead):
+                set_flag(run, "b", True)
+                set_flag(run, "i", False)
+            continue
 
-    rest_text = full[len(lead):]
-    if rest_text:
-        rest = copy.deepcopy(keep)
-        set_flag(rest, "b", False)
-        rt = rest.find(W + "t")
-        rt.text = rest_text
-        rt.set("{http://www.w3.org/XML/1998/namespace}space", "preserve")
-        p.insert(list(p).index(keep) + 1, rest)
+        cut = len(lead) - lo
+        head, tail = s[:cut], s[cut:]
+        t.text = head
+        t.set("{http://www.w3.org/XML/1998/namespace}space", "preserve")
+        set_flag(run, "b", True)
+        set_flag(run, "i", False)
+
+        if tail:
+            rest = copy.deepcopy(run)
+            set_flag(rest, "b", False)
+            rt = rest.find(W + "t")
+            rt.text = tail
+            rt.set("{http://www.w3.org/XML/1998/namespace}space", "preserve")
+            p.insert(list(p).index(run) + 1, rest)
+        return True
     return True
 
 

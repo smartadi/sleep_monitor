@@ -88,3 +88,9 @@
 - spindle low-band +0.47..+0.58 / ~+0.6 dB -> +0.45..+0.49 / +0.55 dB
 - spindle EEG sigma +3.3 -> +3.45 dB (4.4, Figure 8, 5.2, limitation 6); the old value predates the 0.32 s alignment fix
 - ridge Kruskal-Wallis floor 3x10^-23 -> 9x10^-29 (the old value was the second smallest p)
+
+## Citations, orphan figures, and the S1 writeup (2026-08-17)
+
+- superscript runs for references 22, 23,24 and 29
+- Figures S2 and S5 cited from 5.4 and 4.2.1
+- Figure S1 writeup no longer quotes the degenerate spectral estimator (0.95 br/min, raw_sd 0.000) as pipeline accuracy; channel spread 1.79-1.95 br/min and 3.41-4.39 BPM from the rerun instead

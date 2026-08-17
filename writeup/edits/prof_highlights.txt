@@ -1,0 +1,215 @@
+=== HL#1 (para 145) ===
+CONTEXT: Motion artifact was suppressed by regressing band-limited accelerometer energy out of each SEC channel. The accelerometer magnitude and the CAP channel were first bandpassed to the analysis band of interest (respiratory 0.1–0.5 Hz, ≈6–30 breaths/min; cardiac 0.5–3.0 Hz, ≈30–180 beats/min) so that only motion energy within that band was removed. Two cancellers were available: an ordinary-least-squares (OLS) projection that removes a single stationary coupling coefficient, and a normalized-LMS (NL
+>>> HIGHLIGHTED: ) so that only motion energy within that band was removed.
+
+=== HL#2 (para 151) ===
+CONTEXT: To validate this consensus, we compared the two most independent PSG respiratory sensors (Flow and RIPSum, which measure airflow and chest-wall expansion respectively). Within-session correlation was r = +0.48 on raw rates and r = +0.28 on detrended fluctuations, confirming that within-session respiratory rate variation is real physiology. The consensus reduced single-sensor jitter (standard deviation 2.26 → 1.61 br/min) and provided 100% epoch coverage. The median absolute difference between co
+>>> HIGHLIGHTED: Flow and RIPSum, which measure airflow and chest-wall expansion respectively | The median absolute difference between consensus and Flow-only was 0.06 br/min, though 29% of epochs differed by more than 1 br/min.
+
+=== HL#3 (para 158) ===
+CONTEXT: SEC counting systematically miscounts relative to the PSG reference because the capacitive waveform is not a clean one-cycle-per-event signal. We correct this with a per-session scalar k, defined as the median ratio between the CAP estimate and the ground-truth rate across randomly selected calibration windows, so that the calibrated rate equals the raw estimate divided by k. Calibration used 50 randomly drawn one-minute windows and was verified against the whole-night k: |k_diagnostic − k_whole
+>>> HIGHLIGHTED: counting systematically miscounts relative
+
+=== HL#4 (para 160) ===
+CONTEXT: Mean absolute error (MAE) can be excellent even when a method predicts a constant value, if the true rate is stable. To test whether the mask captures within-session rate variation, we designed a tracking evaluation battery.
+>>> HIGHLIGHTED: Mean  | absolute error |  (MAE)
+
+=== HL#5 (para 169) ===
+CONTEXT: To test whether the SEC sensors detect cortical slow-wave activity (SWS), we replicated the spectral pipeline of Lucey et al. (2019). Raw EEG and the CLE−CRE differential were independently bandpassed (FIR, 0.5–40 Hz via firwin), epoched into 6-second windows, and analyzed with Welch PSD. Band powers were computed for 1–4.5 Hz (total SWA) and sub-bands (1–2, 2–3, 3–4 Hz). Artifact rejection gated on 20–30 Hz EMG power (97.5th percentile threshold) and accelerometer activity.
+>>> HIGHLIGHTED: Lucey et al. (2019).
+
+=== HL#6 (para 175) ===
+CONTEXT: Start with mean value (raw signal changes) in comparison to sleep stages.
+>>> HIGHLIGHTED: Start with mean value (raw signal changes) in comparison to sleep stages.
+
+=== HL#7 (para 386) ===
+CONTEXT: An oracle analysis revealed that respiratory headroom lies in method diversity, not channel diversity: the channel-oracle MAE (1.08 br/min) matched the single diff channel (1.09), while the method-oracle on the diff channel alone was 0.54 br/min and the full (channel × method) oracle was 0.16 br/min. In contrast, cardiac headroom lies in channel diversity: the channel-oracle MAE was 1.58 BPM (vs. our fused 3.91 BPM), with win distribution approximately even across channels (19–21% each), confirm
+>>> HIGHLIGHTED: y headroom
+
+=== HL#8 (para 393) ===
+CONTEXT: Tracking battery results
+>>> HIGHLIGHTED: battery
+
+=== HL#9 (para 437) ===
+CONTEXT: LOSO N3 classification
+>>> HIGHLIGHTED: LOSO N3 classification
+
+=== HL#10 (para 438) ===
+CONTEXT: Despite statistical significance, ridge features were near-chance N3 classifiers. A LOSO Random Forest trained on four ridge features yielded a pooled AUC of 0.534 [per-subject range 0.421–0.604], mean AUC 0.509, and mean F1 score 0.095. The best single feature (prominence_score) achieved AUC = 0.563. The subject-dependent HER direction, confirmed in both Stage 2 and Stage 4 analyses, cancels out pooled discrimination: the classifier cannot learn a universal N3 signature because the spectral res
+>>> HIGHLIGHTED: Despite statistical significance, ridge features were near-chance N3 classifiers. A LOSO Random Forest trained on four ridge features yielded a pooled AUC of 0.534 [per-subject range 0.421–0.604], mean AUC 0.509, and mean F1 score 0.095. The best single feature (prominence_score) achieved AUC = 0.563. The subject-dependent HER direction, confirmed in both Stage 2 and Stage 4 analyses, cancels out pooled discrimination: the classifier cannot learn a universal N3 signature because the spectral res
+
+=== HL#11 (para 440) ===
+CONTEXT: Figure 12. LOSO N3 classification: per-subject ROC curves, pooled metrics, and feature importance. Pooled AUC = 0.534.
+>>> HIGHLIGHTED: Figure 12. LOSO N3 classification: per-subject ROC curves, pooled metrics, and feature importance. Pooled AUC = 0.534.
+
+=== HL#12 (para 441) ===
+CONTEXT: Table 5. LOSO N3 classification per subject.
+>>> HIGHLIGHTED: Table 5. LOSO N3 classification per subject.
+
+=== HL#13 (para 442) ===
+CONTEXT: Subject
+>>> HIGHLIGHTED: Subject
+
+=== HL#14 (para 443) ===
+CONTEXT: N test
+>>> HIGHLIGHTED: N test
+
+=== HL#15 (para 444) ===
+CONTEXT: N N3
+>>> HIGHLIGHTED: N N3
+
+=== HL#16 (para 445) ===
+CONTEXT: AUC
+>>> HIGHLIGHTED: AUC
+
+=== HL#17 (para 446) ===
+CONTEXT: F1
+>>> HIGHLIGHTED: F1
+
+=== HL#18 (para 447) ===
+CONTEXT: S1
+>>> HIGHLIGHTED: S1
+
+=== HL#19 (para 448) ===
+CONTEXT: 3297
+>>> HIGHLIGHTED: 3297
+
+=== HL#20 (para 449) ===
+CONTEXT: 150
+>>> HIGHLIGHTED: 150
+
+=== HL#21 (para 450) ===
+CONTEXT: 0.510
+>>> HIGHLIGHTED: 0.510
+
+=== HL#22 (para 451) ===
+CONTEXT: 0.048
+>>> HIGHLIGHTED: 0.048
+
+=== HL#23 (para 452) ===
+CONTEXT: S2
+>>> HIGHLIGHTED: S2
+
+=== HL#24 (para 453) ===
+CONTEXT: 2967
+>>> HIGHLIGHTED: 2967
+
+=== HL#25 (para 454) ===
+CONTEXT: 427
+>>> HIGHLIGHTED: 427
+
+=== HL#26 (para 455) ===
+CONTEXT: 0.604
+>>> HIGHLIGHTED: 0.604
+
+=== HL#27 (para 456) ===
+CONTEXT: 0.257
+>>> HIGHLIGHTED: 0.257
+
+=== HL#28 (para 457) ===
+CONTEXT: S3
+>>> HIGHLIGHTED: S3
+
+=== HL#29 (para 458) ===
+CONTEXT: 3278
+>>> HIGHLIGHTED: 3278
+
+=== HL#30 (para 459) ===
+CONTEXT: 329
+>>> HIGHLIGHTED: 329
+
+=== HL#31 (para 460) ===
+CONTEXT: 0.421
+>>> HIGHLIGHTED: 0.421
+
+=== HL#32 (para 461) ===
+CONTEXT: 0.117
+>>> HIGHLIGHTED: 0.117
+
+=== HL#33 (para 462) ===
+CONTEXT: S4
+>>> HIGHLIGHTED: S4
+
+=== HL#34 (para 463) ===
+CONTEXT: 2582
+>>> HIGHLIGHTED: 2582
+
+=== HL#35 (para 464) ===
+CONTEXT: 174
+>>> HIGHLIGHTED: 174
+
+=== HL#36 (para 465) ===
+CONTEXT: 0.587
+>>> HIGHLIGHTED: 0.587
+
+=== HL#37 (para 466) ===
+CONTEXT: 0.126
+>>> HIGHLIGHTED: 0.126
+
+=== HL#38 (para 467) ===
+CONTEXT: S5
+>>> HIGHLIGHTED: S5
+
+=== HL#39 (para 468) ===
+CONTEXT: 1985
+>>> HIGHLIGHTED: 1985
+
+=== HL#40 (para 469) ===
+CONTEXT: 270
+>>> HIGHLIGHTED: 270
+
+=== HL#41 (para 470) ===
+CONTEXT: 0.426
+>>> HIGHLIGHTED: 0.426
+
+=== HL#42 (para 471) ===
+CONTEXT: 0.000
+>>> HIGHLIGHTED: 0.000
+
+=== HL#43 (para 472) ===
+CONTEXT: S6
+>>> HIGHLIGHTED: S6
+
+=== HL#44 (para 473) ===
+CONTEXT: 2226
+>>> HIGHLIGHTED: 2226
+
+=== HL#45 (para 474) ===
+CONTEXT: 126
+>>> HIGHLIGHTED: 126
+
+=== HL#46 (para 475) ===
+CONTEXT: 0.505
+>>> HIGHLIGHTED: 0.505
+
+=== HL#47 (para 476) ===
+CONTEXT: 0.025
+>>> HIGHLIGHTED: 0.025
+
+=== HL#48 (para 479) ===
+CONTEXT: Replication of the Lucey et al. (2019) spectral pipeline confirmed that the capacitive temple sensor does not measure cortical slow-wave activity. Across all twelve sessions, the correlation between SEC-derived and EEG-derived SWA power was r = 0.015 ± 0.045 (effectively zero). Magnitude-squared coherence in the SWS band was 0.003 ± 0.005 (noise floor). N3 detection using CAP SWA as a threshold yielded AUC = 0.490 ± 0.040 (chance level).
+>>> HIGHLIGHTED: Replication of the Lucey et al. (2019) spectral pipeline confirmed that the capacitive temple sensor does not measure cortical slow-wave activity
+
+=== HL#49 (para 485) ===
+CONTEXT: Figure 14. ROC curves for N3 detection: CAP-based (near chance) vs. EEG-based (AUC ≈ 0.74) using the same spectral pipeline.
+>>> HIGHLIGHTED: 14. ROC curves for N3 detection:
+
+=== HL#50 (para 542) ===
+CONTEXT: The mask recovers per-session mean respiratory rate with MAE < 1 br/min and cardiac rate with MAE < 4 BPM after a simple per-session k-calibration. The respiratory k factor is near unity (k ≈ 0.97), meaning the spectral peak frequency directly reflects the breathing rate with negligible correction. The cardiac k factor (≈1.95) is consistent across subjects and nights, reflecting the fundamental ∼2:1 overcounting ratio that arises from the biphasic structure of the capacitive pulse waveform (syst
+>>> HIGHLIGHTED: The mask recovers per-session mean respiratory rate with MAE < 1 br/min and cardiac rate with MAE < 4 BPM after a simple per-session k-calibration. The
+
+=== HL#51 (para 546) ===
+CONTEXT: Harmonic ridge features differ systematically by sleep stage (p < 10⁻¹⁶), with N3 showing fewer, slower, and lower-power harmonic groups. These patterns are directionally consistent across 5–6 of 6 subjects, indicating that the spectral structure of the capacitive signal genuinely reflects sleep-state changes in cardiorespiratory coupling. While too weak for standalone staging, this structure could contribute to multi-modal approaches.
+>>> HIGHLIGHTED: Harmonic ridge features differ systematically by sleep stage (p < 10⁻¹⁶), with N3 showing fewer, slower, and lower-power harmonic groups
+
+=== HL#52 (para 549) ===
+CONTEXT: The most extensively tested negative finding is the inability to recover within-session rate variation. Despite testing six rate estimation methods across five channels—including a purpose-built responsive tracker (Fused Window Detection) designed to maximize tracking sensitivity—within-session correlation with ground truth was indistinguishable from a temporal-shuffle null for both respiratory and cardiac bands. This is not a methodological failure: it is a signal-to-noise limit of the capaciti
+>>> HIGHLIGHTED: within-session correlation with ground truth was indistinguishable from a temporal-shuffle null for both respiratory and cardiac bands.
+
+=== HL#53 (para 553) ===
+CONTEXT: While harmonic ridge features are statistically associated with sleep stage, their discriminative power is near chance (LOSO N3 AUC = 0.534). The critical limitation is subject-dependent directionality: some subjects show increased harmonic energy during N3 while others show decreased energy. This prevents a universal classifier from learning a consistent N3 signature. Ridge features encode sleep architecture variation but not in a direction-universal way.
+>>> HIGHLIGHTED: While harmonic ridge features are statistically associated with sleep stage, their discriminative power is near chance (LOSO N3 AUC = 0.534).
+
+=== HL#54 (para 555) ===
+CONTEXT: The SEC sensor shows zero correlation with contact EEG slow-wave activity (r ≈ 0.015), zero coherence in the SWS band (≈0.003), and chance-level N3 detection (AUC ≈ 0.49). This result, validated by the pipeline’s correct performance on contact EEG (AUC = 0.74), is definitive: the SECsignal at temple placement detects intracranial pressure pulsations and scalp hemodynamics, not cortical electrical activity. The sub-1 Hz content in the capacitive signal is dominated by respiratory artifact and bas
+>>> HIGHLIGHTED: definitive: the  | SEC | signal at temple placement detects intracranial pressure pulsations and scalp hemodynamics, not cortical electrical activity.
