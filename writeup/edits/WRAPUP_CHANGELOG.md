@@ -110,3 +110,9 @@
 
 - 2 substitutions in the body; bibliography untouched so reference titles keep their published spelling
 - 'analyses' left alone (plural noun, correct in American English); 'canceller' left as the signal-processing term of art
+
+## CAP-PSG coupling folded into 4.1 (2026-08-17)
+
+- amplitude and coherence coupling reported per channel with EEG as the negative control, plus the coherence noise floor
+- supplementary S4, Figures S12 and S13
+- the new coherence statistic is kept separate from 4.1's existing at-reference-frequency value; they are not merged
