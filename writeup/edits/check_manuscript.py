@@ -270,7 +270,9 @@ def check_structure(doc):
                        "possible citation marker in plain text: '...%s'"
                        % txt[max(0, m.start() - 40):m.end()].strip())
 
-    for bad in ("TO BE WRITTEN", "TBD", "TODO", "XXX", "[Abstract"):
+    # The abstract is the professor's to write; its placeholder marks the slot
+    # and is not a finding.
+    for bad in ("TO BE WRITTEN", "TBD", "TODO", "XXX"):
         if bad in text:
             report("WARN", "STRUCTURE", "placeholder present: %r" % bad)
 
