@@ -56,3 +56,35 @@
 - figure captions centred italic; table captions left bold
 - table cells: header row bold, body rows plain, body spacing throughout
 - run-in heads (Cardiac ground truth., etc.) bold on the lead phrase only
+
+## Section 4.1 reordered (2026-08-17)
+
+- new order: SNR -> coherence and Table 2 -> rhythm continuity -> overnight record
+- figures unchanged in content; SNR becomes Figure 2, the composite record figure becomes Figure 3
+- 4.3 ridge stage-associations deliberately left after rates
+
+## Formatting normalisation (2026-08-17)
+
+- root cause fixed in apply_review_edits.Doc: para() cloned the title's bold run and set no spacing, so every paragraph and table cell any edit script created was bold and single-spaced
+- body paragraphs: justified, double spaced, no first-line indent, no stray bold
+- figure captions centred italic; table captions left bold
+- table cells: header row bold, body rows plain, body spacing throughout
+- run-in heads (Cardiac ground truth., etc.) bold on the lead phrase only
+
+## Integrated capacitance imbalance (2026-08-17)
+
+- 4.1: burden 15-705 fF*h across nights (46x), not a subject trait (2.0-5.8x within subject)
+- the signed integral is reported as the null it is: asymmetry -0.22 to +0.09
+- supplementary S3 / Figure S10
+
+## 4.2 within-night negative, bounded (2026-08-17)
+
+- subheading attributes the negative to the configurations tested, not to the mask
+- best single night r = +0.32 resp / +0.53 card added, against a two-sensor ceiling of 0.22-0.71
+- 5.2 'the battery was exhaustive' -> 'broad rather than exhaustive'
+
+## Stale numbers found by the ledger check (2026-08-17)
+
+- spindle low-band +0.47..+0.58 / ~+0.6 dB -> +0.45..+0.49 / +0.55 dB
+- spindle EEG sigma +3.3 -> +3.45 dB (4.4, Figure 8, 5.2, limitation 6); the old value predates the 0.32 s alignment fix
+- ridge Kruskal-Wallis floor 3x10^-23 -> 9x10^-29 (the old value was the second smallest p)

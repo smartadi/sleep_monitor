@@ -169,7 +169,8 @@ class Doc:
                     or rpr.find(W + "vertAlign") is not None)
                 if not decorated:
                     return r
-                fallback = fallback or r
+                if fallback is None:
+                    fallback = r
         if fallback is None:
             raise RuntimeError("no template run")
         return fallback
