@@ -2429,3 +2429,36 @@ kept** for consistency with the rest of the paper; the value is now reported wit
 **Also found:** §3.4 said the cardiac coherence reference is ECG. The code that produced the
 published values (`scripts/signal_validation_proof.py:191`) uses **photoplethysmography**.
 Text corrected to the code.
+
+## 2026-08-17 — Is the 30 s epoch what limits rate tracking? No.
+
+Two tests, prompted by the window question raised by the coherence work.
+
+**1. Counting quantization — hypothesis rejected.** A peak-counting estimator on a 30 s
+epoch at 15 br/min sees ~7.5 breaths, which suggested a quantization floor of ~2 br/min,
+larger than the 1.57 br/min of within-night reference variation. It does not apply:
+`rate_peaks` estimates from inter-peak intervals, not integer counts. The raw respiratory
+estimator takes **2,900 distinct values with 0.042 br/min spacing** (cardiac 1,792 values,
+0.43 BPM). There is no quantization floor.
+
+**2. Longer windows — no improvement.** Averaging estimate and reference over N consecutive
+epochs and recomputing the within-night correlation:
+
+| band | 30 s | 1 min | 2 min | 5 min | 10 min | ref SD at 10 min |
+|---|---|---|---|---|---|---|
+| resp | −0.026 | −0.016 | −0.029 | −0.075 | −0.076 | 0.85 br/min |
+| card | −0.084 | −0.100 | −0.078 | −0.095 | −0.106 | 4.47 BPM |
+
+Never significant, never more than 6/12 nights positive, flat or slightly worse at every
+scale. If the 30 s epoch were noise-limiting, averaging would reduce independent estimator
+noise by √N and the correlation would rise. It does not.
+
+Reference variation survives the averaging — 1.57 → 0.85 br/min and 6.58 → 4.47 BPM — so
+there is still something to track at ten minutes, and none of it is captured.
+
+**Conclusion: the epoch length is not the limitation.** §5.3's existing sentence ("Longer
+windows ... without improving the within-session correlation") is correct and now has
+numbers behind it. Since averaging is linear noise reduction and it does not help, the
+failure is either that the estimator extracts the wrong feature or that the information is
+absent — which is precisely what a decoding test separates, and makes that test more
+interesting rather than less.
