@@ -52,9 +52,19 @@ Only same-night calibration beats the baseline, and that is a fitting residual.
    capacitive peaks per heartbeat (median 2.02 on CRE, 9 usable sessions), bracketing the
    fitted k = 1.96. Agreement of central values only — the across-subject correlation is
    r = 0.50 at n = 9, p = 0.17. Never write "directly confirms".
-2. **Within-night rate variation is not recovered.** Median r −0.03 / −0.08, 0/12 and 1/12
-   nights above a circular-shift null. Robust across every estimator, channel and fusion
-   strategy tested. This is the strongest result in the section.
+2. **Within-night rate variation is not recovered by any rate estimator.** Median r
+   −0.03 / −0.08, 0/12 and 1/12 nights above a circular-shift null, robust across every
+   estimator, channel and fusion strategy tested.
+
+   **Qualified 2026-08-17.** The information is nonetheless partly present.
+   `analysis/rates/rate_decoder.py` predicts the reference rate per epoch from 56
+   spectral-shape features of the capacitive channels (blocked CV within night, scored
+   against the same circular-shift null): median r **+0.245** respiratory with **10/12**
+   nights beating the null (p = 0.0002) and **+0.271** cardiac with 7/12 (p = 0.002). A
+   linear model reaches only +0.14, so part of the mapping is nonlinear. This is
+   within-night calibration — trained on other blocks of the same night, like same-night k
+   — so it shows the epoch carries rate information, not that a deployable decoder exists.
+   Write the negative as a property of the estimator family, not of the signal.
 
 ## Traps
 
