@@ -2346,3 +2346,50 @@ contact/coupling quality or arousal-level broadband change.
 
 Figures: `writeup/figures/coupling/cap_psg_matrix.png`, `cap_psg_specificity.png`.
 Not yet in the manuscript.
+
+## 2026-08-17 — CAP–PSG coherence, with EEG as the negative control
+
+`analysis/rates/cap_psg_coherence.py`. Magnitude-squared coherence, 5-minute windows with
+30 s Welch segments (~19 segments, df = 0.033 Hz, noise floor ≈ 1/19 = 0.053). Identical
+segmentation for every pair, so the estimator's upward bias is common and the EEG contrast
+is fair.
+
+**Peak in-band coherence** (the statistic §4.1 reports):
+
+| band | Flow | Thorax | Abdomen | Pleth | ECG | **EEG** |
+|---|---|---|---|---|---|---|
+| resp, CLE−CRE | 0.372 | **0.404** | 0.351 | 0.303 | 0.272 | 0.243 |
+| card, CH | 0.304 | 0.349 | 0.292 | 0.351 | **0.411** | 0.303 |
+
+Reproduces §4.1's magnitude (0.31 resp / 0.16 card) in spirit. Note EEG itself reaches
+0.22–0.30, so peak-in-band must never be quoted without the control.
+
+**Specificity, mean in-band coherence minus EEG, per session:**
+
+| band | target | CH | CLE | CRE | CLE−CRE |
+|---|---|---|---|---|---|
+| resp | Flow | +0.027 (p=0.34) | **+0.029, 11/12, p=0.001** | +0.013, 10/12, p=0.005 | +0.018, p=0.034 |
+| resp | Thorax | +0.015 (p=0.47) | **+0.028, 11/12, p=0.001** | +0.017, 11/12, p=0.012 | +0.029, p=0.052 |
+| card | ECG | +0.013, p=0.007 | +0.010, p=0.034 | +0.004, p=0.003 | +0.005, p=0.016 |
+
+**Two findings.**
+
+1. **The mask couples to thoracic effort as strongly as to airflow, often more** (resp
+   CLE−CRE: Thorax 0.404 vs Flow 0.372 peak; 0.148 vs 0.127 mean). It couples to the
+   *mechanical* respiratory channel, not the airflow channel — direct support for reading
+   the sensor as a mechanical transducer rather than a flow surrogate.
+
+2. **A dissociation between amplitude and rhythm.** Against the same EEG control:
+
+   | | amplitude specificity | coherence specificity |
+   |---|---|---|
+   | respiratory | +0.06 to +0.09 (weak) | **+0.03, 11/12 sessions, p = 0.001** |
+   | cardiac | **+0.18 to +0.20** | +0.004 to +0.013 (weak) |
+
+   Respiration shares an *oscillation* with the reference whose *amplitude* does not
+   transfer; the cardiac band shows the reverse — amplitude co-varies with ECG while phase
+   locking is weak. The cardiac pattern is what the biphasic, morphology-dominated
+   capacitive pulse of §4.2.1 and §5.3 predicts.
+
+All effects are small in absolute terms and sit 1–3× above the coherence noise floor. Not
+yet in the manuscript.
