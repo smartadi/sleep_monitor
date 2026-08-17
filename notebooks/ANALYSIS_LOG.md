@@ -2308,3 +2308,41 @@ from the cached per-epoch parquet without a full recompute.
 Respiratory total ridge power is the only feature with a genuine per-subject direction and
 no ties — which is exactly what §4.3 now claims. The stored artifact and the manuscript
 agree again.
+
+## 2026-08-17 — CAP vs PSG amplitude coupling: mostly a shared driver, cardiac is specific
+
+`analysis/rates/cap_psg_coupling.py` correlates band-limited log RMS of each capacitive
+channel against each PSG channel on the 30 s grid, at epoch and whole-night scale.
+`analysis/rates/cap_psg_specificity.py` then asks whether any of it is band-specific, using
+**EEG as the negative control** — EEG shares whatever artifact drives all sensors but
+carries no respiratory or cardiac mechanics.
+
+**Raw coupling is uniform across sensors**, median within-night r ≈ 0.3–0.4 to Flow, ECG
+*and EEG* alike. Uniformity across physiologically unrelated channels is the signature of a
+shared amplitude driver, not of coupling.
+
+**Specificity (target minus EEG), median within-night r:**
+
+| band | target | raw | motion-free | cross-band partial |
+|---|---|---|---|---|
+| resp | Flow | +0.03 to +0.05 | +0.06 to +0.09 | ~0 |
+| card | ECG | +0.19 to +0.23 | **+0.18 to +0.20** | −0.02 to −0.11 |
+
+- **Respiratory amplitude carries almost no Flow-specific information.** CAP–Flow barely
+  exceeds CAP–EEG. Consistent with the paper's inability to track respiratory variation.
+- **Cardiac amplitude is genuinely specific**: CAP–ECG exceeds CAP–EEG by ~0.2 and survives
+  motion removal. So the cardiac band does carry ECG-specific amplitude information, which
+  makes the failure to track *cardiac rate* variation look like an estimator/resolution
+  problem rather than an absence of signal.
+- **Pleth is specifically negative in the cardiac band** (−0.12 to −0.21, robust to motion
+  removal) — the only inverse relationship, and a shared artifact driver would push it
+  positive. Peripheral pulse amplitude up, cranial capacitive pulsation down.
+- Caveat: partialling out the other band on the same capacitive channel removes the cardiac
+  specificity. That control is aggressive — respiratory and cardiac CAP amplitudes are
+  genuinely coupled through RSA — so treat it as a lower bound, not a refutation.
+
+Motion removal changes little, so the shared driver is not gross movement; more likely
+contact/coupling quality or arousal-level broadband change.
+
+Figures: `writeup/figures/coupling/cap_psg_matrix.png`, `cap_psg_specificity.png`.
+Not yet in the manuscript.
