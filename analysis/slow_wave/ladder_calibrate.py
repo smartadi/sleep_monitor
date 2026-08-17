@@ -3,10 +3,11 @@ Interactive CALIBRATION GUI for the harmonic-ladder band detector.
 
 Drag the sliders and watch, live on the spectrogram, which horizontal bands the
 detector keeps — so you can see exactly what each parameter does and pick good
-values.  Episode time-extents are fixed (computed once); the sliders tune the
-band tracker (the sensitivity knobs).
+values.  Switch between ALL 12 sessions and 3 channels from the panels on the
+left (loaded lazily and cached).  Episode time-extents are fixed (computed once
+per session/channel); the sliders tune the band tracker (the sensitivity knobs).
 
-Pipeline the sliders expose (per channel):
+Pipeline the sliders expose:
   1. spectrogram, each column minus its smooth frequency background  -> "enhanced"
   2. TSMOOTH   : time-smooth so steady rungs survive, transient noise averages down
   3. BAND_DB   : keep peaks at least this many dB above the local floor
@@ -14,7 +15,7 @@ Pipeline the sliders expose (per channel):
   5. link surviving peaks across time within BAND_JUMP Hz  -> flat bands
   6. MIN_BAND_SEC + BAND_COVER : keep only bands that PERSIST and are CONSISTENT
 
-Run:  python ladder_calibrate.py --session S6N1 --channel CH
+Run:  python ladder_calibrate.py            # opens the GUI (all sessions)
       python ladder_calibrate.py --test     # headless plumbing check -> PNG
 """
 
@@ -25,6 +26,7 @@ from pathlib import Path
 import numpy as np
 import matplotlib
 
+LABELS = [f'S{s}N{n}' for s in range(1, 7) for n in (1, 2)]   # S1N1 .. S6N2
 SCRATCH = Path(r"C:/Users/adity/AppData/Local/Temp/claude/"
                r"C--Users-adity-Documents-sleep-monitor-code/"
                r"331097c7-ff4f-45af-9a10-5cec26a81f37/scratchpad")
@@ -37,39 +39,47 @@ def main():
     ap.add_argument('--test', action='store_true', help='headless build -> PNG')
     args = ap.parse_args()
 
-    matplotlib.use('Agg' if args.test else 'TkAgg')
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    from sleep_monitor import load_session, load_sleep_profile
+    import harmonic_ladder_overlay as H          # its module load forces Agg
+    # override the Agg backend that importing H forced, so the GUI is interactive
+    matplotlib.use('Agg' if args.test else 'TkAgg', force=True)
     import matplotlib.pyplot as plt
     from matplotlib.widgets import Slider, RadioButtons
 
-    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-    from sleep_monitor import load_session, load_sleep_profile
-    import harmonic_ladder_overlay as H
+    sess_cache = {}
+    data_cache = {}
 
-    session = None
-    for i in range(12):
-        s = load_session(i)
-        if s.label == args.session:
-            s.sleep_profile = load_sleep_profile(s)
-            session = s
-            break
-    if session is None:
-        print(f'session {args.session} not found')
-        return
+    def get_session(label):
+        if label in sess_cache:
+            return sess_cache[label]
+        for i in range(12):                      # load sequentially, cache as we go
+            s = load_session(i)
+            if s.label not in sess_cache:
+                s.sleep_profile = load_sleep_profile(s)
+                sess_cache[s.label] = s
+            if s.label == label:
+                return sess_cache[label]
+        return sess_cache.get(label)
 
-    state = {'ch': args.channel if args.channel in H.CHANNELS else 'CH'}
+    def get_data(label, ch):
+        key = (label, ch)
+        if key not in data_cache:
+            f, t_hr, enh, active, episodes = H.detect_channel(get_session(label), ch)
+            data_cache[key] = (f, t_hr, enh, [(e['lo'], e['hi']) for e in episodes])
+        return data_cache[key]
 
-    def compute(ch):
-        f, t_hr, enh, active, episodes = H.detect_channel(session, ch)
-        state.update(f=f, t_hr=t_hr, enh=enh,
-                     extents=[(e['lo'], e['hi']) for e in episodes])
-    compute(state['ch'])
+    state = {'label': args.session if args.session in LABELS else 'S6N1',
+             'ch': args.channel if args.channel in H.CHANNELS else 'CH'}
+    state['f'], state['t_hr'], state['enh'], state['extents'] = get_data(state['label'], state['ch'])
 
     fig = plt.figure(figsize=(15, 9))
     ax = fig.add_axes([0.30, 0.32, 0.66, 0.60])
     lines = []
 
     def draw_spec():
-        ax.clear()
+        ax.clear()               # detaches any existing band lines...
+        lines.clear()            # ...so drop our stale references to them
         ax.pcolormesh(state['t_hr'], state['f'], state['enh'], cmap='magma',
                       vmin=0, vmax=np.percentile(state['enh'], 99.5), shading='gouraud')
         ax.set_ylim(0, H.FMAX)
@@ -82,9 +92,12 @@ def main():
         H.MIN_BAND_SEC = s_min.val
         H.BAND_COVER = s_cov.val
         H.TSMOOTH = int(round(s_ts.val))
-        for ln in lines:
-            ln.remove()
-        lines.clear()
+        while lines:
+            ln = lines.pop()
+            try:
+                ln.remove()
+            except (NotImplementedError, ValueError):
+                pass
         f, t_hr, enh = state['f'], state['t_hr'], state['enh']
         n = 0
         for lo, hi in state['extents']:
@@ -92,12 +105,18 @@ def main():
                 ln, = ax.plot([t_hr[s0], t_hr[s1]], [fr, fr], color='#00E5FF', lw=2.2)
                 lines.append(ln)
                 n += 1
-        ax.set_title(f"{session.label}  {state['ch']}  —  "
+        ax.set_title(f"{state['label']}  {state['ch']}  —  "
                      f"{len(state['extents'])} episode(s), {n} bands  "
                      f"(dB{H.BAND_DB:.1f} prom{H.BAND_PROM:.1f} "
                      f"min{H.MIN_BAND_SEC:.0f}s cov{H.BAND_COVER:.2f} ts{H.TSMOOTH})",
                      fontsize=11)
         fig.canvas.draw_idle()
+
+    def reselect():
+        state['f'], state['t_hr'], state['enh'], state['extents'] = \
+            get_data(state['label'], state['ch'])
+        draw_spec()
+        redraw()
 
     def sax(y):
         return fig.add_axes([0.34, y, 0.55, 0.025])
@@ -109,27 +128,36 @@ def main():
     for sl in (s_db, s_prom, s_min, s_cov, s_ts):
         sl.on_changed(redraw)
 
-    rax = fig.add_axes([0.04, 0.62, 0.16, 0.16])
-    rax.set_title('channel', fontsize=9)
-    radio = RadioButtons(rax, tuple(H.CHANNELS),
-                         active=H.CHANNELS.index(state['ch']))
+    # session selector (all 12) + channel selector
+    sess_ax = fig.add_axes([0.015, 0.30, 0.085, 0.62])
+    sess_ax.set_title('session', fontsize=9)
+    sess_radio = RadioButtons(sess_ax, tuple(LABELS), active=LABELS.index(state['label']))
+    for lbl in sess_radio.labels:
+        lbl.set_fontsize(8)
 
-    def setch(label):
+    def set_session(label):
+        state['label'] = label
+        reselect()
+    sess_radio.on_clicked(set_session)
+
+    ch_ax = fig.add_axes([0.11, 0.72, 0.07, 0.16])
+    ch_ax.set_title('channel', fontsize=9)
+    ch_radio = RadioButtons(ch_ax, tuple(H.CHANNELS), active=H.CHANNELS.index(state['ch']))
+
+    def set_channel(label):
         state['ch'] = label
-        compute(label)
-        draw_spec()
-        redraw()
-    radio.on_clicked(setch)
+        reselect()
+    ch_radio.on_clicked(set_channel)
 
-    fig.text(0.04, 0.45,
+    fig.text(0.105, 0.55,
              "algorithm\n"
-             "----------\n"
+             "---------\n"
              "1 enhance: column minus\n  smooth freq background\n"
              "2 TSMOOTH: time-smooth\n  (steady rungs survive)\n"
-             "3 BAND_DB / PROM:\n  keep bright, peaky bands\n"
+             "3 BAND_DB / PROM:\n  keep bright peaky bands\n"
              "4 link peaks over time\n  (flat rungs)\n"
              "5 MIN_BAND_SEC + COVER:\n  keep persistent,\n  consistent bands",
-             fontsize=8, va='top', family='monospace')
+             fontsize=7.5, va='top', family='monospace')
 
     draw_spec()
     redraw()

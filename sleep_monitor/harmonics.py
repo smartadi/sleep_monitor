@@ -346,6 +346,9 @@ def detect_persistent_ridges(
     max_gap_windows: int = 2,
     acc_mag: Optional[np.ndarray] = None,
     motion_thresh_mad: float = 3.0,
+    fill_gaps: bool = False,
+    merge_gap_windows: Optional[int] = None,
+    dominant_only: bool = False,
 ) -> dict:
     """
     Detect spectral ridges that persist over time, then group into harmonic sets.
@@ -353,6 +356,18 @@ def detect_persistent_ridges(
     Unlike per-window detection, this enforces temporal continuity: a ridge is a
     spectral peak that stays within max_freq_jump Hz between consecutive windows
     and persists for at least min_persistence_sec.
+
+    Continuity controls
+    -------------------
+    merge_gap_windows : maximum gap (in windows) bridged when stitching ridge
+        fragments back together.  Defaults to ``max_gap_windows * 3``.  The merge
+        pass now iterates to convergence and matches fragments on their
+        boundary-median frequency (robust to a single jittery endpoint), so a
+        long ridge broken into several pieces re-forms as one.
+    fill_gaps : if True, linearly interpolate each ridge's frequency and
+        amplitude across its internal holes (between start_idx and end_idx) so a
+        persistent ridge is a single continuous trace rather than dashes.  The
+        jitter/flatness metrics are still measured on the raw pre-fill trace.
 
     Returns dict with keys: t_hr, freqs, psds, psds_smooth, motion_mask,
     ridges (list of dicts with freq_trace, amp_trace, start_idx, end_idx,
@@ -421,6 +436,9 @@ def detect_persistent_ridges(
         prom_thresh = peak_prominence_frac * local_med
         peak_idxs, props = find_peaks(psd_s, prominence=prom_thresh)
         peak_list = [(freqs[pi], psd_s[pi]) for pi in peak_idxs]
+        if dominant_only and peak_list:
+            # keep only the single strongest in-band peak (one ridge per window)
+            peak_list = [max(peak_list, key=lambda p: p[1])]
         peaks_per_window.append(peak_list)
 
     # ── Step 4: Track ridges with continuity constraint ──
@@ -502,9 +520,14 @@ def detect_persistent_ridges(
 
     ridges.sort(key=lambda r: r['median_freq'])
 
-    # ── Step 5b: Merge fragmented ridges ──
-    ridges = _merge_ridge_fragments(ridges, n_win, step_sec,
-                                    max_freq_jump, max_gap_windows * 3)
+    # ── Step 5b: Merge fragmented ridges (iterate to convergence) ──
+    merge_gap = merge_gap_windows if merge_gap_windows is not None else max_gap_windows * 3
+    for _ in range(10):
+        n_before = len(ridges)
+        ridges = _merge_ridge_fragments(ridges, n_win, step_sec,
+                                        max_freq_jump, merge_gap)
+        if len(ridges) == n_before:
+            break
 
     # ── Step 5c: Smooth ridge frequency traces ──
     # Keep the pre-smoothing peak trace so flatness/jitter can be measured on it;
@@ -520,6 +543,25 @@ def detect_persistent_ridges(
         ridge['freq_trace'][valid] = freq_smooth
         ridge['median_freq'] = float(np.nanmedian(ridge['freq_trace']))
         ridge['label'] = f'{ridge["median_freq"]:.2f}Hz'
+
+    # ── Step 5c2: Fill internal gaps so a persistent ridge is continuous ──
+    # Bridged gaps (missed windows within the ridge lifetime) leave NaN holes in
+    # the freq/amp traces, which read as a broken "bits and pieces" ridge.  Linear
+    # interpolation across each ridge's [start, end] span closes them.  Raw jitter
+    # is preserved separately (freq_trace_raw) for the flatness metrics below.
+    if fill_gaps:
+        for ridge in ridges:
+            si, ei = ridge['start_idx'], ridge['end_idx']
+            if ei <= si:
+                continue
+            sub_f = ridge['freq_trace'][si:ei + 1]
+            sub_a = ridge['amp_trace'][si:ei + 1]
+            valid = np.isfinite(sub_f)
+            if valid.sum() >= 2 and not valid.all():
+                xi = np.where(valid)[0]
+                xq = np.where(~valid)[0]
+                sub_f[xq] = np.interp(xq, xi, sub_f[valid])
+                sub_a[xq] = np.interp(xq, xi, sub_a[valid])
 
     # ── Step 5d: Compute and smooth ridge prominence traces ──
     df_freq = freqs[1] - freqs[0] if len(freqs) > 1 else 0.1
@@ -618,6 +660,14 @@ def _merge_ridge_fragments(
     if len(ridges) < 2:
         return ridges
 
+    def _boundary_freq(trace, at_start: bool, k: int = 3) -> float:
+        """Median of the first/last up-to-k valid frequencies (robust to a
+        single jittery endpoint)."""
+        vals = trace[np.isfinite(trace)]
+        if len(vals) == 0:
+            return np.nan
+        return float(np.median(vals[:k] if at_start else vals[-k:]))
+
     ridges = sorted(ridges, key=lambda r: (r['start_idx'], r['median_freq']))
     merged = [ridges[0]]
 
@@ -627,8 +677,8 @@ def _merge_ridge_fragments(
             gap = cand['start_idx'] - base['end_idx']
             if gap < 1 or gap > merge_gap_windows:
                 continue
-            freq_base = base['freq_trace'][base['end_idx']]
-            freq_cand = cand['freq_trace'][cand['start_idx']]
+            freq_base = _boundary_freq(base['freq_trace'], at_start=False)
+            freq_cand = _boundary_freq(cand['freq_trace'], at_start=True)
             if np.isnan(freq_base) or np.isnan(freq_cand):
                 continue
             if abs(freq_base - freq_cand) > max_freq_jump * 2:
