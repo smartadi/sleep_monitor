@@ -2513,3 +2513,40 @@ to the arousal that accompanies it.**
 The mechanical reading of §4.4/§4.5 is unaffected — whatever the trigger, the response is
 low-frequency and non-electrical. What is affected is the attribution of the trigger.
 Manuscript NOT edited pending a decision.
+
+## 2026-08-17 — A decoder recovers within-night rate variation that no estimator did
+
+`analysis/rates/rate_decoder.py`. Per-epoch spectral-shape features from the capacitive
+channels only (14 per channel × 4 channels = 56: spectral centroid, peak frequency, spread,
+entropy, flatness, peak-to-mean, in-band quartiles, ACF peak and lag, log band power,
+envelope mean and CV). Target is the reference rate for that epoch. **Blocked** CV within
+night — five contiguous held-out blocks, so no epoch is predicted from its neighbours —
+scored against a circular-shift null applied to the prediction.
+
+| band | model | median r | nights beating null | median MAE | reference SD | Wilcoxon p |
+|---|---|---|---|---|---|---|
+| resp | GBM | **+0.245** | **10/12** | 1.22 | 1.56 | 0.0002 |
+| resp | ridge | +0.143 | 7/12 | 1.26 | 1.56 | 0.003 |
+| card | GBM | **+0.271** | 7/12 | 4.53 | 6.58 | 0.002 |
+| card | ridge | +0.169 | 7/12 | 4.70 | 6.58 | 0.012 |
+
+Against the operational estimator's median r of **−0.03** (resp) and **−0.08** (card), with
+0/12 and 1/12 nights above the same null.
+
+**The information is present.** Every hand-designed estimator — seven of them, four
+channels, fusion, CWT ridge, STFT–Viterbi — collapses the epoch to a scalar rate and finds
+nothing. A learned combination of spectral-shape features recovers a modest but consistent
+signal. The linear model works too but less well (0.14 vs 0.25), so part of the mapping is
+nonlinear, which is what the amplitude/rhythm dissociation in the coupling analysis
+predicted.
+
+**What this does not show.** The model is trained on other blocks *of the same night*, so
+this is within-night calibration, exactly like same-night k. It demonstrates that the epoch
+carries rate information; it does not demonstrate a deployable decoder. Cross-night and
+cross-subject transfer are untested and, given the k results, unlikely to be free. r ≈ 0.25
+explains about 6% of the variance — real, and small.
+
+**Consequence for the manuscript.** §5.2's "the mask does not follow within-night variation"
+must become "no rate estimator follows it, and the information is partly present." §5.3's
+mechanistic account explains why *peak counting* fails, which remains correct and is now
+the explanation for a narrower claim.
