@@ -2242,3 +2242,42 @@ count, r = 0.50 p = 0.17, exact permutation p = 0.058 with the aggregation sensi
 age result restated as an observation about breathing rate; §5.1, §5.3 (4-second Welch segments),
 §5.4 (screening/trending claim withdrawn), §5.5, Limitation 2 (home, not laboratory),
 Limitation 3 (calibration is the blocking gap), §7.
+
+## 2026-08-17 — Ridge per-subject direction counts are a tie-handling artifact
+
+`analysis/slow_wave/band_ridge_analysis.py:188` assigns each subject's N3-vs-rest
+direction with `'N3>' if a.median() > b.median() else 'N3<'`. The ridge features are
+small integer counts, so per-subject medians are usually **exactly equal**, and every tie
+falls into the else branch and is counted as N3-lower.
+
+Every "6/6" direction count in the manuscript is all ties:
+
+| band | feature | reported | ties | genuine lower | by mean |
+|---|---|---|---|---|---|
+| resp | ridge_present | 6/6 | 6 | 0 | 1/6 |
+| resp | n_ridges | 6/6 | 5 | 1 | 3/6 |
+| resp | n_groups_active | 6/6 | 6 | 0 | 4/6 |
+| resp | total_ridge_power | 4/6 | 0 | **4** | 5/6 |
+| resp | freq_spread | 4/6 | 1 | 3 | 4/6 |
+| card | ridge_present | 6/6 | 6 | 0 | 3/6 |
+| card | n_ridges | 6/6 | 6 | 0 | 3/6 |
+| card | n_groups_active | 6/6 | 6 | 0 | 1/6 |
+| card | min_ridge_freq | 3/6 | 1 | 2 | 2/6 |
+
+For respiratory `n_ridges`, by means the direction is 3 lower / 3 higher — no consistent
+direction at all, against a reported 6/6.
+
+**What survives:** respiratory **total ridge power** lower in N3 (4/6 by median, no ties;
+5/6 by mean) and `freq_spread` (3–4/6). Both weak.
+
+Also: §4.3's text says respiratory power is lower "in five of six" (summary CSV: 4/6) and
+cardiac lowest ridge frequency lower "in five of six" (summary CSV: 3/6) — text and stored
+artifact disagree in both directions.
+
+Audit: `reports/rates/reviewer_pass/ridge_direction_audit.csv`, from
+`analysis/rates/reviewer_pass_analyses.py`. §4.3 and §5.1 need rewriting; the manuscript
+was NOT edited pending a decision on how.
+
+Also computed this session: apnea epochs make no difference to rate accuracy (cardiac
+3.41 → 3.39, p = 0.90; respiratory 1.79 → 1.84, p = 0.024), and the imbalance burden
+tracks band SNR (rho = +0.86 respiratory, +0.66 cardiac) rather than motion (rho = +0.12).

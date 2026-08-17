@@ -88,6 +88,76 @@ rate is not well defined.
 sensitivity analysis excluding them (a few lines on the existing parquet). If
 the numbers move, report both.
 
+**Result, computed 2026-08-17** (`reports/rates/reviewer_pass/apnea_sensitivity.csv`):
+excluding apnea epochs changes almost nothing. Cardiac per-epoch error 3.41 →
+3.39 (Wilcoxon p = 0.90), respiratory 1.79 → 1.84 (p = 0.024, marginally
+*worse* without them). Median apnea fraction 12.5%, maximum 34.5% (S2N2). The
+concern is answerable and the answer is reassuring — it just has to be in the
+paper.
+
+## B4. The per-subject ridge direction counts are an artifact of tie handling
+
+**Found while testing M6. This is the most serious item in the review.**
+
+§4.3 designates the per-subject direction count as the evidence for the ridge
+stage associations — "the per-subject direction counts given here are the
+evidence" — and reports that N3 has fewer active respiratory ridges "in all six
+subjects". §5.1 repeats it as "N3-lower in all six subjects".
+
+`analysis/slow_wave/band_ridge_analysis.py:188` decides each subject's direction
+with
+
+```python
+dirs.append('N3>' if a.median() > b.median() else 'N3<')
+```
+
+The features are small integer counts, so per-subject N3 and non-N3 medians are
+usually **identical**, and every tie falls into the `else` branch and is counted
+as N3-lower. For respiratory `n_ridges`, five of the six subjects are exact ties:
+
+| subject | N3 median | other median | counted | means |
+|---|---|---|---|---|
+| OS001 | 2.00 | 2.00 | N3< (tie) | 1.893 vs 1.805 → N3 **higher** |
+| OS002 | 1.00 | 1.00 | N3< (tie) | 1.415 vs 1.396 → N3 **higher** |
+| OS003 | 2.00 | 2.00 | N3< (tie) | 1.958 vs 1.952 → N3 **higher** |
+| OS004 | 1.00 | 2.00 | N3< genuine | 1.644 vs 1.972 → N3 lower |
+| OS005 | 2.00 | 2.00 | N3< (tie) | 1.728 vs 1.987 → N3 lower |
+| OS006 | 2.00 | 2.00 | N3< (tie) | 1.641 vs 1.691 → N3 lower |
+
+Audited across every feature
+(`reports/rates/reviewer_pass/ridge_direction_audit.csv`):
+
+| band | feature | paper | ties | genuine lower | by mean |
+|---|---|---|---|---|---|
+| resp | ridge_present | 6/6 | 6 | 0 | 1/6 |
+| resp | n_ridges | 6/6 | 5 | 1 | 3/6 |
+| resp | n_groups_active | 6/6 | 6 | 0 | 4/6 |
+| resp | **total_ridge_power** | 4/6 | 0 | **4** | 5/6 |
+| resp | freq_spread | 4/6 | 1 | 3 | 4/6 |
+| card | ridge_present | 6/6 | 6 | 0 | 3/6 |
+| card | n_ridges | 6/6 | 6 | 0 | 3/6 |
+| card | n_groups_active | 6/6 | 6 | 0 | 1/6 |
+| card | min_ridge_freq | 3/6 | 1 | 2 | 2/6 |
+
+**Every 6/6 in the paper is all-ties.** None of them is a measured direction.
+
+Two further mismatches fall out of the same table. §4.3 says respiratory ridge
+power is lower in N3 "in five of six" subjects; the stored summary says 4/6 (5/6
+only if means are used). §4.3 says the lowest cardiac ridge frequency is lower in
+N3 "in five of six subjects"; the stored summary says 3/6. So the text and the
+artifact it derives from disagree, in both directions.
+
+**What survives:** respiratory **total ridge power** is genuinely lower in N3 —
+4/6 by median with no ties, 5/6 by mean — and `freq_spread` is 3–4/6. That is a
+weak, partially consistent effect, not the "all six subjects" the paper claims.
+
+**Action (needs your call, see the question in chat):** fix the tie handling,
+recompute the counts reporting ties as ties, and rewrite §4.3 and §5.1 around the
+one association that holds. The alternative is to drop the per-subject direction
+framing and report the effect as a pooled contrast with its confounds stated —
+but §3.7 has already argued, correctly, that pooled epoch statistics are not the
+evidence, so that route weakens the section further.
+
 ---
 
 ## M1. The two within-night statements in §4.2 do not sit together
