@@ -40,3 +40,19 @@
 - 3.3: gate rule corrected -- threshold is +0.10 against the median of the other three sensors, not 'net-negative'
 - 3.3: validation paragraph simplified; r +0.47->+0.48, +0.27->+0.28, consensus SD 1.61->1.65, median |consensus-Flow| 0.06->0.08; Flow-alone coverage 97% added
 - supplementary S2 / Table S2: per-session gate statistic for all four signals
+
+## Formatting normalisation (2026-08-17)
+
+- root cause fixed in apply_review_edits.Doc: para() cloned the title's bold run and set no spacing, so every paragraph and table cell any edit script created was bold and single-spaced
+- body paragraphs: justified, double spaced, no first-line indent, no stray bold
+- figure captions centred italic; table captions left bold
+- table cells: header row bold, body rows plain, body spacing throughout
+- run-in heads (Cardiac ground truth., etc.) bold on the lead phrase only
+
+## Formatting normalisation (2026-08-17)
+
+- root cause fixed in apply_review_edits.Doc: para() cloned the title's bold run and set no spacing, so every paragraph and table cell any edit script created was bold and single-spaced
+- body paragraphs: justified, double spaced, no first-line indent, no stray bold
+- figure captions centred italic; table captions left bold
+- table cells: header row bold, body rows plain, body spacing throughout
+- run-in heads (Cardiac ground truth., etc.) bold on the lead phrase only

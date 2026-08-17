@@ -149,18 +149,47 @@ class Doc:
 
     # ------------------------------------------------------------ construction
     def _template_run(self):
+        """A plain body run to clone.
+
+        Must skip the title and any other bold/italic run: this run's formatting
+        is inherited by every paragraph and table cell the edit scripts create,
+        and cloning the title's bold run is how 40 body paragraphs and three
+        whole tables ended up bold.
+        """
+        fallback = None
         for p in self.body.iter(W + "p"):
-            if p.find(W + "pPr/" + W + "pStyle") is None:
-                r = p.find(W + "r")
-                if r is not None and r.find(W + "t") is not None:
+            if p.find(W + "pPr/" + W + "pStyle") is not None:
+                continue
+            for r in p.findall(W + "r"):
+                if r.find(W + "t") is None:
+                    continue
+                rpr = r.find(W + "rPr")
+                decorated = rpr is not None and (
+                    rpr.find(W + "b") is not None or rpr.find(W + "i") is not None
+                    or rpr.find(W + "vertAlign") is not None)
+                if not decorated:
                     return r
-        raise RuntimeError("no template run")
+                fallback = fallback or r
+        if fallback is None:
+            raise RuntimeError("no template run")
+        return fallback
+
+    def _body_spacing(self, ppr):
+        """Match the manuscript's body spacing: double, no space after."""
+        sp = ppr.find(W + "spacing")
+        if sp is None:
+            sp = etree.SubElement(ppr, W + "spacing")
+        sp.set(W + "after", "0")
+        sp.set(W + "line", "480")
+        sp.set(W + "lineRule", "auto")
 
     def para(self, text, style=""):
         p = etree.SubElement(etree.Element("tmp"), W + "p")
+        ppr = etree.SubElement(p, W + "pPr")
         if style:
-            ppr = etree.SubElement(p, W + "pPr")
             etree.SubElement(ppr, W + "pStyle").set(W + "val", style)
+        else:
+            self._body_spacing(ppr)
         run = copy.deepcopy(self._template_run())
         for child in list(run):
             if etree.QName(child).localname == "t":
