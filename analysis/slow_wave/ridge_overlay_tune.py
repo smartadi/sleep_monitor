@@ -33,7 +33,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from scipy.signal import spectrogram, find_peaks
-from scipy.ndimage import median_filter
+from scipy.ndimage import median_filter, gaussian_filter
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from sleep_monitor import load_session, load_sleep_profile
@@ -157,6 +157,31 @@ def _enhance_spec(sig, fs, nperseg_sec, noverlap_sec, fmax, bg_hz=0.4):
     return f, t, db - bg
 
 
+def _slow_power(sig, fs, fmax=0.30, nperseg_sec=300.0, step_sec=30.0,
+                smooth=(1.5, 2.0)):
+    """Slow-band power spectrum, smoothed, with only the 1/f trend removed.
+
+    Long windows (5 minutes, 90% overlap) suit a band whose slowest component
+    has a 20-second period, and give ~0.0033 Hz resolution. Rather than the
+    narrow-kernel background subtraction used for the rate bands -- which in a
+    0.3 Hz-wide band removes the structure along with the trend -- each time
+    column has only its linear dB trend against log frequency taken out, so the
+    broad shape of the spectrum survives. A light Gaussian blur then suppresses
+    the estimator speckle that makes the raw panel hard to read.
+    """
+    f, t, Sxx = spectrogram(sig, fs=fs, nperseg=int(nperseg_sec * fs),
+                            noverlap=int((nperseg_sec - step_sec) * fs))
+    m = (f > 0) & (f <= fmax)
+    f, Sxx = f[m], Sxx[m]
+    db = 10 * np.log10(Sxx + 1e-20)
+    # remove the 1/f trend per column, fitted in log-frequency
+    lf = np.log10(f)
+    A = np.vstack([np.ones_like(lf), lf]).T
+    coef, *_ = np.linalg.lstsq(A, db, rcond=None)
+    db = db - A @ coef
+    return f, t, gaussian_filter(db, sigma=smooth)
+
+
 def track_single_ridge(sig, fs, band, win_sec, penalty=6.0, smooth_win=7):
     """One smooth frequency trace for a single-rhythm band (respiration or heart
     rate) via a VITERBI ridge tracker.
@@ -219,9 +244,8 @@ def overlay(session, ch):
     # stepped sleep-stage ladder
     ax0 = fig.add_subplot(gs[0])
     draw_stage_ladder(ax0, sp)
-    n_slow = len(slow_rr['ridges'])
     ax0.set_title(f'{session.label} ({ch}) — resp/cardiac Viterbi traces '
-                  f'(conf {resp_p:.0%}/{card_p:.0%}), {n_slow} slow ridges', fontsize=12)
+                  f'(conf {resp_p:.0%}/{card_p:.0%})', fontsize=12)
 
     # 0-3 Hz enhanced spectrogram + single resp/cardiac traces
     ax1 = fig.add_subplot(gs[1], sharex=ax0)
@@ -234,15 +258,20 @@ def overlay(session, ch):
     ax1.set_ylim(0, 3.0); ax1.set_ylabel('Frequency (Hz)', fontsize=9)
     ax1.legend(loc='upper right', fontsize=8)
 
-    # slow band 0-0.3 Hz enhanced spectrogram + slow ridges
+    # Slow band 0-0.3 Hz as a plain power spectrum.
+    #
+    # This panel used to show the background-removed spectrogram with the
+    # detected slow ridges drawn over it. Both made it hard to read: a 0.10 Hz
+    # median kernel inside a 0.30 Hz band whitens almost everything, so what
+    # was left was mostly speckle, and the ridge traces then invited the eye to
+    # follow lines through it. The ridge detector is unchanged and still
+    # supplies the stage statistics of section 4.3 -- it is only its overlay
+    # that is gone from this figure.
     ax2 = fig.add_subplot(gs[2], sharex=ax0)
-    fS, tS, dbS = _enhance_spec(sig, fs, 240, 210, 0.30, bg_hz=0.10)
-    vmaxS = np.percentile(dbS, 99.5)
+    fS, tS, dbS = _slow_power(sig, fs, fmax=0.30)
+    lo, hi = np.percentile(dbS, [5, 99])
     ax2.pcolormesh(tS / 3600, fS, dbS, shading='gouraud', cmap='viridis',
-                   vmin=0, vmax=vmaxS, rasterized=True)
-    for r in slow_rr['ridges']:
-        ax2.plot(slow_rr['t_hr'], r['freq_trace'], color=BAND_COLOR['slow'],
-                 lw=2.0, alpha=0.95)
+                   vmin=lo, vmax=hi, rasterized=True)
     ax2.set_ylim(0.0, 0.30); ax2.set_ylabel('Slow (Hz)', fontsize=9)
     ax2.set_xlabel('Time (hr)', fontsize=10)
 
@@ -250,7 +279,7 @@ def overlay(session, ch):
     fig.savefig(out, dpi=150, bbox_inches='tight', facecolor='white')
     plt.close(fig)
     print(f'  {session.label} {ch}: resp {resp_p:.0%} present / cardiac {card_p:.0%} present '
-          f'/ {n_slow} slow ridges')
+          f'/ {len(slow_rr["ridges"])} slow ridges detected (overlay not drawn)')
     return out
 
 

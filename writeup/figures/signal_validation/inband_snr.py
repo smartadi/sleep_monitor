@@ -120,14 +120,9 @@ ax.grid(True, axis='y', alpha=0.25, zorder=0)
 ax.legend(loc='upper right', fontsize=9.5, frameon=True, framealpha=0.95, ncol=3)
 ax.margins(y=0.14)
 
-# definition text
-ax.text(0.012, 0.035,
-        r'signal = mean PSD/Hz at $0.1$–$3$ Hz (resp+cardiac)' '\n'
-        r'noise  = mean PSD/Hz at $f\geq10$ Hz (white floor, baseline-verified)' '\n'
-        r'SNR $= 10\log_{10}(\overline{P}_\mathrm{sig}/\overline{P}_\mathrm{noise})$  |  equal-bandwidth, gain-invariant  |  CLE−CRE omitted (cancels)',
-        transform=ax.transAxes, ha='left', va='bottom', fontsize=8.3,
-        family='monospace',
-        bbox=dict(boxstyle='round,pad=0.4', fc='#F5F7FA', ec='#B0BEC5', lw=0.8))
+# The SNR definition lives in the figure caption, not on the axes: repeating it
+# inside the panel crowds the plot and duplicates the text a reader has already
+# been given.
 
 fig.tight_layout()
 fig.savefig(OUT_DIR / 'fig2_inband_snr.png', dpi=200, bbox_inches='tight', facecolor='white')
