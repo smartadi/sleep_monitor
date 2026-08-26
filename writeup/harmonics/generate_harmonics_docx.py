@@ -94,7 +94,7 @@ def build():
         'temporal signals at 100 Hz. A differential channel (CH = CLE − CRE) '
         'was derived via ordinary least squares regression. '
         'Three-axis accelerometry provided motion artifact gating. '
-        'AASM-scored sleep staging (Wake, N1, N2, N3, REM) from '
+        'AASM-scored sleep staging (Wake, REM, N1, N2, N3) from '
         'concurrent PSG served as ground truth, aligned to the capacitive '
         'recording via wall-clock timestamps.'
     )

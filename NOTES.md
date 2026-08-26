@@ -16,7 +16,7 @@ Primarily we want to show::
 - In rate detections, we want to see if k is a biomarker, so we go find peaks, plot peaks per minute
 
 
-## Next Steps
+## Next Steps(for meetings and brainstroming)
 
 - Validation of cardiac and resp rates with our data
   - accuracy metric for rate detection methods
@@ -52,4 +52,78 @@ Primarily we want to show::
     - k factor analysis on cardiac data, also resp, vs sleep events relationship
     
 
+- slow wave with thorax amplitude comparision
+
+
+- CArd and resp freq matching
+- PPG in SWS will have higher amps, 
+  - in freq domain of PPG we have multiple peaks, 
+  - in Cap 
+
+when thorax amp goes down, breathing goes down, this happends during SWS?
+
+
+slow movement of 
+side question, what is SWS defintion
+
+SWS definition: slope band of cap data (mean cap)
+PSG SWS definition: 
+
+
+shaun SWS
+- MEan cap value
+- initiation by 
+
+
+
+### Slow wave sleep
+**Ranked criterion**
+- Mean Capacitance slowly changes**
+- initiation can be detected from head movements**
+- Thorax amplitude slow change
+- Heart rates increases
+- Respiratory rate increases
+- Deviation of respiratory rates as computed by cap vs thorax
+- Heart Rate Band, major freq in PPG goes up while in CAP it goes down.
+- **delta band of EEG(high-> wsw (conventionally))**
+
+ 
+- persistent ridges **
+
+
+
+
+notes
+- observe the PSG based heart rate and resp rate, seehow does this reflect in cap data
+- plotting sws time frac vs age
+
+
+
+- EEG vs ratio of 0.5 to delta
+intuitively the ration should drop when eeg delta power increases( signal of SWS in EEG)
+
+
+
+- SWS is from mechanical change of flow, but the EEG respone is not proportional 
+- CSF flow fluctuation leads SWS and lymphatic clearance, hormonal changes will 
+
+
+- Do a pass at rate detection variatio evenets , they relate to SWS?
+
+
+- Separate thorax band 
+
+
+
+07-30
+
+- baseline to zero
+- flow trend
+- variance(cortical arousal) comapred to EEG f2
+- and head movement angle f3
+
+- CH and CLE-CRE correlation reporting
+
+
+- EEG does not capture cortical arousal fully,
 
