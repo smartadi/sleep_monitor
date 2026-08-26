@@ -5,6 +5,9 @@ convention is defined once in `sleep_monitor.config` -- top to bottom, Wake, N1,
 N2, N3, REM, the axis read as depth with REM at the deepest rung -- and every one
 of these figures has been regenerated on it.
 
+Rerunnable: the backup is numbered rather than overwritten, so a second run
+cannot destroy the copy of the document as it stood before the first.
+
 Nothing but the order moves. Each regenerated figure was checked against the
 version it replaces: same estimator, same checkpoint, same statistics, same
 printed p-values. `band_ridge_by_stage` and `fig3_per_stage_mae` were compared
@@ -35,7 +38,8 @@ from target_doc import DOC  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 FIGS = ROOT / "writeup" / "figures"
-BACKUP = ROOT / "writeup" / "_archive" / "CAP_sleep_mask_manuscript_main_PRE_LADDER_20260825.docx"
+BACKUP_DIR = ROOT / "writeup" / "_archive"
+BACKUP_STEM = "CAP_sleep_mask_manuscript_main_PRE_LADDER_20260825"
 
 # media part in the docx -> the figure on disk that it came from
 SWAPS = {
@@ -99,9 +103,17 @@ def main():
         if drift > ASPECT_TOL:
             print("  letterboxed %s (%.3f -> %.3f)" % (png.name, a_new, a_old))
 
-    BACKUP.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(DOC, BACKUP)
-    print("backup -> %s" % BACKUP)
+    # never clobber an earlier backup -- rerunning this script would otherwise
+    # overwrite the copy of the document as it stood before the FIRST run, which
+    # is the only one that can undo the whole change.
+    BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+    backup = BACKUP_DIR / (BACKUP_STEM + ".docx")
+    n = 2
+    while backup.exists():
+        backup = BACKUP_DIR / ("%s_run%d.docx" % (BACKUP_STEM, n))
+        n += 1
+    shutil.copy2(DOC, backup)
+    print("backup -> %s" % backup)
 
     tmp = DOC.with_suffix(".ladder.tmp")
     with zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as out:
