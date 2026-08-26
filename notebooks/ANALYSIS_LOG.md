@@ -2583,3 +2583,46 @@ respiratory coupling does not.
 Absolute accuracy is still poor — respiratory LOSO MAE 1.55 br/min against a reference SD
 of 1.56 — so the model tracks the shape of the variation without being accurate in level.
 Both claims should be stated that way.
+
+## 2026-08-17 — Capacitive band amplitude tracks sleep depth, and REM looks like wake
+
+`analysis/mean_value/variance_stage_and_channels.py`, from the cached per-epoch band
+amplitudes joined to PSG staging (9,226 staged epochs, 12 sessions). Per-subject stage
+means, so a long recording cannot dominate.
+
+**Stage profile, CLE−CRE (log10 RMS):**
+
+| band | Wake | N1 | N2 | N3 | REM |
+|---|---|---|---|---|---|
+| resp | −0.348 | −0.480 | −0.573 | −0.614 | −0.408 |
+| card | −0.363 | −0.388 | −0.417 | −0.424 | −0.349 |
+
+Amplitude falls monotonically from Wake through N3 and returns toward wake levels in REM,
+in both bands. This is the "variance as arousal" relationship the co-author asked about, and
+it is a depth ordering rather than a REM-specific effect.
+
+**REM minus mean(N1,N2,N3), per subject:**
+
+| band | channel | Δ log10 RMS | subjects REM-higher | p |
+|---|---|---|---|---|
+| resp | **CH** | **+0.296** | **6/6** | 0.031 |
+| resp | CRE | +0.162 | 5/6 | 0.094 |
+| resp | CLE−CRE | +0.148 | 4/6 | 0.156 |
+| card | **CH** | **+0.206** | **6/6** | 0.031 |
+| card | CLE−CRE | +0.061 | 5/6 | 0.063 |
+
+The forehead channel carries it cleanly (6/6, p at the n = 6 Wilcoxon floor of 0.031); the
+temple channels are weaker and not significant. p = 0.031 is the smallest value six subjects
+can produce, so this is "as consistent as this cohort allows", not "strong".
+
+**CLE−CRE against CH — the two channels agree on rhythm and disagree on drift.**
+
+| band | median within-night r | range | sessions negative | CH/diff amplitude |
+|---|---|---|---|---|
+| resp | **0.861** | 0.61–0.96 | **0 / 12** | 1.72× |
+| card | **0.850** | 0.71–0.99 | **0 / 12** | 0.95× |
+
+This does not contradict §4.1's existing statement that their *levels* correlate from −0.49
+to +0.96 with 3 of 12 negative — that is the slow DC level, this is band amplitude. Read
+together they say the two mounts see the same physiological rhythms while their slow drift
+is mount-specific, which is a cleaner statement of channel independence than either alone.
