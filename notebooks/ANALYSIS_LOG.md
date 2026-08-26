@@ -2674,3 +2674,35 @@ mount-specific drift, and agreement that falls with frequency.
 
 **Correction to §4.1:** the scale range was stated as 1.6–11.0; the per-session table gives
 1.6–12.8. Fixed.
+
+## 2026-08-17 — Is CH's larger swing a hardware/differential-algorithm effect? No.
+
+Two tests.
+
+**1. A fixed gain is ruled out by the recordings themselves.** If the chip's differential
+path simply had more gain, the CH-to-CLE−CRE ratio and regression slope would be constant.
+They are not: the ratio runs 1.6× to 12.8× and the slope runs −1.82 to +8.73 with three sign
+flips (`reports/mean_value/ch_vs_diff_per_session.csv`).
+
+**2. The no-subject baseline is decisive.** `baseline noise/SM2_33.txt`, 15.8 minutes at
+111 Hz with the mask on the bench and nobody wearing it:
+
+| channel | SD (as recorded) |
+|---|---|
+| CH | 0.001306 |
+| CLE | 0.001166 |
+| CRE | 0.001148 |
+| CLE−CRE | 0.001636 |
+
+**SD(CH) / SD(CLE−CRE) = 0.80 with no subject**, against a median of **2.8×** (up to 12.8×)
+on a sleeping head. Above 1 Hz, where only electronics remain, the ratio is the same 0.80.
+So the electronics make CH *quieter* than the arithmetic differential; everything that makes
+it noisier overnight appears only when someone is wearing the mask.
+
+The 0.80 is itself the expected value: CLE−CRE sums two independent noise sources, and
+0.001166 × √2 = 0.001649 against the measured 0.001636. The two temple channels have
+independent noise and the subtraction behaves exactly as it should.
+
+**Conclusion.** CH's larger overnight swing is physical coupling, not the chip's differential
+scheme — consistent with its correlation with large-motion events (ρ = +0.71 against
+95th-percentile motion, p = 0.010) rather than with median motion (ρ = −0.06).
