@@ -635,12 +635,9 @@ def plot_pair(s, feats, raw, chans, out, title, shared_level_axis, ridges=None):
         ax.set_ylabel(f'{c0} \u2212 mean\n({CAP_UNIT};  \u03bc {f0["mu"]:,.0f})',
                       color=CH_COLOR[c0])
         ax.tick_params(axis='y', labelcolor=CH_COLOR[c0])
-        axr = ax.twinx()
-        axr.plot(t, f1['centred'], lw=1.1, color=CH_COLOR[c1], alpha=0.9, zorder=3)
-        axr.set_ylim(*sym_zero_ylim(f1['centred']))
-        axr.set_ylabel(f'{c1} \u2212 mean ({CAP_UNIT};  \u03bc {f1["mu"]:,.0f})',
-                       color=CH_COLOR[c1])
-        axr.tick_params(axis='y', labelcolor=CH_COLOR[c1])
+        # CH is deliberately not drawn here: two channels of different scale on
+        # twin axes made each one's step structure harder to read. CH remains in
+        # the variance row and keeps its own spectrogram panel below.
     ax.grid(True, alpha=0.15)
     panel_letter(ax, 1)
 

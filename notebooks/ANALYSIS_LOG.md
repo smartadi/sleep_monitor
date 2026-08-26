@@ -2626,3 +2626,31 @@ This does not contradict §4.1's existing statement that their *levels* correlat
 to +0.96 with 3 of 12 negative — that is the slow DC level, this is band amplitude. Read
 together they say the two mounts see the same physiological rhythms while their slow drift
 is mount-specific, which is a cleaner statement of channel independence than either alone.
+
+## 2026-08-17 — Slow-wave activity added to the manuscript as §4.6
+
+`analysis/swa_validation/paper_figure.py` builds the paper figure from the existing
+`swa_validation_results.csv`; the analysis itself is unchanged. The previous
+`roc_curves.png` carried a 24-entry legend and titled the EEG arm a "sanity check", which
+understates it — the EEG arm is the positive control that makes the capacitive null
+interpretable.
+
+46,597 six-second epochs, twelve recordings, 4.9% rejected on amplitude, 392 minutes of N3
+(7–65 per night).
+
+| | capacitive | contact EEG |
+|---|---|---|
+| N3 discrimination, AUC | **0.490 ± 0.040** (0.427–0.567) | **0.740 ± 0.056** (0.655–0.809) |
+| SWA correlation with EEG SWA, 1–4.5 Hz | **−0.014 ± 0.036** | — |
+| sub-bands 1–2 / 2–3 / 3–4 Hz | +0.015 / +0.003 / +0.020 | — |
+| coherence of the two envelopes | 0.003 | — |
+
+Every recording rises from its capacitive AUC to its EEG AUC through the identical pipeline,
+so the failure sits in the sensor and not in the analysis. Bound stated in the text: N3 is
+scarce, so a single night's AUC is imprecise; the correlation result does not depend on how
+much N3 a night contains.
+
+This completes the mechanical-not-electrical argument in three independent ways — discrete
+events (spindles), event onsets (delta bursts), and a continuous rhythm (slow-wave
+activity). Placed before the harmonic-comb section so the three cortical tests sit together;
+that section is now §4.7 and its figures are 10 and 11.
