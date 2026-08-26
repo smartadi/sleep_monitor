@@ -2735,3 +2735,42 @@ recorded on the same device in the same configuration as the overnight sessions,
 data cannot confirm** — the file is undated in content, named for a different unit, and the
 mask is not shaped as it would be on a head. Treat as a hypothesis, not a result, unless the
 device history can be established.
+
+## 2026-08-17 — Sleep variance against the unworn mask (same device, confirmed)
+
+`analysis/mean_value/baseline_variance_floor.py`. The same measures computed on the unworn
+mask and on every recording, so the instrument's own contribution can be divided out.
+
+**Unworn floor:** 10 s block variance 0.19–0.40 fF²; band RMS 0.09–0.12 fF respiratory and
+0.22–0.32 fF cardiac. Consistent with white noise — 1.16 fF per sample per channel scaled by
+the band's share of bandwidth gives 0.26 fF in the cardiac band against 0.23 measured.
+
+**Sleep amplitude as a multiple of the unworn mask:**
+
+| band | channel | Wake | N1 | N2 | N3 | REM |
+|---|---|---|---|---|---|---|
+| resp | **CH** | 8.7 | 6.1 | 4.7 | **3.7** | 9.3 |
+| resp | CLE−CRE | 3.7 | 2.7 | 2.2 | **2.0** | 3.2 |
+| card | **CH** | 2.3 | 1.8 | 1.6 | **1.5** | 2.6 |
+| card | CLE−CRE | 1.4 | 1.3 | 1.2 | **1.2** | 1.4 |
+
+**The respiratory answer is yes.** Every channel in every stage sits 1.8× to 9.3× above the
+instrument, so the respiratory-band variance and its stage profile are the subject, not the
+sensor.
+
+**The cardiac answer is uncomfortable.** On the temple channels the cardiac band sits at
+1.1–1.5× the unworn mask across all stages — in N3 on CLE it is 1.1×. Only CH reaches
+1.5–2.6×. Subtracting in quadrature, the cardiac signal on a temple channel is comparable in
+size to the instrument noise in that band.
+
+**This refines rather than contradicts §4.1.** The reported physiological-band SNR of +18.7
+to +30.0 dB is computed over 0.1–3 Hz against a 10–50 Hz floor, and it is carried by the
+respiratory band, which holds most of the in-band power. Split by band against an in-band
+floor, respiration is comfortably above the instrument and the cardiac band on the temples is
+marginal. That is consistent with every weak cardiac result in the paper: coherence 0.16
+against 0.31 for respiration, cardiac ridges present in 11.7% of epochs against 96.7%, and
+cardiac decoding that does not transfer across subjects.
+
+**Caveats.** The unworn mask has no mechanical excitation of any kind, so this is a strict
+floor rather than a fair "worn but still" control; 15.8 minutes against 4–8 hour recordings;
+and the mask is not shaped as it is on a head.
