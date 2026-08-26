@@ -2654,3 +2654,23 @@ This completes the mechanical-not-electrical argument in three independent ways 
 events (spindles), event onsets (delta bursts), and a continuous rhythm (slow-wave
 activity). Placed before the harmonic-comb section so the three cortical tests sit together;
 that section is now §4.7 and its figures are 10 and 11.
+
+## 2026-08-17 — CLE−CRE against CH gets its own figure (S13)
+
+Removing CH from Figure 3's level and imbalance rows made those rows legible but left the
+channel relationship supported only by numbers in the text. `analysis/mean_value/
+ch_vs_diff_figure.py` builds it from the existing `ch_vs_diff_per_session.csv` and
+`cle_cre_vs_ch.csv` — no new computation.
+
+| comparison | result |
+|---|---|
+| slow level correlation | −0.48 to +0.96, **3 of 12 negative** |
+| band amplitude correlation | resp **0.86**, card **0.85**, **0 of 12 negative** |
+| coherence, slow / resp / card | **0.55 / 0.31 / 0.09** |
+| SD ratio CH ÷ CLE−CRE | median **2.8×**, range 1.6–**12.8×** |
+
+The two mounts agree about the body and disagree about the mount: shared rhythms,
+mount-specific drift, and agreement that falls with frequency.
+
+**Correction to §4.1:** the scale range was stated as 1.6–11.0; the per-session table gives
+1.6–12.8. Fixed.
