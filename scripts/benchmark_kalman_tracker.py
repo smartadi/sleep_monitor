@@ -211,7 +211,7 @@ def plot_timeseries(df, band_name, session_label, out_path):
                    color=c, alpha=0.7, linewidth=0)
     ax.set_yticks([])
     ax.set_xlabel('Time (min)')
-    patches = [Patch(color=stage_color_map[s], label=s) for s in ['Wake', 'REM', 'N1', 'N2', 'N3']
+    patches = [Patch(color=stage_color_map[s], label=s) for s in ['Wake', 'N1', 'N2', 'N3', 'REM']
                if s in stage_color_map]
     ax.legend(handles=patches, loc='upper right', fontsize=7, ncol=5)
     ax.set_ylabel('Stage')
@@ -279,7 +279,7 @@ def plot_aggregate_comparison(all_results, out_path):
 def plot_per_stage(all_windows, band_name, out_path):
     _, _, _, unit_scale, unit_label = BANDS[band_name]
     sub = all_windows[all_windows['band'] == band_name].copy()
-    stages = ['Wake', 'REM', 'N1', 'N2', 'N3']
+    stages = ['Wake', 'N1', 'N2', 'N3', 'REM']
     methods = ALL_TRACES
 
     fig, ax = plt.subplots(figsize=(12, 6))

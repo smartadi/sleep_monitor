@@ -155,7 +155,7 @@ def write_methods(doc):
         "at 100 Hz. The simultaneous PSG provided a single-channel EEG, left and right "
         "EOG, ECG, nasal airflow (Flow), photoplethysmography (Pleth), and thoracic "
         "and abdominal respiratory effort bands, along with expert AASM 30-second sleep-stage "
-        "scoring (Wake, REM, N1, N2, N3) and scored apnea/hypopnea events."
+        "scoring (Wake, N1, N2, N3, REM) and scored apnea/hypopnea events."
     )
 
     # Table 1 — session metadata

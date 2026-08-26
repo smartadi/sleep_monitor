@@ -82,7 +82,7 @@ def paint_stages(ax, profile, t_max_hr):
 def stage_legend_handles():
     return [Patch(facecolor=STAGE_COLORS[c], alpha=0.3,
                   label=STAGE_LABELS[c])
-            for c in [4, 0, 3, 2, 1]]
+            for c in [4, 3, 2, 1, 0]]
 
 
 def plot_session(session, out_dir, win_sec=30.0, step_sec=5.0):
@@ -154,7 +154,7 @@ def plot_session(session, out_dir, win_sec=30.0, step_sec=5.0):
         rows = [STAGE_ROW.get(int(c), np.nan) for c in codes]
         ax0.step(t_ep, rows, where='post', color='#2C3E50', linewidth=1.2)
         ax0.set_yticks([0, 1, 2, 3, 4])
-        ax0.set_yticklabels(['N3', 'N2', 'N1', 'REM', 'Wake'], fontsize=8)
+        ax0.set_yticklabels(['REM', 'N3', 'N2', 'N1', 'Wake'], fontsize=8)
         ax0.set_ylim(-0.5, 4.5)
         paint_stages(ax0, profile, t_max_hr)
     else:

@@ -48,11 +48,11 @@ BAND_COLOR = {'slow': '#00E5FF', 'resp': '#00E5FF', 'card': '#FF3B30'}
 BAND_LABEL = {'slow': 'Slow (0-0.3 Hz)', 'resp': 'Respiratory (0.1-0.5 Hz)',
               'card': 'Cardiac (0.5-3.0 Hz)'}
 
-# Connected stepped hypnogram LADDER; top -> bottom = Wake, REM, N1, N2, N3.
+# Connected stepped hypnogram LADDER; top -> bottom = Wake, N1, N2, N3, REM.
 # Stage codes: 0=REM 1=N3 2=N2 3=N1 4=Wake.
-_LADDER_Y = {4: 4, 0: 3, 3: 2, 2: 1, 1: 0}
+_LADDER_Y = {4: 4, 3: 3, 2: 2, 1: 1, 0: 0}
 _LADDER_TICKS = [0, 1, 2, 3, 4]
-_LADDER_LABELS = ['N3', 'N2', 'N1', 'REM', 'Wake']
+_LADDER_LABELS = ['REM', 'N3', 'N2', 'N1', 'Wake']
 
 
 def draw_stage_ladder(ax, sp):

@@ -32,7 +32,7 @@ sys.path.insert(0, str(ROOT))
 from sleep_monitor.config import STAGE_LADDER, STAGE_COLORS, STAGE_ORDER  # noqa: E402
 
 CHANNEL = "CH"
-LADDER = list(STAGE_LADDER)                       # Wake, REM, N1, N2, N3
+LADDER = list(STAGE_LADDER)                       # Wake, N1, N2, N3, REM
 YPOS = {s: -i for i, s in enumerate(LADDER)}
 STAGE_COLOR = {n: STAGE_COLORS[c] for n, c in zip(STAGE_LADDER, STAGE_ORDER)}
 

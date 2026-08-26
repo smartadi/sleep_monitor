@@ -1,10 +1,9 @@
 """Refresh the manuscript's stage figures onto the corrected ladder order.
 
-Eight of the manuscript's live images carry a sleep-stage axis, and all eight
-were drawn with REM at the bottom -- below N3, as though it were a fifth depth
-of NREM sleep. The repo convention is now Wake, REM, N1, N2, N3, defined once in
-`sleep_monitor.config`, and every one of these figures has been regenerated on
-it.
+Eight of the manuscript's live images carry a sleep-stage axis. The repo
+convention is defined once in `sleep_monitor.config` -- top to bottom, Wake, N1,
+N2, N3, REM, the axis read as depth with REM at the deepest rung -- and every one
+of these figures has been regenerated on it.
 
 Nothing but the order moves. Each regenerated figure was checked against the
 version it replaces: same estimator, same checkpoint, same statistics, same

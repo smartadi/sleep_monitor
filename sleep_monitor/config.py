@@ -153,12 +153,15 @@ STAGE_COLORS = {
     0: '#9B59B6', 1: '#2ECC71', 2: '#3498DB',
     3: '#F39C12', 4: '#E74C3C', -1: '#AAAAAA',
 }
-# Canonical hypnogram ladder, top rung to bottom rung: Wake, REM, N1, N2, N3.
-# REM sits directly under Wake because it is not a depth of NREM sleep; the three
-# NREM stages below it run light to deep. Every stage axis in this repo uses this
-# order -- ladders, bar categories and legends alike.
-STAGE_ORDER = [4, 0, 3, 2, 1]                       # top -> bottom, by code
-STAGE_LADDER = ['Wake', 'REM', 'N1', 'N2', 'N3']    # top -> bottom, by name
+# Canonical hypnogram ladder, top rung to bottom rung: Wake, N1, N2, N3, REM.
+# The axis is read here as depth, with REM placed at the deepest rung. Every
+# stage axis in this repo uses this order -- ladders, bar categories and legends
+# alike. Note that this is not the layout most sleep software uses (YASA and the
+# clinical convention lift REM out of the NREM depth stack and draw it directly
+# under Wake), so figures carrying it should say in the caption that the ordering
+# is a depth ordering.
+STAGE_ORDER = [4, 3, 2, 1, 0]                       # top -> bottom, by code
+STAGE_LADDER = ['Wake', 'N1', 'N2', 'N3', 'REM']    # top -> bottom, by name
 
 # Where each stage code is drawn on a ladder axis. Larger y is higher on the
 # plot, so Wake is 4 and N3 is 0. Plot codes through this map, never raw: the

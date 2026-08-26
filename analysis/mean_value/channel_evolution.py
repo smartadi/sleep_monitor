@@ -16,11 +16,9 @@ Two figures per session, grouped by what the channels are:
 
 Rows (both figures)
 -------------------
-    A  hypnogram      PSG stages as a ladder — Wake, then REM, then N1, N2, N3 —
-                      so the state reads from the geometry, not colour alone. REM
-                      sits under Wake because it is not a depth of NREM sleep; the
-                      three NREM rungs below it run light to deep. Contiguous
-                      epochs are merged into one rung with
+    A  hypnogram      PSG stages as a depth-ordered ladder — Wake, N1, N2, N3,
+                      then REM — so depth reads from the geometry, not colour
+                      alone. Contiguous epochs are merged into one rung with
                       faint connectors, because per-epoch step connectors at full
                       weight swamp the rungs they are meant to join.
     B  mean value     DC level referenced to the SESSION MEAN, in femtofarads,
@@ -163,7 +161,7 @@ HEAD_MIN_SPAN_DEG = 25.0   # floor on the head-angle axis span, so a still
 # then REM on its own rung at the bottom. (REM is placed below N3 rather than in
 # the conventional slot next to Wake, so the NREM descent reads as a clean depth
 # gradient and REM does not interrupt it.)
-LADDER_ORDER = [4, 0, 3, 2, 1]                                  # Wake, REM, N1, N2, N3
+LADDER_ORDER = [4, 3, 2, 1, 0]                                  # Wake, N1, N2, N3, REM
 LADDER_Y = {c: len(LADDER_ORDER) - 1 - i for i, c in enumerate(LADDER_ORDER)}
 
 BLOCK_SEC = 10.0            # window for mean / variance / motion (display rows)

@@ -42,7 +42,7 @@ BLOCK_SEC = 10.0
 EPOCH_SEC = 30.0
 LP_HZ = 10.0
 CHANNELS = ["CH", "CLE", "CRE", "CLE-CRE"]
-STAGES = ["Wake", "REM", "N1", "N2", "N3"]
+STAGES = ["Wake", "N1", "N2", "N3", "REM"]
 
 
 def baseline_signals():

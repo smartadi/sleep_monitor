@@ -42,7 +42,7 @@ PLOT_DIR = ROOT / 'notebooks' / 'plots' / 'projections'
 PLOT_DIR.mkdir(parents=True, exist_ok=True)
 
 STAGE_NAMES = {0: 'REM', 1: 'N3', 2: 'N2', 3: 'N1', 4: 'Wake'}
-STAGE_NAME_ORDER = ['Wake', 'REM', 'N1', 'N2', 'N3']
+STAGE_NAME_ORDER = ['Wake', 'N1', 'N2', 'N3', 'REM']
 
 FEAT_COLS = [
     'infra_slow', 'SO', 'delta_low', 'delta_high',

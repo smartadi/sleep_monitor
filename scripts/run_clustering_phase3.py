@@ -37,7 +37,7 @@ from sleep_monitor.sessions import SESSION_META
 
 REPORT_DIR = ROOT / 'reports' / 'projections'
 STAGE_NAMES = {0: 'REM', 1: 'N3', 2: 'N2', 3: 'N1', 4: 'Wake'}
-STAGE_NAME_ORDER = ['Wake', 'REM', 'N1', 'N2', 'N3']
+STAGE_NAME_ORDER = ['Wake', 'N1', 'N2', 'N3', 'REM']
 
 CLUSTER_COLORS = [
     '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',

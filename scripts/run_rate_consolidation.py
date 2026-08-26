@@ -55,7 +55,7 @@ ART_DIR = ROOT / 'artifacts'
 ART_DIR.mkdir(parents=True, exist_ok=True)
 
 STAGE_LABELS = {0: 'REM', 1: 'N3', 2: 'N2', 3: 'N1', 4: 'Wake'}
-STAGE_ORDER = ['Wake', 'REM', 'N1', 'N2', 'N3']
+STAGE_ORDER = ['Wake', 'N1', 'N2', 'N3', 'REM']
 STAGE_COLORS = {'Wake': '#E74C3C', 'N1': '#F39C12', 'N2': '#3498DB',
                 'N3': '#2ECC71', 'REM': '#9B59B6'}
 
@@ -1107,7 +1107,7 @@ def phase6_session_timeseries(df, kdf, best):
         ax_hyp = axes[0]
         # Get unique epochs (one per time point, any channel)
         hyp = sess_df[sess_df.channel == CHANNELS[0]].drop_duplicates('epoch').sort_values('t_hr')
-        stage_y_map = {'Wake': 4, 'REM': 3, 'N1': 2, 'N2': 1, 'N3': 0}
+        stage_y_map = {'Wake': 4, 'N1': 3, 'N2': 2, 'N3': 1, 'REM': 0}
 
         if (hyp.stage != '?').any():
             t_hr = hyp.t_hr.values
@@ -1120,7 +1120,7 @@ def phase6_session_timeseries(df, kdf, best):
             ax_hyp.step(t_hr, stage_y, color='black', lw=0.5, alpha=0.4, where='mid')
 
         ax_hyp.set_yticks([0, 1, 2, 3, 4])
-        ax_hyp.set_yticklabels(['N3', 'N2', 'N1', 'REM', 'Wake'], fontsize=8)
+        ax_hyp.set_yticklabels(['REM', 'N3', 'N2', 'N1', 'Wake'], fontsize=8)
         ax_hyp.set_xlim(hyp.t_hr.min(), hyp.t_hr.max())
         ax_hyp.set_ylabel('Stage', fontsize=9)
         ax_hyp.set_title(f'{sess_label} — Rate time series (GT vs estimated)', fontsize=11, fontweight='bold')

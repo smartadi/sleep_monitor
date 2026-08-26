@@ -427,7 +427,7 @@ def plot_stage_boxplots(
     d = df.loc[ok].copy()
     d['abs_err'] = (d[cap_col] - d[gt_col]).abs() * scale
 
-    stage_order = ['Wake', 'REM', 'N1', 'N2', 'N3']
+    stage_order = ['Wake', 'N1', 'N2', 'N3', 'REM']
     stage_data = []
     stage_labels_plot = []
     stage_colors_plot = []

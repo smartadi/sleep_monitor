@@ -42,7 +42,7 @@ K_LO, K_HI = 0.5, 4.0
 RESP_PROM_FACTOR = 0.05
 RESP_MIN_DIST_S = 0.4
 
-STAGE_ORDER = ['Wake', 'REM', 'N1', 'N2', 'N3']
+STAGE_ORDER = ['Wake', 'N1', 'N2', 'N3', 'REM']
 STAGE_COLORS = {
     'Wake': '#e74c3c', 'N1': '#f39c12', 'N2': '#2ecc71',
     'N3': '#9b59b6', 'REM': '#3498db',

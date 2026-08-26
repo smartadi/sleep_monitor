@@ -56,7 +56,7 @@ FIG_DIR = ROOT / 'writeup' / 'figures' / 'mean_value'
 FIG_DIR.mkdir(parents=True, exist_ok=True)
 
 SLEEP_CODES = [0, 1, 2, 3]
-STAGE_LADDER = [4, 0, 3, 2, 1]          # Wake, REM, N1, N2, N3
+STAGE_LADDER = [4, 3, 2, 1, 0]          # Wake, N1, N2, N3, REM
 
 # channel -> (column stem, colour, linewidth, display label)
 CHANNELS = [

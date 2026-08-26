@@ -1,11 +1,11 @@
-"""Redraw the mask pipeline's stage figure on the corrected ladder order.
+"""Redraw the mask pipeline's stage figure from the checkpoint.
 
-`run_mask_rate_detection.py` drew per-stage MAE in the old order (Wake, N1, N2,
-N3, REM). The order is now Wake, REM, N1, N2, N3, defined once in
-`sleep_monitor.config.STAGE_ORDER`. Rerunning the whole pipeline to pick that up
-would rewrite every report it owns, so this reads the phase-C checkpoint and the
-strategy it settled on, and redraws that one figure. Values are unchanged --
-same checkpoint, same estimator, same arithmetic; only the bar order moves.
+`run_mask_rate_detection.py` hard-coded its own stage order. The order now comes
+from `sleep_monitor.config.STAGE_ORDER`, and rerunning the whole pipeline to pick
+a change up would rewrite every report it owns -- so this reads the phase-C
+checkpoint and the strategy it settled on, and redraws that one figure. Values
+are unchanged: same checkpoint, same estimator, same arithmetic. Only the bar
+order moves.
 
 Run from the repo root:  .venv/Scripts/python.exe scripts/redraw_mask_stage_figs.py
 """

@@ -98,16 +98,16 @@ BAND_COVER = 0.6         # ... and be actually PRESENT in >= this fraction of it
 TSMOOTH = 7              # time-smoothing (windows) of the spectrogram before band
                          # peak-finding — suppresses transient noise, keeps rungs
 
-# Sleep-stage ladder, top -> bottom = Wake, REM, N1, N2, N3.  REM sits under
-# Wake, then the NREM stages light to deep.  Codes: 0=REM 1=N3 2=N2 3=N1 4=Wake.
-_LADDER_Y = {4: 4, 0: 3, 3: 2, 2: 1, 1: 0}
+# Sleep-stage ladder, top -> bottom = Wake, N1, N2, N3, REM -- the axis read as
+# depth, with REM at the deepest rung.  Codes: 0=REM 1=N3 2=N2 3=N1 4=Wake.
+_LADDER_Y = {4: 4, 3: 3, 2: 2, 1: 1, 0: 0}
 
 
 def draw_stage_ladder(ax, sp):
     """Hypnogram as a connected stepped LADDER (staircase), not colour-coded
-    dashes.  Top->bottom = Wake, REM, N1, N2, N3."""
+    dashes.  Top->bottom = Wake, N1, N2, N3, REM."""
     ax.set_yticks([0, 1, 2, 3, 4])
-    ax.set_yticklabels(['N3', 'N2', 'N1', 'REM', 'Wake'], fontsize=7)
+    ax.set_yticklabels(['REM', 'N3', 'N2', 'N1', 'Wake'], fontsize=7)
     ax.set_ylim(-0.5, 4.5)
     ax.set_ylabel('Stage', fontsize=9)
     if sp is None:

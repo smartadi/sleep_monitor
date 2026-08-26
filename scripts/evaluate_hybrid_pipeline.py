@@ -60,7 +60,7 @@ BANDS = {
 }
 
 STAGE_NAME_MAP = {0: 'REM', 1: 'N3', 2: 'N2', 3: 'N1', 4: 'Wake'}
-STAGE_ORDER = ['Wake', 'REM', 'N1', 'N2', 'N3']
+STAGE_ORDER = ['Wake', 'N1', 'N2', 'N3', 'REM']
 
 PIPELINES = {
     'baseline_k':  'Baseline /k',

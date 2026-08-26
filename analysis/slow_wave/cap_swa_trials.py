@@ -296,7 +296,7 @@ def plot_summary(trials, comp, contrasts, onset):
 
     ax = axes[0, 1]
     c = comp[comp['q'] == Q_HOLD].set_index('stage')
-    order = [s for s in ['Wake', 'REM', 'N1', 'N2', 'N3'] if s in c.index]
+    order = [s for s in ['Wake', 'N1', 'N2', 'N3', 'REM'] if s in c.index]
     x = np.arange(len(order)); w = 0.38
     ax.bar(x - w/2, c.loc[order, 'trial_epoch_frac'], w, color='#16A085', label='in trials')
     ax.bar(x + w/2, c.loc[order, 'base_rate'], w, color='#95A5A6', label='overall')

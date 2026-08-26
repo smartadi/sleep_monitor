@@ -39,7 +39,7 @@ ROOT = Path(__file__).resolve().parent.parent
 ART = ROOT / 'artifacts'
 PLOT_DIR = ROOT / 'notebooks' / 'plots' / 'validation_report'
 
-STAGE_ORDER = ['Wake', 'REM', 'N1', 'N2', 'N3']
+STAGE_ORDER = ['Wake', 'N1', 'N2', 'N3', 'REM']
 STAGE_COLORS = {'Wake': '#E74C3C', 'N1': '#F39C12', 'N2': '#3498DB',
                 'N3': '#2ECC71', 'REM': '#9B59B6'}
 APNEA_LABELS = {0: 'Normal', 1: 'Apnea', 2: 'Hypopnea'}
@@ -438,12 +438,12 @@ def plot_coherence_spectrogram(df: pd.DataFrame):
 
     # Sleep stage strip
     ax = axes[0]
-    stage_map = {'Wake': 4, 'REM': 3, 'N1': 2, 'N2': 1, 'N3': 0}
+    stage_map = {'Wake': 4, 'N1': 3, 'N2': 2, 'N3': 1, 'REM': 0}
     numeric_stage = sub['stage'].map(stage_map).fillna(-1).values
     ax.scatter(t, numeric_stage, c=[STAGE_COLORS.get(s, '#AAAAAA')
                                      for s in sub['stage']], s=8, marker='|')
     ax.set_yticks([0, 1, 2, 3, 4])
-    ax.set_yticklabels(['N3', 'N2', 'N1', 'REM', 'Wake'])
+    ax.set_yticklabels(['REM', 'N3', 'N2', 'N1', 'Wake'])
     ax.set_title(f'{sess} — Sleep stages + coherence over time')
     ax.set_ylabel('Stage')
 

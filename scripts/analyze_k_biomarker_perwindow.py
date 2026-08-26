@@ -54,7 +54,7 @@ FIG = ROOT / 'writeup' / 'figures' / 'mask_rate_detection'
 RPT.mkdir(parents=True, exist_ok=True)
 FIG.mkdir(parents=True, exist_ok=True)
 
-STAGE_ORDER = ['Wake', 'REM', 'N1', 'N2', 'N3']
+STAGE_ORDER = ['Wake', 'N1', 'N2', 'N3', 'REM']
 STAGE_COLOR = {'Wake': '#7f8c8d', 'N1': '#f39c12', 'N2': '#3498db',
                'N3': '#2c3e50', 'REM': '#e74c3c'}
 CLIP = (0.3, 5.0)

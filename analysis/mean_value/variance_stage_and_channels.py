@@ -39,7 +39,7 @@ for p in (OUT, FIG):
     p.mkdir(parents=True, exist_ok=True)
 
 CAP = ["CH", "CLE", "CRE", "CLE-CRE"]
-STAGES = ["Wake", "REM", "N1", "N2", "N3"]
+STAGES = ["Wake", "N1", "N2", "N3", "REM"]
 
 
 def load():

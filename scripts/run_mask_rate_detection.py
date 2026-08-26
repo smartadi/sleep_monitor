@@ -60,7 +60,7 @@ LOG_FILE = RPT_DIR / 'pipeline_log.txt'
 
 # ── Constants ────────────────────────────────────────────────────────────────
 STAGE_MAP = {0: 'REM', 1: 'N3', 2: 'N2', 3: 'N1', 4: 'Wake'}
-STAGE_ORDER = ['Wake', 'REM', 'N1', 'N2', 'N3']
+STAGE_ORDER = ['Wake', 'N1', 'N2', 'N3', 'REM']
 STAGE_COLORS = {'Wake': '#E74C3C', 'N1': '#F39C12', 'N2': '#3498DB',
                 'N3': '#2ECC71', 'REM': '#9B59B6', '?': '#95a5a6'}
 BANDS = {'resp': (RESP_LO, RESP_HI), 'card': (CARD_LO, CARD_HI)}
@@ -680,7 +680,7 @@ def phase_d(cdf):
 
             # Hypnogram
             ax0 = axes[0]
-            stage_y_map = {'Wake': 4, 'REM': 3, 'N1': 2, 'N2': 1, 'N3': 0}
+            stage_y_map = {'Wake': 4, 'N1': 3, 'N2': 2, 'N3': 1, 'REM': 0}
             t_hr = ss['t_hr'].values
             if (ss.stage != '?').any():
                 stage_y = np.array([stage_y_map.get(s, -1) for s in ss.stage.values])
@@ -692,7 +692,7 @@ def phase_d(cdf):
                         ax0.scatter(t_hr[mask], stage_y[mask], c=clr, s=3, label=sn, zorder=2)
                 ax0.step(t_hr, stage_y, color='black', lw=0.5, alpha=0.3, where='mid')
             ax0.set_yticks([0, 1, 2, 3, 4])
-            ax0.set_yticklabels(['N3', 'N2', 'N1', 'REM', 'Wake'], fontsize=8)
+            ax0.set_yticklabels(['REM', 'N3', 'N2', 'N1', 'Wake'], fontsize=8)
             ax0.set_ylabel('Stage', fontsize=9)
             ax0.tick_params(labelbottom=False)
             ax0.legend(loc='upper right', fontsize=7, ncol=5, markerscale=2)
