@@ -28,7 +28,7 @@ from sleep_monitor.viz import plot_hypnogram
 PLOT_DIR = Path(__file__).resolve().parents[2] / 'notebooks' / 'plots' / 'harmonics'
 PLOT_DIR.mkdir(parents=True, exist_ok=True)
 
-STAGE_NAMES = ['Wake', 'N1', 'N2', 'N3', 'REM']
+STAGE_NAMES = ['Wake', 'REM', 'N1', 'N2', 'N3']
 STAGE_CODE_MAP = {4: 'Wake', 3: 'N1', 2: 'N2', 1: 'N3', 0: 'REM'}
 
 # ── Load and preprocess ──────────────────────────────────────────────────────

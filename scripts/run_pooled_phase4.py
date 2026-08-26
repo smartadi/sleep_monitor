@@ -44,7 +44,7 @@ FEAT_DIR = ROOT / 'reports' / 'projections'
 META_COLS = {'t_hr', 'stage_code', 'stage_label', 'apnea_code', 'apnea_label', 'thorax_rms'}
 
 STAGE_NAMES = {0: 'REM', 1: 'N3', 2: 'N2', 3: 'N1', 4: 'Wake'}
-STAGE_NAME_ORDER = ['Wake', 'N1', 'N2', 'N3', 'REM']
+STAGE_NAME_ORDER = ['Wake', 'REM', 'N1', 'N2', 'N3']
 
 SESSION_LABELS = [f'S{(i//2)+1}N{(i%2)+1}' for i in range(12)]
 SUBJECT_IDS = [f'S{i}' for i in range(1, 7)]

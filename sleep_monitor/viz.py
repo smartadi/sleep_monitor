@@ -12,7 +12,8 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 
 from .config import (
-    STAGE_LABELS, STAGE_COLORS, STAGE_ORDER,
+    STAGE_LABELS, STAGE_COLORS, STAGE_ORDER, STAGE_ROW,
+    STAGE_ROW_TICKS, STAGE_ROW_LABELS,
     CAP_CHANS, CAP_COLORS, GT_COLOR,
     RESP_LO, RESP_HI, CARD_LO, CARD_HI,
     METHOD_NAMES, METHOD_COLORS, METHOD_LABELS,
@@ -38,11 +39,14 @@ def plot_hypnogram(sp: dict, ax: plt.Axes, title: str = '') -> None:
     codes = sp['codes']
     for i in range(len(t) - 1):
         c  = int(codes[i])
+        y = STAGE_ROW.get(c)
+        if y is None:
+            continue
         clr = STAGE_COLORS.get(c, '#AAAAAA')
-        ax.fill_between([t[i], t[i + 1]], c, c, color=clr, alpha=0.85, linewidth=0)
-        ax.plot([t[i], t[i + 1]], [c, c], color=clr, lw=1.5)
-    ax.set_yticks(STAGE_ORDER)
-    ax.set_yticklabels([STAGE_LABELS[s] for s in STAGE_ORDER], fontsize=7)
+        ax.fill_between([t[i], t[i + 1]], y, y, color=clr, alpha=0.85, linewidth=0)
+        ax.plot([t[i], t[i + 1]], [y, y], color=clr, lw=1.5)
+    ax.set_yticks(STAGE_ROW_TICKS)
+    ax.set_yticklabels(STAGE_ROW_LABELS, fontsize=7)
     ax.set_xlabel('Time (hr)', fontsize=7)
     ax.set_ylim(-0.5, 4.5)
     ax.grid(True, alpha=0.25)
@@ -423,7 +427,7 @@ def plot_stage_boxplots(
     d = df.loc[ok].copy()
     d['abs_err'] = (d[cap_col] - d[gt_col]).abs() * scale
 
-    stage_order = ['Wake', 'N1', 'N2', 'N3', 'REM']
+    stage_order = ['Wake', 'REM', 'N1', 'N2', 'N3']
     stage_data = []
     stage_labels_plot = []
     stage_colors_plot = []

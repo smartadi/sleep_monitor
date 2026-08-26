@@ -39,7 +39,7 @@ OUT.mkdir(parents=True, exist_ok=True)
 REPORT = ROOT / 'reports' / 'validation'
 REPORT.mkdir(parents=True, exist_ok=True)
 
-STAGE_ORDER = ['Wake', 'N1', 'N2', 'N3', 'REM']
+STAGE_ORDER = ['Wake', 'REM', 'N1', 'N2', 'N3']
 STAGE_COLORS = {
     'Wake': '#E74C3C', 'N1': '#F39C12', 'N2': '#3498DB',
     'N3': '#2ECC71', 'REM': '#9B59B6',

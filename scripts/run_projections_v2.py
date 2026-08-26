@@ -47,7 +47,7 @@ REPORT_DIR = ROOT / 'reports' / 'projections'
 REPORT_DIR.mkdir(parents=True, exist_ok=True)
 
 STAGE_NAMES = {0: 'REM', 1: 'N3', 2: 'N2', 3: 'N1', 4: 'Wake'}
-STAGE_NAME_ORDER = ['Wake', 'N1', 'N2', 'N3', 'REM']
+STAGE_NAME_ORDER = ['Wake', 'REM', 'N1', 'N2', 'N3']
 
 CAP_BANDS = {
     'infra_slow': (0.0, 0.5),

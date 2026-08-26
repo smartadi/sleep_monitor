@@ -21,6 +21,7 @@ from sleep_monitor import (
     EEG_BANDS, BAND_COLORS,
     DELTA_SUB_BANDS, DELTA_SUB_COLORS,
     STAGE_LABELS, STAGE_COLORS, STAGE_ORDER,
+    STAGE_ROW, STAGE_ROW_TICKS, STAGE_ROW_LABELS,
     APNEA_LABELS, APNEA_COLORS,
 )
 from sleep_monitor.loader import load_apnea_events
@@ -56,12 +57,11 @@ def _plot_hypnogram(ax, sp, title):
     for i in range(len(t_ep)):
         c = int(codes[i])
         clr = STAGE_COLORS.get(c, '#AAAAAA')
-        ax.barh(c, epoch_dur, left=t_ep[i], height=0.8, color=clr, alpha=0.85,
-                edgecolor='none')
-    ax.set_yticks(STAGE_ORDER)
-    ax.set_yticklabels([STAGE_LABELS[s] for s in STAGE_ORDER], fontsize=8)
+        ax.barh(STAGE_ROW.get(c, -1), epoch_dur, left=t_ep[i], height=0.8,
+                color=clr, alpha=0.85, edgecolor='none')
+    ax.set_yticks(STAGE_ROW_TICKS)
+    ax.set_yticklabels(STAGE_ROW_LABELS, fontsize=8)
     ax.set_ylim(-0.5, 4.5)
-    ax.invert_yaxis()
     ax.set_ylabel('Sleep stage', fontsize=9)
     ax.grid(True, axis='x', alpha=0.25)
     ax.set_title(title, fontsize=11, fontweight='bold')

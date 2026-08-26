@@ -153,7 +153,7 @@ def plot_session_overview(g_sess, trials_sess, sess):
     for col, (_, tr) in enumerate(ex.iterrows()):
         plot_trial([axes[r][col] for r in range(6)], g_sess, tr, col)
     handles = [Patch(facecolor=STAGE_COLORS.get(c, '#AAA'), label=STAGE_LABELS[c])
-               for c in [4, 3, 2, 1, 0]]
+               for c in [4, 0, 3, 2, 1]]
     fig.legend(handles=handles, loc='upper right', fontsize=8, ncol=5,
                bbox_to_anchor=(0.995, 0.985))
     plt.tight_layout(rect=[0, 0, 1, 0.96])
@@ -206,7 +206,7 @@ def plot_trial_hires(session, g_sess, trial, sess):
         ax.axvline(mx, color='#E67E22', lw=1.4)
     ax.set_yticks([]); ax.set_ylabel('stage', fontsize=9)
     handles = [Patch(facecolor=STAGE_COLORS.get(c, '#AAA'), label=STAGE_LABELS[c])
-               for c in [4, 3, 2, 1, 0]]
+               for c in [4, 0, 3, 2, 1]]
     ax.legend(handles=handles, fontsize=7, ncol=5, loc='upper right')
 
     # 2 criteria (epoch)

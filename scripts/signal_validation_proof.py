@@ -472,7 +472,7 @@ def fig5_coherence_by_stage(df):
     """Boxplots of coherence by sleep stage."""
     fig, axes = plt.subplots(1, 2, figsize=(14, 5))
     avg_df = df[df.channel == 'avg']
-    stage_order = ['Wake', 'N1', 'N2', 'N3', 'REM']
+    stage_order = ['Wake', 'REM', 'N1', 'N2', 'N3']
 
     for ax, coh_col, title in [
         (axes[0], 'coh_at_resp_peak', 'Respiratory Coherence by Stage'),

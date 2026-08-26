@@ -66,7 +66,7 @@ FIG_DIR = ROOT / 'writeup' / 'figures' / 'channel_evolution'
 FIG_DIR.mkdir(parents=True, exist_ok=True)
 
 SLEEP_CODES = [0, 1, 2, 3]
-STAGE_LADDER = [4, 3, 2, 1, 0]
+STAGE_LADDER = [4, 0, 3, 2, 1]
 CH_COLOR = '#2980B9'
 DIFF_COLOR = '#E67E22'
 CLIP_SD = 5.0          # grid panels clip at this many session sd

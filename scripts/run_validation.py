@@ -178,7 +178,7 @@ def stage_metrics(df: pd.DataFrame) -> pd.DataFrame:
             **{f'resp_{k}': v for k, v in resp.items()},
             **{f'card_{k}': v for k, v in card.items()},
         })
-    stage_order = ['Wake', 'N1', 'N2', 'N3', 'REM']
+    stage_order = ['Wake', 'REM', 'N1', 'N2', 'N3']
     out = pd.DataFrame(rows)
     out['stage'] = pd.Categorical(out['stage'], categories=stage_order, ordered=True)
     return out.sort_values('stage').reset_index(drop=True)

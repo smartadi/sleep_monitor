@@ -47,7 +47,7 @@ FIG.mkdir(parents=True, exist_ok=True)
 CHANNELS = ['CLE', 'CRE', 'CH', 'avg', 'diff']
 METHODS = {'spectral': 'r_spectral', 'hilbert': 'r_hilbert',
            'peaks_loose': 'r_peaks_loose', 'peaks_strict': 'r_peaks_strict'}
-STAGE_ORDER = ['Wake', 'N1', 'N2', 'N3', 'REM']
+STAGE_ORDER = ['Wake', 'REM', 'N1', 'N2', 'N3']
 
 plt.rcParams.update({'font.size': 10, 'figure.dpi': 150, 'savefig.dpi': 200,
                      'savefig.bbox': 'tight'})

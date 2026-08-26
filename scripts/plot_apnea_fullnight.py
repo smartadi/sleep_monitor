@@ -27,6 +27,7 @@ from sleep_monitor.loader import load_session, load_sleep_profile, load_apnea_ev
 from sleep_monitor.sessions import SESSION_META
 from sleep_monitor.config import (
     FS, STAGE_LABELS, STAGE_COLORS, STAGE_ORDER,
+    STAGE_ROW_TICKS, STAGE_ROW_LABELS,
 )
 from sleep_monitor.motion import (
     epoch_motion, epoch_cap_stats, head_orientation, dynamic_acceleration,
@@ -55,8 +56,8 @@ def _hypnogram_strip(ax, sp, dur_hr):
     for i in range(len(t) - 1):
         c = int(codes[i])
         ax.axvspan(t[i], t[i + 1], color=STAGE_COLORS.get(c, '#AAA'), alpha=0.85)
-    ax.set_yticks(STAGE_ORDER)
-    ax.set_yticklabels([STAGE_LABELS[s] for s in STAGE_ORDER], fontsize=6)
+    ax.set_yticks(STAGE_ROW_TICKS)
+    ax.set_yticklabels(STAGE_ROW_LABELS, fontsize=6)
     ax.set_ylim(-0.5, 4.5)
     ax.set_ylabel('Stage', fontsize=7)
     ax.tick_params(axis='x', labelbottom=False)

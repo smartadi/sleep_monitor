@@ -72,7 +72,7 @@ CHAN_COLORS = {
 }
 
 STAGE_NAME_MAP = {0: 'REM', 1: 'N3', 2: 'N2', 3: 'N1', 4: 'Wake'}
-STAGE_ORDER = ['Wake', 'N1', 'N2', 'N3', 'REM']
+STAGE_ORDER = ['Wake', 'REM', 'N1', 'N2', 'N3']
 
 plt.rcParams.update({
     'font.size': 10, 'axes.titlesize': 11, 'axes.labelsize': 10,

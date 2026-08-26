@@ -77,7 +77,7 @@ BLOCK_SEC = 10.0        # mean-value block (matches channel_evolution.py)
 DELTA_MIN = 1.0         # lag for the change-based (Δ) correlation
 SLOW_HI = 0.01          # Hz, top of the "slow drift" band
 COH_FS = 10.0           # Hz, decimation rate for the coherence estimate
-LADDER_ORDER = [4, 3, 2, 1, 0]      # Wake, N1, N2, N3, REM — sleep-depth order
+LADDER_ORDER = [4, 0, 3, 2, 1]      # canonical ladder order, top -> bottom
 MOTION_QUIET_PCT = 50   # blocks below this motion percentile count as "quiet"
 
 

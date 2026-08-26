@@ -22,7 +22,7 @@ sys.path.insert(0, str(ROOT))
 from sleep_monitor import (
     load_session, load_sleep_profile,
     FS, RESP_LO, RESP_HI, CARD_LO, CARD_HI,
-    STAGE_LABELS, STAGE_COLORS,
+    STAGE_LABELS, STAGE_COLORS, STAGE_ROW,
     gt_sliding_rates,
     calibrate_k_cardiac, calibrate_k_resp,
     rate_hilbert, rate_peaks_scaled_resp,
@@ -82,7 +82,7 @@ def paint_stages(ax, profile, t_max_hr):
 def stage_legend_handles():
     return [Patch(facecolor=STAGE_COLORS[c], alpha=0.3,
                   label=STAGE_LABELS[c])
-            for c in [4, 3, 2, 1, 0]]
+            for c in [4, 0, 3, 2, 1]]
 
 
 def plot_session(session, out_dir, win_sec=30.0, step_sec=5.0):
@@ -151,11 +151,11 @@ def plot_session(session, out_dir, win_sec=30.0, step_sec=5.0):
     if profile is not None:
         t_ep = profile['t_ep_hr']
         codes = profile['codes']
-        ax0.step(t_ep, codes, where='post', color='#2C3E50', linewidth=1.2)
+        rows = [STAGE_ROW.get(int(c), np.nan) for c in codes]
+        ax0.step(t_ep, rows, where='post', color='#2C3E50', linewidth=1.2)
         ax0.set_yticks([0, 1, 2, 3, 4])
-        ax0.set_yticklabels(['REM', 'N3', 'N2', 'N1', 'Wake'], fontsize=8)
+        ax0.set_yticklabels(['N3', 'N2', 'N1', 'REM', 'Wake'], fontsize=8)
         ax0.set_ylim(-0.5, 4.5)
-        ax0.invert_yaxis()
         paint_stages(ax0, profile, t_max_hr)
     else:
         ax0.text(0.5, 0.5, 'No sleep profile available',

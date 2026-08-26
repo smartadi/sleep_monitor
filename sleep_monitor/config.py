@@ -153,7 +153,19 @@ STAGE_COLORS = {
     0: '#9B59B6', 1: '#2ECC71', 2: '#3498DB',
     3: '#F39C12', 4: '#E74C3C', -1: '#AAAAAA',
 }
-STAGE_ORDER = [0, 1, 2, 3, 4]
+# Canonical hypnogram ladder, top rung to bottom rung: Wake, REM, N1, N2, N3.
+# REM sits directly under Wake because it is not a depth of NREM sleep; the three
+# NREM stages below it run light to deep. Every stage axis in this repo uses this
+# order -- ladders, bar categories and legends alike.
+STAGE_ORDER = [4, 0, 3, 2, 1]                       # top -> bottom, by code
+STAGE_LADDER = ['Wake', 'REM', 'N1', 'N2', 'N3']    # top -> bottom, by name
+
+# Where each stage code is drawn on a ladder axis. Larger y is higher on the
+# plot, so Wake is 4 and N3 is 0. Plot codes through this map, never raw: the
+# raw code puts REM at the bottom.
+STAGE_ROW = {c: len(STAGE_ORDER) - 1 - i for i, c in enumerate(STAGE_ORDER)}
+STAGE_ROW_TICKS = [STAGE_ROW[c] for c in reversed(STAGE_ORDER)]        # bottom -> top
+STAGE_ROW_LABELS = [STAGE_LABELS[c] for c in reversed(STAGE_ORDER)]    # bottom -> top
 
 # Stage codes used in PSG Sleep Profile text files
 PSG_STAGE_MAP = {

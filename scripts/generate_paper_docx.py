@@ -207,7 +207,7 @@ def write_methods_signal_validation(doc: Document):
     )
     doc.add_paragraph(
         'Sleep staging was performed by a certified technician following AASM '
-        'criteria in 30-second epochs (Wake, N1, N2, N3, REM). PSG stage labels '
+        'criteria in 30-second epochs (Wake, REM, N1, N2, N3). PSG stage labels '
         'were used exclusively as ground truth for stratification; no PSG-derived '
         'features entered the capacitive sensor signal processing pipeline.'
     )

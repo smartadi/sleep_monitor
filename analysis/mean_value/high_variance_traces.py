@@ -14,6 +14,7 @@ Output -> writeup/figures/mean_value/high_variance_traces.png
 """
 
 from pathlib import Path
+import sys
 
 import matplotlib
 matplotlib.use("Agg")
@@ -27,12 +28,13 @@ SRC = ROOT / "reports" / "mean_value" / "high_variance_epochs.parquet"
 FIG = ROOT / "writeup" / "figures" / "mean_value"
 FIG.mkdir(parents=True, exist_ok=True)
 
+sys.path.insert(0, str(ROOT))
+from sleep_monitor.config import STAGE_LADDER, STAGE_COLORS, STAGE_ORDER  # noqa: E402
+
 CHANNEL = "CH"
-# hypnogram order, top to bottom
-LADDER = ["Wake", "REM", "N1", "N2", "N3"]
+LADDER = list(STAGE_LADDER)                       # Wake, REM, N1, N2, N3
 YPOS = {s: -i for i, s in enumerate(LADDER)}
-STAGE_COLOR = {"Wake": "#E74C3C", "REM": "#8E44AD", "N1": "#F39C12",
-               "N2": "#3498DB", "N3": "#27AE60"}
+STAGE_COLOR = {n: STAGE_COLORS[c] for n, c in zip(STAGE_LADDER, STAGE_ORDER)}
 
 
 def main():

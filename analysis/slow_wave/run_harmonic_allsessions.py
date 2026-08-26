@@ -26,7 +26,7 @@ ARTIFACT_DIR = Path(__file__).resolve().parents[2] / 'artifacts' / 'harmonics'
 PLOT_DIR.mkdir(parents=True, exist_ok=True)
 ARTIFACT_DIR.mkdir(parents=True, exist_ok=True)
 
-STAGE_NAMES = ['Wake', 'N1', 'N2', 'N3', 'REM']
+STAGE_NAMES = ['Wake', 'REM', 'N1', 'N2', 'N3']
 STAGE_CODE_MAP = {4: 'Wake', 3: 'N1', 2: 'N2', 1: 'N3', 0: 'REM'}
 FEATURES = ['harmonic_energy_ratio', 'n_harmonics', 'cep_prominence', 'hps_score']
 
@@ -133,7 +133,7 @@ for feat in FEATURES:
         print(f'  {feat}: too few N3 samples ({len(n3_vals)})')
         continue
     print(f'  {feat}:')
-    for other in ['Wake', 'N1', 'N2', 'REM']:
+    for other in ['Wake', 'REM', 'N1', 'N2']:
         other_vals = valid[valid.stage == other][feat].dropna().values
         if len(other_vals) < 5:
             continue

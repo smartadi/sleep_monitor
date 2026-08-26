@@ -85,7 +85,7 @@ EPOCHS_CSV = REPORT_DIR / 'mean_value_epochs.csv'
 CHANNELS = ['CH', 'CLE', 'CRE', 'CLE-CRE', 'CLE+CRE']
 CH_LABEL = {'CH': 'CH (hardware L−R)', 'CLE': 'CLE (left)', 'CRE': 'CRE (right)',
             'CLE-CRE': 'CLE−CRE (arithmetic L−R)', 'CLE+CRE': 'CLE+CRE (bilateral mean)'}
-LADDER_ORDER = [4, 3, 2, 1, 0]          # Wake, N1, N2, N3, REM — sleep-depth order
+LADDER_ORDER = [4, 0, 3, 2, 1]          # canonical ladder order, top -> bottom
 WAKE, REM, N1, N2, N3 = 4, 0, 3, 2, 1
 TRAJ_BIN_MIN = 20.0                     # bin width for the overnight trajectory
 MOTION_QUIET_PCT = 50                   # epochs below this motion pct are "quiet"

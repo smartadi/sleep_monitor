@@ -23,7 +23,7 @@ sys.path.insert(0, str(ROOT))
 from sleep_monitor import SESSION_META, load_session
 from sleep_monitor.loader import load_sleep_profile
 from sleep_monitor.config import (
-    FS, RESP_LO, RESP_HI, CARD_LO, CARD_HI, STAGE_LABELS,
+    FS, RESP_LO, RESP_HI, CARD_LO, CARD_HI, STAGE_LABELS, STAGE_ROW,
 )
 from sleep_monitor.preprocessing import preprocess_full
 from sleep_monitor.rates import rate_hilbert, rate_peaks
@@ -209,7 +209,7 @@ STAGE_COLORS = {
     'Wake': '#e74c3c', 'REM': '#3498db', 'N1': '#f39c12',
     'N2': '#2ecc71', 'N3': '#9b59b6', '?': '#bdc3c7',
 }
-STAGE_ORDER = ['Wake', 'N1', 'N2', 'N3', 'REM']
+STAGE_ORDER = ['Wake', 'REM', 'N1', 'N2', 'N3']
 
 # ── Plot 1: Per-session k(t) overlaid on hypnogram (grid) ───────────────────
 
@@ -370,10 +370,10 @@ for label, sd in session_data.items():
         if sp is not None:
             t_ep = sp['t_ep_hr']
             codes = sp['codes']
-            ax0.step(t_ep, codes, where='post', lw=1, color='black')
+            rows = [STAGE_ROW.get(int(c), np.nan) for c in codes]
+            ax0.step(t_ep, rows, where='post', lw=1, color='black')
             ax0.set_yticks([0, 1, 2, 3, 4])
-            ax0.set_yticklabels(['REM', 'N3', 'N2', 'N1', 'Wake'])
-            ax0.invert_yaxis()
+            ax0.set_yticklabels(['N3', 'N2', 'N1', 'REM', 'Wake'])
         ax0.set_title(f'{"Respiratory" if j == 0 else "Cardiac"}')
         ax0.set_ylabel('Stage')
 

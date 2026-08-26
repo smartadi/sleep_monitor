@@ -60,7 +60,7 @@ LOG_FILE = RPT_DIR / 'pipeline_log.txt'
 
 # ── Constants ────────────────────────────────────────────────────────────────
 STAGE_MAP = {0: 'REM', 1: 'N3', 2: 'N2', 3: 'N1', 4: 'Wake'}
-STAGE_ORDER = ['Wake', 'N1', 'N2', 'N3', 'REM']
+STAGE_ORDER = ['Wake', 'REM', 'N1', 'N2', 'N3']
 STAGE_COLORS = {'Wake': '#E74C3C', 'N1': '#F39C12', 'N2': '#3498DB',
                 'N3': '#2ECC71', 'REM': '#9B59B6', '?': '#95a5a6'}
 BANDS = {'resp': (RESP_LO, RESP_HI), 'card': (CARD_LO, CARD_HI)}

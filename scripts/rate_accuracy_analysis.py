@@ -278,7 +278,7 @@ def compute_session(session):
 
 # ── Plotting ─────────────────────────────────────────────────────────────────
 
-STAGE_ORDER = ['Wake', 'N1', 'N2', 'N3', 'REM']
+STAGE_ORDER = ['Wake', 'REM', 'N1', 'N2', 'N3']
 STAGE_COLORS_MAP = {'Wake': '#E74C3C', 'N1': '#F39C12', 'N2': '#3498DB',
                     'N3': '#2E86C1', 'REM': '#9B59B6', '?': '#AAAAAA'}
 CH_COLORS = {'avg': '#2ECC71', 'diff': '#E67E22', 'CLE': '#3498DB', 'CRE': '#9B59B6'}

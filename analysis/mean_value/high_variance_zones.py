@@ -43,7 +43,7 @@ for p in (OUT, FIG):
 EPOCH = 30.0
 LP_HZ = 10.0
 CHANNELS = ["CH", "CLE", "CRE", "CLE-CRE"]
-STAGES = ["Wake", "N1", "N2", "N3", "REM"]
+STAGES = ["Wake", "REM", "N1", "N2", "N3"]
 CODE2STAGE = {4: "Wake", 3: "N1", 2: "N2", 1: "N3", 0: "REM"}
 TOP_DECILE = 0.90
 
