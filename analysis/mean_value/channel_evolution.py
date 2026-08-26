@@ -608,7 +608,6 @@ def plot_pair(s, feats, raw, chans, out, title, shared_level_axis, ridges=None):
     t = feats['t_hr']
     c0, c1 = chans
     f0, f1 = feats[c0], feats[c1]
-    is_diff = c0 in DIFF_CHANNELS and c1 in DIFF_CHANNELS
 
     fig, axes = plt.subplots(
         7, 1, figsize=(14, 16.4), sharex=True,
@@ -654,21 +653,12 @@ def plot_pair(s, feats, raw, chans, out, title, shared_level_axis, ridges=None):
     # still readable as how close the line sits to the envelope edge.
     ax = axes[2]
     stage_shading(ax, sp)
-    draw_imbalance_row(ax, t, feats, chans, shared_axis=shared_level_axis)
-    if is_diff:
-        g0, g1 = f0['imb_lp'], f1['imb_lp']
-        ok = np.isfinite(g0) & np.isfinite(g1)
-        r = float(np.corrcoef(g0[ok], g1[ok])[0, 1]) if ok.sum() > 20 else np.nan
-        agree = (float(np.mean(np.sign(g0[ok]) == np.sign(g1[ok])))
-                 if ok.sum() > 20 else np.nan)
-        lv = np.isfinite(f0['centred']) & np.isfinite(f1['centred']) & feats['in_sleep']
-        gain = (float(np.polyfit(f0['centred'][lv], f1['centred'][lv], 1)[0])
-                if lv.sum() > 20 else np.nan)
-        ax.text(0.994, 0.95, f'gain {gain:+.2f} · r {r:+.2f} · '
-                f'{agree * 100:.0f}% same sign',
-                transform=ax.transAxes, fontsize=8.5, color='#444', va='top',
-                ha='right', zorder=7,
-                bbox=dict(facecolor='white', alpha=0.75, edgecolor='none', pad=1.5))
+    # Imbalance is drawn for the differential alone on the CH figure: the two
+    # channels have independent polarity and scale, so overlaying them compared
+    # quantities that are not the same measurement.
+    draw_imbalance_row(ax, t, feats,
+                       chans if shared_level_axis else chans[:1],
+                       shared_axis=shared_level_axis)
     ax.grid(True, alpha=0.15)
     panel_letter(ax, 2)
 
@@ -720,8 +710,11 @@ def run_session(label):
     acc = s.cap['acc_mag'].astype(np.float64)
     for chans, tag, shared in ((('CLE', 'CRE'), 'CLE_CRE', True),
                                (('CLE-CRE', 'CH'), 'CH_CLE-CRE', False)):
-        title = (f'{s.label} \u2014 {chans[0]} and {chans[1]}: overnight evolution '
-                 f'of the sensor value')
+        # The CH figure shows the differential alone on the level and imbalance
+        # rows now, so only the CLE/CRE figure names two channels in its title.
+        title = ((f'{s.label} — {chans[0]} and {chans[1]}: overnight '
+                  f'evolution of the sensor value') if tag == 'CLE_CRE'
+                 else f'{s.label} — overnight evolution of the sensor value')
         # Ridge panels only on the difference figure: those are the channels the
         # imbalance story is about, and ridge detection is the expensive step here.
         ridges = ({ch: compute_ridges(raw[ch], acc, s.fs) for ch in chans}
