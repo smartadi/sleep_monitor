@@ -156,20 +156,13 @@ def fig_session(g, label, mus, out, ha=None):
     ax.tick_params(axis='y', labelcolor='#E67E22')
     ax.grid(True, alpha=0.13)
 
-    ax2 = ax.twinx()
-    yc = g['mean_CH'].to_numpy() - mus['CH']
-    ax2.plot(t, yc, lw=1.1, color='#2980B9', alpha=0.85, zorder=3)
-    ax2.set_ylim(*_pct_lim(yc))
-    ax2.set_ylabel(f'CH − mean ({CAP_UNIT})', color='#2980B9')
-    ax2.tick_params(axis='y', labelcolor='#2980B9')
+    # CH is deliberately not drawn on this row. It was on a twin axis of its own
+    # scale, which put two channels over one another and made each one's step
+    # structure harder to read; the row is the CLE-CRE mean evolution.
     ax.legend(handles=[
         plt.Line2D([], [], color='#E67E22', lw=2.2,
-                   label=f'CLE−CRE (arithmetic)   mean = {mus["CLE-CRE"]:,.0f} {CAP_UNIT}'
-                         f'   [left axis]'),
-        plt.Line2D([], [], color='#2980B9', lw=2.2,
-                   label=f'CH (hardware)   mean = {mus["CH"]:,.0f} {CAP_UNIT}'
-                         f'   [right axis]')],
-        loc='upper left', fontsize=8, ncol=2, framealpha=0.92)
+                   label=f'CLE-CRE (arithmetic)   mean = {mus["CLE-CRE"]:,.0f} {CAP_UNIT}')],
+        loc='upper left', fontsize=8, framealpha=0.92)
 
     # ── row 3: head posture, which is what most of the steps above are ──
     if has_ha:
