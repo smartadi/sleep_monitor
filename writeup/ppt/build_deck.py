@@ -19,6 +19,7 @@ Run from the repo root:  .venv/Scripts/python.exe writeup/ppt/build_deck.py
 Output -> writeup/ppt/CAP_sleep_mask_review_deck.pptx
 """
 
+import os
 import sys
 from pathlib import Path
 
@@ -31,7 +32,10 @@ from pptx.util import Emu, Inches, Pt
 
 ROOT = Path(__file__).resolve().parents[2]
 FIGS = ROOT / "writeup" / "figures"
-OUT = Path(__file__).resolve().parent / "CAP_sleep_mask_review_deck.pptx"
+# PowerPoint holds an exclusive lock on an open file, so allow the build to be
+# pointed elsewhere while the deck is being read.
+OUT = Path(os.environ.get("DECK_OUT",
+                          Path(__file__).resolve().parent / "CAP_sleep_mask_review_deck.pptx"))
 
 W_IN, H_IN = 13.333, 7.5                 # 16:9
 INK = RGBColor(0x1B, 0x2A, 0x41)         # titles
@@ -47,6 +51,19 @@ IMG_BOTTOM = 7.16
 
 
 # ── the deck ────────────────────────────────────────────────────────────────
+# Twelve recordings, named the same way everywhere: subject 1-6, night 1-2.
+SESSIONS = ["S%dN%d" % (s, n) for s in range(1, 7) for n in (1, 2)]
+
+
+def per_night(pattern, title, caption):
+    """One slide per recording from a filename pattern taking the session label.
+
+    The summary forms -- a single representative night, a twelve-panel grid --
+    are unreadable projected, so every night gets its own slide at full size.
+    """
+    return [(None, title % sess, caption, pattern % sess) for sess in SESSIONS]
+
+
 # (section, title, one-line caption, figure path relative to writeup/figures)
 SLIDES = [
     ("What the mask records", None, None, None),
@@ -68,19 +85,15 @@ SLIDES = [
      "Cardiac amplitude coupling is specific; respiratory amplitude largely is not.",
      "coupling/cap_psg_matrix.png"),
 
-    ("How well the rates can be read", None, None, None),
-    (None, "One night against the polysomnograph",
-     "Loose peak counting on CRE, calibrated on the night being scored.",
-     "rate_rerun/fig_representative_night.png"),
-    (None, "Respiration — all twelve nights",
-     "Reference in black, estimator after per-session calibration.",
-     "rate_rerun/fig_sessions_resp.png"),
-    (None, "Cardiac — all twelve nights",
-     "The same presentation, cardiac band.",
-     "rate_rerun/fig_sessions_card.png"),
-    (None, "Agreement and its limits",
-     "Bias is near zero in both bands; the limits of agreement are wide.",
-     "rate_rerun/fig_bland_altman.png"),
+    ("Respiratory rate — every night", None, None, None),
+    *per_night("rate_rerun/per_night/%s_resp.png", "Respiration — %s",
+               "Mask in green after per-session calibration, PSG reference in black."),
+
+    ("Cardiac rate — every night", None, None, None),
+    *per_night("rate_rerun/per_night/%s_card.png", "Cardiac — %s",
+               "The same presentation, cardiac band."),
+
+    ("Where the rate error sits", None, None, None),
     (None, "Accuracy by sleep stage",
      "Error is lowest in the consolidated stages and worst in wake and REM.",
      "mask_rate_detection/fig3_per_stage_mae.png"),
@@ -88,16 +101,16 @@ SLIDES = [
      "No channel is reliably better than the CLE−CRE differential for respiration.",
      "mask_rate_detection/fig18_mae_heatmap.png"),
 
-    ("Harmonic structure", None, None, None),
-    (None, "Persistent ridges across a night",
-     "Tracked respiratory and cardiac ridges on a single channel, with the hypnogram.",
-     "harmonics/ridges/ridge_tune_S1N1_CRE.png"),
+    ("Persistent ridges — every night", None, None, None),
+    *per_night("harmonics/ridges/ridge_tune_%s_CRE.png", "Ridges — %s",
+               "Tracked respiratory and cardiac ridges on CRE, with the hypnogram above."),
     (None, "Ridge structure by sleep stage",
      "Ridge count, power and lowest frequency all separate by stage.",
      "harmonics/band_ridge_by_stage.png"),
-    (None, "A harmonic comb episode",
-     "Flat, richly harmonic episodes lasting tens of minutes, here in consolidated N2.",
-     "harmonics/ladders/ladder_S6N1.png"),
+
+    ("Harmonic comb episodes — every night", None, None, None),
+    *per_night("harmonics/ladders/ladder_%s.png", "Harmonic comb — %s",
+               "Flat, richly harmonic episodes lasting tens of minutes."),
     (None, "When the comb episodes occur",
      "They sit in N2 and tend to follow REM rather than accompany slow-wave sleep.",
      "harmonics/ladder_stage_relationship.png"),
@@ -109,20 +122,18 @@ SLIDES = [
     (None, "Response at delta-burst onset",
      "The mask responds within seconds of the EEG burst, across all three channels.",
      "delta_onset/fig_delta_onset_cohort.png"),
-    (None, "Capacitive against contact EEG for slow-wave activity",
-     "The same pipeline that works on EEG does not transfer to the capacitive signal.",
-     "swa/swa_validation_paper.png"),
 
-    ("Channels, drift and variance", None, None, None),
-    (None, "CH against the CLE−CRE differential",
-     "The two differ in scale and are only partly coherent — they are not interchangeable.",
-     "mean_value/ch_vs_diff_relationship.png"),
-    (None, "Overnight evolution of the sensor value",
-     "The DC level drifts through the night and carries a directional imbalance.",
-     "channel_evolution/S1N1_CH_CLE-CRE.png"),
+    ("Overnight evolution of the sensor value — every night", None, None, None),
+    *per_night("channel_evolution/%s_CH_CLE-CRE.png", "Sensor value — %s",
+               "Level, imbalance and band amplitude across the night, on the hypnogram."),
     (None, "Sensor value over the night — all twelve",
      "Each night referenced to its own session mean.",
      "channel_evolution/ch_vs_clecre_grid.png"),
+
+    ("Channels and variance", None, None, None),
+    (None, "CH against the CLE−CRE differential",
+     "The two differ in scale and are only partly coherent — they are not interchangeable.",
+     "mean_value/ch_vs_diff_relationship.png"),
     (None, "Capacitance imbalance — all twelve",
      "Magnitude and direction of the left-right offset across each night.",
      "imbalance/imbalance_grid.png"),

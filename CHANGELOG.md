@@ -614,3 +614,28 @@ Records all code changes to library modules, scripts, and notebooks.
 - **Changed** `analysis/slow_wave/ridge_overlay_tune.py` — new `_slow_power()`: the slow-band panel of Figure 5 is now a smoothed power spectrum (5-minute windows, 90% overlap, only the per-column 1/f trend removed, light Gaussian blur, 5th–99th percentile colour range) with **the ridge overlay removed**. The previous panel subtracted a 0.10 Hz median kernel inside a 0.30 Hz band, which whitened away the structure and left speckle for the ridge traces to be drawn through. It now shows slow power concentrated at 0.05–0.10 Hz persisting through the night. **The ridge detector is unchanged and still supplies §4.3's stage statistics** — only its overlay and the ridge count in the title are gone.
 - **Added** `writeup/edits/apply_figure_updates.py` — embeds both regenerated figures, rewrites the Figure 5 caption for the new panel, and cuts Table 3's caption from 120 words to the definitions a reader needs.
 - **Added** `writeup/edits/apply_41_voice.py` — §4.1 rewritten in the voice of a physiology paper rather than a statistics one. Every number, control and caveat kept; what changes is what each paragraph opens on. The two coherence-control paragraphs are merged into one, since they were halves of a single argument (a coherence estimate is not zero under independence, so the margin over a control is the quantity to read).
+
+## 2026-08-26 — review deck rebuilt on the professor's notes
+
+`analysis/rates/per_night_rate_slides.py` (new) writes 24 per-night rate figures —
+each recording, each band, one plot per file at 16:9. Same channel, same loose peak
+counting, same whole-night median k clipped 0.3–5.0 as the representative-night
+figure; S1N1 resp reproduces it exactly (k = 1.14, median |error| 1.66 br/min).
+Two departures from that figure, both deliberate: y-limits are per figure rather
+than shared, because the fixed cardiac ceiling of 125 BPM clipped the reference on
+the fast nights (S6N1 reaches 137) and read as a flat top rather than as data
+running off the axis; and the k/error annotation moved outside the axes, where it
+no longer collides with the trace.
+
+`writeup/ppt/build_deck.py` — slide list rewritten to the notes: the single
+representative night replaced by the 24 per-night slides; the resp grid, the
+cardiac grid and Bland–Altman dropped; persistent ridges expanded to one slide per
+night (CRE); harmonic comb expanded to one slide per night; SWA validation dropped;
+all twelve mean-evolution figures added, the twelve-panel grid kept as a summary.
+33 slides -> 89 (78 figures, 10 sections), 151 MB at full resolution. `DECK_OUT`
+now overrides the output path, since PowerPoint holds an exclusive lock on an open
+deck and the build cannot write over it.
+
+Not hidden by the summary forms: per-night cardiac error is 18.3 BPM on S6N1 and
+11.7 BPM on S2N1 against ~3 BPM elsewhere. On S6N1 the reference swings 60–137 BPM
+while the estimate sits flat near 88 — the within-night negative in §4.2, visible.
