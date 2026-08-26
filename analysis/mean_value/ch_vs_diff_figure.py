@@ -50,11 +50,15 @@ ax[0].set_title("A  Band amplitude tracks\n0 of 12 negative in either band",
 ax[0].legend(fontsize=8, frameon=False, loc="lower right")
 
 # B -- coherence against frequency, every recording
-coh = coh[(coh.freq >= 0.002) & (coh.freq <= 3.0)]
+coh = coh[(coh.freq >= 0.0) & (coh.freq <= 3.0)]
 
 
-def smooth(v, n=25):
-    return np.convolve(v, np.ones(n) / n, mode="same")
+def smooth(v, n=101):
+    """Heavier smoothing than the band summary needed: the raw estimate is
+    spiky enough that twelve traces overlaid read as noise rather than shape.
+    Rolling mean with centred windows, shrinking at the edges rather than
+    wrapping, so the ends are not invented."""
+    return (pd.Series(v).rolling(n, center=True, min_periods=1).mean().to_numpy())
 
 
 grid, stack = None, []
@@ -64,27 +68,30 @@ for sess, g in coh.groupby("session"):
     if grid is None:
         grid = f
     stack.append(np.interp(grid, f, y))
-    ax[1].plot(f, y, lw=0.7, color="#95A5A6", alpha=0.55, zorder=2)
 stack = np.vstack(stack)
 med = np.median(stack, axis=0)
+
 for lo, hi, colr, lbl in [(0.1, 0.5, "#2980B9", "respiratory"),
                           (0.5, 3.0, "#E67E22", "cardiac")]:
-    ax[1].axvspan(lo, hi, color=colr, alpha=0.07, zorder=1)
-    ax[1].text(np.sqrt(lo * hi), 0.045, lbl, ha="center", fontsize=8,
+    ax[1].axvspan(lo, hi, color=colr, alpha=0.08, zorder=1)
+    ax[1].text((lo + hi) / 2, 0.92, lbl, ha="center", fontsize=8.5,
                color=colr, style="italic")
+# Twelve overlaid traces read as noise; the spread is carried by percentile
+# ribbons instead, which is the same information without the spaghetti.
+ax[1].fill_between(grid, np.percentile(stack, 10, axis=0),
+                   np.percentile(stack, 90, axis=0), color="#5D8AA8",
+                   alpha=0.18, zorder=2, lw=0, label="10–90% of recordings")
 ax[1].fill_between(grid, np.percentile(stack, 25, axis=0),
                    np.percentile(stack, 75, axis=0), color="#2C3E50",
-                   alpha=0.15, zorder=3, label="interquartile range")
-ax[1].plot(grid, med, lw=2.4, color="#2C3E50", zorder=4,
-           label="median of 12 recordings")
-ax[1].set_xscale("log")
-ax[1].set_xlim(0.002, 3.0)
+                   alpha=0.28, zorder=3, lw=0, label="interquartile range")
+ax[1].plot(grid, med, lw=2.6, color="#1B2631", zorder=4, label="median")
+ax[1].set_xlim(0, 3.0)
 ax[1].set_ylim(0, 1)
 ax[1].set_xlabel("frequency (Hz)")
 ax[1].set_ylabel("magnitude-squared coherence")
 ax[1].set_title("B  Agreement falls with frequency", loc="left", fontsize=9.5)
-ax[1].legend(fontsize=8, frameon=False, loc="upper left")
-ax[1].grid(alpha=0.3, lw=0.5, which="both")
+ax[1].legend(fontsize=8, frameon=False, loc="upper right")
+ax[1].grid(alpha=0.25, lw=0.5)
 
 # C -- scale
 ratio = (d.sd_CH / d.sd_DIFF).to_numpy()
