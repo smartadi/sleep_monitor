@@ -2706,3 +2706,32 @@ independent noise and the subtraction behaves exactly as it should.
 **Conclusion.** CH's larger overnight swing is physical coupling, not the chip's differential
 scheme — consistent with its correlation with large-motion events (ρ = +0.71 against
 95th-percentile motion, p = 0.010) rather than with median motion (ρ = −0.06).
+
+### 2026-08-17 (cont.) — what else the no-subject baseline is good for
+
+`baseline noise/SM2_33.txt` is 15.8 min at 111 Hz with the mask unworn. It is in **pF**
+where the overnight files are in **fF** (baseline CLE 1.8327 vs overnight ~2023).
+
+**Noise floor of the reported imbalance marker.** Running the paper's own marker chain on
+the empty mask — 10 s block means, then a rolling mean over τ — gives:
+
+| stage | CLE−CRE noise |
+|---|---|
+| per sample | 1.64 fF |
+| 10 s blocks | 0.053 fF |
+| after 5-min rolling mean | 0.022 fF |
+| after 15-min rolling mean | 0.001 fF |
+
+Reported imbalance magnitudes run **3.4 to 182.2 fF** per session, so even the quietest
+recording sits more than two orders of magnitude above the marker's noise floor. The
+imbalance result is not an averaging artifact. This is calibration-independent — it is a
+statement about noise, not about absolute level.
+
+**Loading, and why it is only provisional.** Comparing session mean levels against the empty
+mask suggests the head loads CLE consistently (+125 to +215 fF, median +158), loads CRE
+erratically (−561 to +168), and barely moves CH (median −43). That would say CH's absolute
+level is set by the instrument rather than the subject. **But it assumes the baseline was
+recorded on the same device in the same configuration as the overnight sessions, which the
+data cannot confirm** — the file is undated in content, named for a different unit, and the
+mask is not shaped as it would be on a head. Treat as a hypothesis, not a result, unless the
+device history can be established.
