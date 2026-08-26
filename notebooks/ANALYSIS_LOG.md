@@ -2774,3 +2774,45 @@ cardiac decoding that does not transfer across subjects.
 **Caveats.** The unworn mask has no mechanical excitation of any kind, so this is a strict
 floor rather than a fair "worn but still" control; 15.8 minutes against 4–8 hour recordings;
 and the mask is not shaped as it is on a head.
+
+## 2026-08-17 — High-variance zones: enriched in REM, nearly absent in N3
+
+`analysis/mean_value/high_variance_zones.py`. Per 30 s epoch: variance of the <10 Hz signal
+(the Figure 3 row D quantity), accelerometer SD, scored stage. A "high-variance zone" is an
+epoch in the top decile of its recording. Motion epochs are the top decile of accelerometer
+SD, and everything is reported with and without them, because if the zones were simply
+movement the stage association would be about sleep posture, not about the sensor.
+
+**45.6% of high-variance epochs are also motion epochs**, so the confound is real and has to
+be removed before anything is claimed.
+
+**Enrichment (observed ÷ expected occupancy), median across recordings:**
+
+| subset | channel | Wake | N1 | N2 | N3 | REM |
+|---|---|---|---|---|---|---|
+| all epochs | CH | 2.99 | 0.73 | 0.78 | **0.05** | 2.21 |
+| motion-free | **CH** | 1.49 | 0.92 | 0.86 | **0.08** | **2.73** |
+| motion-free | CRE | 1.67 | 0.65 | 1.01 | 0.00 | 2.05 |
+| motion-free | CLE | 1.86 | 1.11 | 0.95 | 0.00 | 1.06 |
+| motion-free | CLE−CRE | 2.33 | 0.91 | 0.83 | 0.00 | 0.99 |
+
+**Two findings, opposite in strength.**
+
+1. **N3 is nearly empty of high-variance epochs** — enrichment 0.00–0.08, and six of twelve
+   recordings contain none at all on CH. This is the robust result: it survives motion
+   removal, holds on every channel, and matches the stage profile
+   ([[project_variance_sleep_depth]]).
+
+2. **REM is enriched about 2.7× on CH and 2.1× on CRE, and the enrichment *rises* when
+   motion epochs are removed** — so it is not movement. But CLE and CLE−CRE show nothing
+   (1.0), so it is channel-specific, and the statistics are weak: **REM enrichment exceeds 1
+   in only 5 of 7 testable recordings, Wilcoxon p = 0.078**.
+
+**The REM caveat is severe and must be stated with any use of this.** Scored REM is only
+**2.5% of all epochs** — 5 to 79 epochs per recording, and one recording has no scored REM at
+all. Normal REM is 20–25% of a night. Either these home recordings genuinely captured very
+little REM, or REM scoring is unreliable in them. Either way an enrichment computed on 5–18
+REM epochs is fragile, and the REM claim should not be made on this data alone.
+
+Figures: `writeup/figures/mean_value/high_variance_zones.png` (per-recording timeline against
+the hypnogram, motion-flagged marks separated) and `high_variance_enrichment.png`.
