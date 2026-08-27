@@ -4,6 +4,11 @@ Records all code changes to library modules, scripts, and notebooks.
 
 ---
 
+## 2026-08-27
+
+- **Removed the abstract** from `writeup/main/CAP_sleep_mask_manuscript_main.docx` — restored the `[Abstract — to be written.]` placeholder (user did not ask for it; the 2026-08-26 draft was written unprompted). Figure S5 (Bland–Altman) stays removed. Backup `...BACKUP_2026-08-27_pre-abstract-removal.docx`.
+- **Rebuilt** `writeup/ppt/CAP_sleep_mask_review_deck.pptx` (`build_deck.py`) — added two slides to the "Channels and variance" section: the variance sleep-depth indicator (`staging/variance_staging.png`) and variance around REM onset (`staging/variance_peri_rem.png`). 91 slides, 158 MB.
+
 ## 2026-08-26
 
 - **Added** `analysis/staging/variance_staging.py` (+ figures `writeup/figures/staging/variance_staging.png`, `variance_peri_rem.png`; CSVs `reports/staging/variance_stage_*.csv`) — reporting analysis of capacitive variance (<10 Hz, forehead CH) as a sleep-stage signal. **Forward:** variance is a sleep-DEPTH axis — falls Wake→N3 (N3 lowest 6/6 subjects, monotone 5/6), returns in REM (6/6); grouped Friedman (subject as unit) p=0.0011, vs the pooled-epoch artifact 3.2e-56. **Inverse (given variance → stage):** low per-subject tercile is 85% deep NREM (70% N2, 15% N3, 2.6% Wake), high tercile 15% Wake; N2 dominates every level by base rate. **Separability:** N3-vs-rest AUC 0.66, Wake-vs-rest 0.64 (subject-dependent 0.5–0.84); longer windows help wake slightly (0.64→0.69 at 5 min). **Motion-included vs motion-free** both hold the depth ordering (motion concentrates in Wake, 0.32); kept both per user (motion may track brain state). **Peri-REM lead-up:** 26 onsets/6 subjects — variance does NOT rise before REM onset (3/6 subjects, cohort +0.04) but steps up AT onset (4/6, +0.41). Honest verdict: variance separates deep sleep/wake from the middle but cannot resolve five stages; it is the strongest single honest CAP stage signal, replacing the retracted k_cardiac.
