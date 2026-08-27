@@ -32,7 +32,10 @@ Detect slow wave sleep (N3/SWS) signatures in CAP temple sensors without EEG.
 - `sleep_monitor/spectral.py` — sliding-window band power ratios (delta, theta, alpha, beta) via Welch
 - `notebooks/analysis_sws_band_ratios.py` — initial band ratio exploration
 - `sleep_monitor/staging.py` — epoch-level feature extraction including band powers
-- k_cardiac varies by sleep stage (validated discriminator, see analysis/rates/)
+- ~~k_cardiac varies by sleep stage (validated discriminator)~~ **RETRACTED 2026-08-26**:
+  the p=10^-130 was a pooled-epoch artifact and k is a per-session scalar, not a
+  per-epoch feature (see `analysis/staging/CLAUDE.md`). The honest stage signal is
+  the <10 Hz variance depth axis (`analysis/staging/variance_staging.py`).
 - PSG sleep profile labels available (30s epochs: Wake, N1, N2, N3, REM)
 
 ---
