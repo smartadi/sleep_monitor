@@ -155,6 +155,23 @@ SLIDES = [
     (None, "Which stages they fall in",
      "Observed over expected occupancy — 1.0 is chance. Almost none land in N3.",
      "mean_value/high_variance_enrichment.png"),
+
+    ("Per-night sensor metrics", None, None, None),
+    (None, "What the three metrics measure",
+     "Area under the mean-referenced CLE−CRE curve; time and impulse count above a variance threshold.",
+     "prof_metrics/method.png"),
+    (None, "Metric 1 — absolute area under CLE−CRE",
+     "Total area scales with night length (4.1–8.7 h), so the per-hour form is on the right.",
+     "prof_metrics/metric1_area.png"),
+    (None, "Metric 2 — time above a variance threshold",
+     "One absolute threshold shared by every night, swept from 2 to 50 fF².",
+     "prof_metrics/metric2_duration.png"),
+    (None, "Metric 3 — frequency of variance impulses",
+     "An impulse is one contiguous run above threshold; reported per hour.",
+     "prof_metrics/metric3_impulses.png"),
+    (None, "All twelve nights",
+     "The three metrics at 10 fF², with age and PSQI alongside.",
+     "prof_metrics/results_table.png"),
 ]
 
 TITLE = ("Capacitive sleep mask", "Figures for review",

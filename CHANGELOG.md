@@ -665,3 +665,31 @@ deck and the build cannot write over it.
 Not hidden by the summary forms: per-night cardiac error is 18.3 BPM on S6N1 and
 11.7 BPM on S2N1 against ~3 BPM elsewhere. On S6N1 the reference swings 60–137 BPM
 while the estimate sits flat near 88 — the within-night negative in §4.2, visible.
+
+## 2026-08-26 — the three per-night metrics from Jae's email
+
+`analysis/mean_value/prof_metrics.py` (new) computes, per overnight recording:
+absolute area under the mean-referenced CLE−CRE curve; time with CLE−CRE variance
+above a threshold; and the count of variance impulses above it, an impulse being
+one contiguous run of epochs. Reads the cached epoch tables — `d_fF` in
+`imbalance_epochs.csv` is exactly the plotted top-panel quantity (S1N1 session mean
+−216.9 matches the panel's "µ −217"), `var_CLE-CRE` in `high_variance_epochs.parquet`
+is the bottom panel — so no raw pass.
+
+Two choices the email left open, both made explicitly in the module docstring.
+The threshold is absolute and shared by every night: a per-session percentile would
+place the same fraction of epochs above threshold in every recording by construction,
+making metric 2 a constant that cannot correlate with PSQI. It is swept over 2, 5, 10,
+20 and 50 fF² rather than fixed, since the pooled distribution is heavy-tailed
+(median 0.6, 90th 5.9, 99th 231 fF²). And every metric is reported both as a total and
+per hour, because recordings run 4.1–8.7 h and totals otherwise carry night length
+into the comparison. Motion is kept in the headline numbers — restlessness is part of
+what these measure — with motion-free columns alongside.
+
+Outputs `reports/mean_value/prof_metrics_{per_night,threshold_sweep}.csv` and five
+figures under `writeup/figures/prof_metrics/`. Age and PSQI per subject were already
+in the repo (`analysis/rates/outputs/k_vs_age_per_subject.csv`) and are carried into
+the table for convenience; no correlation was run.
+
+`writeup/ppt/build_deck.py` — new "Per-night sensor metrics" section, 6 slides
+(method, one per metric, and all twelve nights as a table). Deck 91 -> 97 slides.
