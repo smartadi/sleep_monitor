@@ -693,3 +693,27 @@ the table for convenience; no correlation was run.
 
 `writeup/ppt/build_deck.py` — new "Per-night sensor metrics" section, 6 slides
 (method, one per metric, and all twelve nights as a table). Deck 91 -> 97 slides.
+
+### 2026-08-26 (cont.) — the threshold policy tested rather than asserted
+
+`analysis/mean_value/prof_metrics.py` gains `policy_table` and `fig_policy`, which run
+all twelve nights under three threshold policies and report what each one buys.
+
+The percentile policy fails as predicted, and now visibly: time above a per-night 90th
+percentile lands between 9.99% and 10.14% on every recording, and its night-to-night
+Spearman is −0.26 — noise around a constant. The shared absolute threshold keeps a 16×
+spread (1.35–22.1%) and reproduces at rho +0.66 for duration and +0.77 for impulses
+across a subject's two nights. At n = 6 those are p ≈ 0.16 and 0.10, so the evidence is
+the consistent grouping (S1/S2/S6 high, S3/S4/S5 low on both nights), not the coefficient.
+
+The result worth carrying forward is the third panel. Every surviving policy correlates
+with the night's own median variance at about +0.8 — including the median-referenced one,
+at +0.83, which was supposed to remove exactly that dependence. Nights with a higher
+baseline also have proportionally heavier tails, so the distribution changes shape with
+level rather than merely scaling. The gain dependence is therefore not something a
+threshold policy can normalise away: whichever is chosen, these metrics substantially
+report how variable the night was overall. Whether that is physiology or mask fit is
+unresolved -- the unworn-mask baseline bounds the instrument floor but says nothing about
+per-night coupling.
+
+Deck: one slide added before metric 2. 97 -> 98 slides.

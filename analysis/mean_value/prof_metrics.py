@@ -37,8 +37,10 @@ Run from the repo root:
 
 Outputs -> reports/mean_value/prof_metrics_per_night.csv
            reports/mean_value/prof_metrics_threshold_sweep.csv
+           reports/mean_value/prof_metrics_threshold_policy.csv
            writeup/figures/prof_metrics/{method,metric1_area,metric2_duration,
-                                          metric3_impulses,results_table}.png
+                                          metric3_impulses,results_table,
+                                          threshold_policy}.png
 """
 
 from pathlib import Path
@@ -280,6 +282,87 @@ def fig_table(t):
     fig.savefig(p); plt.close(fig); print("  %s" % p.name)
 
 
+# ── threshold policy ─────────────────────────────────────────────────────────
+
+POLICIES = [
+    ("absolute %g fF$^2$" % HEADLINE, lambda v: HEADLINE, C_B),
+    ("per-night 90th pct", lambda v: float(np.percentile(v, 90)), "#8E44AD"),
+    ("10x night median", lambda v: 10.0 * float(np.median(v)), "#27AE60"),
+]
+
+
+def policy_table(var):
+    """Every night under each threshold policy, for the comparison figure."""
+    rows = []
+    col = "var_" + CH
+    for name, fn, _ in POLICIES:
+        for sess, g in var.groupby("session"):
+            g = g.sort_values("epoch")
+            v = g[col].to_numpy(float)
+            thr = fn(v)
+            above = v > thr
+            hours = len(v) * EPOCH_HR
+            rows.append({
+                "policy": name, "session": sess, "subject": sess[:2], "night": sess[-1],
+                "threshold_fF2": thr, "dur_above_pct": 100.0 * above.mean(),
+                "impulses_per_hour": len(runs_above(above)) / hours,
+                "night_median_fF2": float(np.median(v)),
+            })
+    return pd.DataFrame(rows)
+
+
+def fig_policy(pt):
+    """Why the threshold is held the same on every night."""
+    from scipy import stats as _st
+    fig, ax = plt.subplots(1, 3, figsize=(250 * MM, 100 * MM))
+    sess = sorted(pt.session.unique())
+
+    for name, _, c in POLICIES:
+        d = pt[pt.policy == name].set_index("session").loc[sess]
+        ax[0].plot(range(len(sess)), d.dur_above_pct, "o-", color=c, lw=1.3, ms=4,
+                   label=name)
+    ax[0].set_xticks(range(len(sess)))
+    ax[0].set_xticklabels(sess, rotation=90, fontsize=7.5)
+    ax[0].set_ylabel("time above threshold  (% of night)")
+    ax[0].set_title("A  ·  the percentile policy is flat by construction",
+                    loc="left", fontsize=9.5)
+    ax[0].legend(fontsize=8)
+
+    for name, _, c in POLICIES:
+        d = pt[pt.policy == name]
+        w = d.pivot(index="subject", columns="night", values="dur_above_pct")
+        r = _st.spearmanr(w["1"], w["2"]).statistic
+        ax[1].scatter(w["1"], w["2"], s=34, color=c, alpha=0.85,
+                      label="%s  ρ=%+.2f" % (name, r))
+    lim = [0, max(pt.dur_above_pct) * 1.1]
+    ax[1].plot(lim, lim, ls="--", lw=0.8, color=C_MUTED)
+    ax[1].set_xlim(lim); ax[1].set_ylim(lim)
+    ax[1].set_xlabel("night 1  (% of night)"); ax[1].set_ylabel("night 2")
+    ax[1].set_title("B  ·  does it reproduce across a subject's two nights?",
+                    loc="left", fontsize=9.5)
+    ax[1].legend(fontsize=8, loc="upper left")
+
+    for name, _, c in POLICIES:
+        d = pt[pt.policy == name]
+        r = _st.spearmanr(d.dur_above_pct, d.night_median_fF2).statistic
+        ax[2].scatter(d.night_median_fF2, d.dur_above_pct, s=34, color=c, alpha=0.85,
+                      label="%s  ρ=%+.2f" % (name, r))
+    ax[2].set_xscale("log")
+    ax[2].set_xlabel("night's median variance  (fF$^2$)")
+    ax[2].set_ylabel("time above threshold  (%)")
+    ax[2].set_title("C  ·  all policies track the night's overall level",
+                    loc="left", fontsize=9.5)
+    ax[2].legend(fontsize=8, loc="upper left")
+
+    for a in ax:
+        a.grid(color=C_FAINT, lw=0.5)
+        a.set_axisbelow(True)
+    fig.suptitle("Choosing the variance threshold", fontsize=11.5, x=0.055, ha="left")
+    fig.tight_layout(rect=(0, 0, 1, 0.94))
+    p = FIG / "threshold_policy.png"
+    fig.savefig(p); plt.close(fig); print("  %s" % p.name)
+
+
 def main():
     imb = pd.read_csv(IMB)
     var = pd.read_parquet(VAR)
@@ -318,6 +401,10 @@ def main():
     fig_metric2(sweep)
     fig_metric3(sweep)
     fig_table(t)
+
+    pt = policy_table(var)
+    pt.to_csv(OUT / "prof_metrics_threshold_policy.csv", index=False)
+    fig_policy(pt)
     print("\ntables -> %s" % OUT)
 
 
