@@ -797,3 +797,12 @@ Totals and the arousal index are unaffected. Subtype indices move a lot on some
 nights: S2N2 respiratory 14.10 -> 23.40 and spontaneous 21.75 -> 12.45; S4N1
 respiratory 7.44 -> 16.88, spontaneous 29.95 -> 19.24. The subtype figures
 reported before this fix should not be used.
+
+## 2026-08-27 (cont. 3) — hourly arousal profile
+
+`fig_hourly` in `analysis/swa_validation/arousal_index.py`: twelve panels, one per
+night, EEG-scored and CAP-detected arousals side by side. Time runs down the y
+axis so each panel reads like a hypnogram; rate runs along x. Counts are divided
+by the recording time falling in each hour bin, so a partial final hour is a rate
+rather than a short bar. Shared x scale across panels so nights are comparable
+by eye. Deck 101 -> 102 slides.

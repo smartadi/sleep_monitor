@@ -259,6 +259,68 @@ def fig_cap_vs_psg(t):
     fig.savefig(p); plt.close(fig); print("  %s" % p.name)
 
 
+def fig_hourly(t):
+    """Hour-by-hour arousal rate through the night, both instruments, all nights.
+
+    Time runs DOWN the y axis so each panel reads like a hypnogram, and the rate
+    runs along x. Counts are divided by the recording time actually falling in
+    each hour bin, so a partial final hour is a rate rather than a short bar.
+    """
+    from sleep_monitor.loader import load_session, load_arousals
+    from sleep_monitor.sessions import SESSION_META
+
+    cap = pd.read_csv(CAP_EVENTS) if CAP_EVENTS.exists() else None
+    panels = []
+    for i, _ in enumerate(SESSION_META):
+        sess = load_session(i)
+        lab = sess.meta["label"]
+        ar = load_arousals(sess)
+        if ar is None:
+            continue
+        dur = float(sess.time_hr[-1])
+        edges = np.arange(0, np.ceil(dur) + 1)
+        cover = np.clip(np.minimum(edges[1:], dur) - edges[:-1], 1e-6, None)
+        eeg = np.histogram(ar["start_hr"], bins=edges)[0] / cover
+        if cap is not None:
+            ce = cap[cap.session == lab]
+            cp = np.histogram(ce.t_hr, bins=edges)[0] / cover
+        else:
+            cp = np.zeros_like(eeg)
+        panels.append((lab, edges[:-1], eeg, cp))
+
+    ncol, nrow = 4, 3
+    fig, axes = plt.subplots(nrow, ncol, figsize=(250 * MM, 150 * MM),
+                             sharex=True)
+    xmax = max(max(e.max(), c.max()) for _, _, e, c in panels) * 1.08
+
+    for ax, (lab, hrs, eeg, cp) in zip(axes.ravel(), panels):
+        y = hrs + 0.5
+        ax.barh(y - 0.2, eeg, height=0.38, color="#2980B9", label="EEG scored")
+        ax.barh(y + 0.2, cp, height=0.38, color="#E67E22", label="CAP detected")
+        ax.set_ylim(max(hrs) + 1.1, -0.1)          # time runs down
+        ax.set_xlim(0, xmax)
+        ax.set_yticks(np.arange(0, max(hrs) + 2, 2))
+        ax.set_title(lab, loc="left", fontsize=9.5, color=C_INK)
+        ax.grid(axis="x", color=C_FAINT, lw=0.5)
+        ax.set_axisbelow(True)
+        ax.tick_params(labelsize=8)
+    for ax in axes.ravel()[len(panels):]:
+        ax.set_visible(False)
+    for ax in axes[:, 0]:
+        ax.set_ylabel("hour of recording")
+    for ax in axes[-1, :]:
+        ax.set_xlabel("arousals per hour")
+
+    h, l = axes[0, 0].get_legend_handles_labels()
+    fig.legend(h, l, ncol=2, fontsize=9.5, frameon=False,
+               loc="upper center", bbox_to_anchor=(0.5, 0.975))
+    fig.suptitle("Arousals hour by hour — PSG scoring and the capacitive mask",
+                 fontsize=11.5, x=0.055, ha="left", y=0.995)
+    fig.tight_layout(rect=(0, 0, 1, 0.94))
+    p = FIG / "arousal_hourly.png"
+    fig.savefig(p); plt.close(fig); print("  %s" % p.name)
+
+
 def fig_index(t):
     t = t.sort_values("session")
     x = np.arange(len(t))
@@ -342,6 +404,7 @@ def main():
 
     print("\nFigures")
     fig_index(t)
+    fig_hourly(t)
     fig_cap_vs_psg(t)
     fig_table(t)
     print("\ntable -> %s" % (OUT / "arousal_counts.csv"))
