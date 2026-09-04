@@ -717,3 +717,29 @@ unresolved -- the unworn-mask baseline bounds the instrument floor but says noth
 per-night coupling.
 
 Deck: one slide added before metric 2. 97 -> 98 slides.
+
+## 2026-08-27 — EEG arousal counts per night (Jae's second request)
+
+`analysis/swa_validation/arousal_index.py` (new) counts the PSG's own scored
+cortical arousals per overnight recording, from the `Classification Arousal`
+file that sits beside the sleep profile. All 12 nights have scoring.
+
+Two conventions stated in the module docstring because they change the number.
+The index is per hour of SLEEP, not per hour of recording — that is the AASM
+definition and the one clinical norms are quoted against; both are reported, and
+they differ by however much wake each night held (sleep efficiency runs 80-99%).
+Subtypes are separated rather than summed: a respiratory arousal index speaks to
+sleep-disordered breathing while a spontaneous one speaks to fragmentation.
+Pleth-derived autonomic arousals are counted alongside as the non-cortical
+comparison.
+
+Arousal index 13.0-54.3 per hour of sleep. Every night is above the usual adult
+reference of about 10-15/h, which fits a cohort whose PSQI is 4-9 with five of
+six subjects above the poor-sleep cutoff. Night-to-night agreement is close in
+five of six subjects (S1 27.6/28.2, S2 34.3/39.9, S3 49.7/54.3, S4 43.9/41.5,
+S6 22.4/27.2); S5 is the exception at 13.0/22.8, and is also the pair with the
+shortest recordings and lowest sleep efficiency. Cortical and autonomic indices
+track each other closely on every night.
+
+Outputs `reports/psg/arousal_counts.csv` and two figures under
+`writeup/figures/prof_metrics/`. Deck 98 -> 100 slides.

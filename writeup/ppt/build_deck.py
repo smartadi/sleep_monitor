@@ -175,6 +175,12 @@ SLIDES = [
     (None, "All twelve nights",
      "The three metrics at 10 fF², with age and PSQI alongside.",
      "prof_metrics/results_table.png"),
+    (None, "EEG-scored arousals per night",
+     "From the PSG's own scoring, indexed per hour of sleep rather than per hour of recording.",
+     "prof_metrics/arousal_index.png"),
+    (None, "Arousal counts — all twelve nights",
+     "Total, index, and the three subtypes, with age and PSQI alongside.",
+     "prof_metrics/arousal_table.png"),
 ]
 
 TITLE = ("Capacitive sleep mask", "Figures for review",
