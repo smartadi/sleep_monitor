@@ -179,8 +179,11 @@ SLIDES = [
      "From the PSG's own scoring, indexed per hour of sleep rather than per hour of recording.",
      "prof_metrics/arousal_index.png"),
     (None, "Arousal counts — all twelve nights",
-     "Total, index, and the three subtypes, with age and PSQI alongside.",
+     "Total, index, and the three subtypes, with CAP event rates alongside.",
      "prof_metrics/arousal_table.png"),
+    (None, "Cortical arousal — PSG scoring against the mask",
+     "The mask's event rate does not track the scored arousal index; the PSG's own autonomic channel does.",
+     "prof_metrics/arousal_cap_vs_psg.png"),
 ]
 
 TITLE = ("Capacitive sleep mask", "Figures for review",

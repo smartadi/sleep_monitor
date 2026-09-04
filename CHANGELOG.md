@@ -743,3 +743,29 @@ track each other closely on every night.
 
 Outputs `reports/psg/arousal_counts.csv` and two figures under
 `writeup/figures/prof_metrics/`. Deck 98 -> 100 slides.
+
+## 2026-08-27 (cont.) — CAP event rate against the scored arousal index
+
+`analysis/swa_validation/arousal_index.py` now puts the CAP arousal events on the
+same footing as the PSG index — restricted to scored sleep, divided by TST — and
+compares them. Both the pre-gate detected rate and the post-gate kept rate are
+reported, since the head-motion gate removes most events where the two instruments
+agree and the kept rate under-counts by construction.
+
+**The mask's event rate does not track the scored arousal index.** Spearman across
+12 nights: detected rho = -0.24 (p = 0.46), kept rho = +0.03 (p = 0.91). Nor do the
+variance metrics: impulses/h rho = -0.27, time-above-threshold rho = -0.23, area/h
+rho = -0.43. All null, none significant, and the signs lean negative.
+
+The null is interpretable because the same comparison has a positive control in it.
+The PSG's own pleth-derived autonomic arousals track its cortical arousals at
+**rho = +0.96 (p < 0.001)** over the same 12 nights, so n is not the limitation and
+an arousal correlate in this dataset is detectable when one exists.
+
+What the CAP event rate does track is the mask's own variability: night median
+variance rho = +0.80, time above threshold rho = +0.89, and impulses per hour
+rho = **+0.97** — the arousal detector and the variance-impulse metric are very
+nearly the same measurement, not independent evidence. This is the gain dependence
+already noted for the threshold policy, now visible in a second metric.
+
+Results table gains the CAP columns; deck 100 -> 101 slides.

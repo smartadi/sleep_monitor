@@ -47,6 +47,7 @@ from sleep_monitor.loader import (                                   # noqa: E40
 from sleep_monitor.sessions import SESSION_META                       # noqa: E402
 
 AGE = ROOT / "analysis" / "rates" / "outputs" / "k_vs_age_per_subject.csv"
+CAP_EVENTS = ROOT / "reports" / "swa_validation" / "cap_events" / "cap_arousal_events.csv"
 OUT = ROOT / "reports" / "psg"
 FIG = ROOT / "writeup" / "figures" / "prof_metrics"
 for p in (OUT, FIG):
@@ -152,6 +153,92 @@ def build():
     return pd.DataFrame(rows)
 
 
+def add_cap(t):
+    """CAP-detected arousal events on the same per-hour-of-sleep footing.
+
+    Two rates, because they answer different questions. The KEPT rate counts
+    events surviving the four artifact gates -- the conservative inventory. The
+    DETECTED rate counts every transient before gating, which is the fairer
+    comparison against the PSG: scored arousals are movement-coupled almost by
+    definition, so the head-motion gate removes most of the events where the two
+    instruments agree, and the kept rate under-counts by construction.
+
+    Both are restricted to scored sleep, matching the PSG index.
+    """
+    if not CAP_EVENTS.exists():
+        print("  no CAP event table -- comparison skipped")
+        return t
+    e = pd.read_csv(CAP_EVENTS)
+    in_sleep = e.stage.isin(["N1", "N2", "N3", "REM"])
+    g = (e[in_sleep].groupby("session")
+         .agg(cap_detected=("kept", "size"), cap_kept=("kept", "sum"))
+         .reset_index())
+    t = t.merge(g, on="session", how="left")
+    t["cap_kept_index"] = t.cap_kept / t.tst_hr
+    t["cap_detected_index"] = t.cap_detected / t.tst_hr
+    return t
+
+
+def fig_cap_vs_psg(t):
+    """The same measure -- arousals per hour of sleep -- from both instruments."""
+    from scipy import stats as _st
+    t = t.sort_values("session")
+    x = np.arange(len(t))
+    fig, ax = plt.subplots(1, 3, figsize=(250 * MM, 92 * MM))
+
+    a = ax[0]
+    a.bar(x - 0.21, t.arousal_index, width=0.42, color="#2980B9",
+          label="PSG scored (left axis)")
+    a.set_ylabel("PSG arousals per hour of sleep")
+    a.set_xticks(x); a.set_xticklabels(t.session, rotation=90, fontsize=8)
+    b = a.twinx()
+    b.plot(x, t.cap_detected_index, "o-", color="#E67E22", lw=1.4, ms=5,
+           label="CAP detected (right axis)")
+    b.plot(x, t.cap_kept_index, "s--", color="#C0392B", lw=1.2, ms=4,
+           label="CAP kept after gating (right axis)")
+    b.set_ylabel("CAP events per hour of sleep")
+    b.spines["top"].set_visible(False)
+    h1, l1 = a.get_legend_handles_labels(); h2, l2 = b.get_legend_handles_labels()
+    a.legend(h1 + h2, l1 + l2, fontsize=8, loc="upper left")
+    a.set_title("A  ·  per night, both instruments", loc="left", fontsize=10)
+
+    c = ax[1]
+    for col, colr, lab in [("cap_detected_index", "#E67E22", "detected"),
+                           ("cap_kept_index", "#C0392B", "kept after gating")]:
+        m = np.isfinite(t[col]) & np.isfinite(t.arousal_index)
+        r = _st.spearmanr(t.arousal_index[m], t[col][m]).statistic
+        c.scatter(t.arousal_index[m], t[col][m], s=38, color=colr, alpha=0.85,
+                  label="CAP %s   ρ=%+.2f" % (lab, r))
+    c.set_xlabel("PSG arousal index  (per hour of sleep)")
+    c.set_ylabel("CAP event rate  (per hour of sleep)")
+    c.set_title("B  ·  do they rank the nights the same way?", loc="left", fontsize=10)
+    c.legend(fontsize=8, loc="upper left")
+
+    # positive control: the PSG's own non-cortical arousal channel. If the null in
+    # panel B were just n = 12 nights or a noisy index, this would be null too.
+    d = ax[2]
+    m = np.isfinite(t.autonomic_index) & np.isfinite(t.arousal_index)
+    r = _st.spearmanr(t.arousal_index[m], t.autonomic_index[m]).statistic
+    d.scatter(t.arousal_index[m], t.autonomic_index[m], s=38, color="#16A085",
+              alpha=0.85, label="pleth autonomic   ρ=%+.2f" % r)
+    lim = [0, max(t.arousal_index.max(), t.autonomic_index.max()) * 1.08]
+    d.plot(lim, lim, ls="--", lw=0.8, color=C_MUTED)
+    d.set_xlim(lim); d.set_ylim(lim)
+    d.set_xlabel("PSG arousal index  (per hour of sleep)")
+    d.set_ylabel("autonomic index  (per hour of sleep)")
+    d.set_title("C  ·  positive control, same nights", loc="left", fontsize=10)
+    d.legend(fontsize=8, loc="upper left")
+
+    for a_ in ax:
+        a_.grid(axis="y", color=C_FAINT, lw=0.5)
+        a_.set_axisbelow(True)
+    fig.suptitle("Cortical arousal — PSG scoring against the capacitive mask",
+                 fontsize=11.5, x=0.055, ha="left")
+    fig.tight_layout(rect=(0, 0, 1, 0.94))
+    p = FIG / "arousal_cap_vs_psg.png"
+    fig.savefig(p); plt.close(fig); print("  %s" % p.name)
+
+
 def fig_index(t):
     t = t.sort_values("session")
     x = np.arange(len(t))
@@ -221,6 +308,7 @@ def fig_table(t):
 def main():
     print("Reading PSG arousal scoring")
     t = build()
+    t = add_cap(t)
     a = pd.read_csv(AGE)[["subj", "age", "psqi"]].drop_duplicates("subj")
     t = t.merge(a, left_on="subject", right_on="subj", how="left").drop(columns="subj")
     t.to_csv(OUT / "arousal_counts.csv", index=False)
@@ -229,10 +317,12 @@ def main():
     print("\nPer night\n")
     print(t[["session", "age", "psqi", "recording_hr", "tst_hr", "n_arousals",
              "arousal_index", "idx_spontaneous", "idx_respiratory", "idx_limb",
-             "autonomic_index"]].round(2).to_string(index=False))
+             "autonomic_index", "cap_detected_index",
+             "cap_kept_index"]].round(2).to_string(index=False))
 
     print("\nFigures")
     fig_index(t)
+    fig_cap_vs_psg(t)
     fig_table(t)
     print("\ntable -> %s" % (OUT / "arousal_counts.csv"))
 
