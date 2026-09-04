@@ -200,13 +200,17 @@ def add_cap(t):
 
 
 def fig_cap_vs_psg(t):
-    """The same measure -- arousals per hour of sleep -- from both instruments."""
-    from scipy import stats as _st
+    """The same measure -- arousals per hour of sleep -- from both instruments.
+
+    Descriptive only: the rates side by side, per night. Correlation panels were
+    dropped deliberately -- at this stage the numbers are being read off plots,
+    and a coefficient over twelve nights invites more weight than it can carry.
+    """
     t = t.sort_values("session")
     x = np.arange(len(t))
-    fig, ax = plt.subplots(1, 3, figsize=(250 * MM, 92 * MM))
+    fig, ax = plt.subplots(figsize=(250 * MM, 110 * MM))
 
-    a = ax[0]
+    a = ax
     a.bar(x - 0.21, t.arousal_index, width=0.42, color="#2980B9",
           label="PSG scored (left axis)")
     a.set_ylabel("PSG arousals per hour of sleep")
@@ -219,42 +223,14 @@ def fig_cap_vs_psg(t):
     b.set_ylabel("CAP events per hour of sleep")
     b.spines["top"].set_visible(False)
     h1, l1 = a.get_legend_handles_labels(); h2, l2 = b.get_legend_handles_labels()
-    a.legend(h1 + h2, l1 + l2, fontsize=8, loc="upper left")
-    a.set_title("A  ·  per night, both instruments", loc="left", fontsize=10)
+    a.set_xlabel("")
+    a.legend(h1 + h2, l1 + l2, fontsize=9, loc="upper left", ncol=3)
 
-    c = ax[1]
-    for col, colr, lab in [("cap_detected_index", "#E67E22", "detected"),
-                           ("cap_kept_index", "#C0392B", "kept after gating")]:
-        m = np.isfinite(t[col]) & np.isfinite(t.arousal_index)
-        r = _st.spearmanr(t.arousal_index[m], t[col][m]).statistic
-        c.scatter(t.arousal_index[m], t[col][m], s=38, color=colr, alpha=0.85,
-                  label="CAP %s   ρ=%+.2f" % (lab, r))
-    c.set_xlabel("PSG arousal index  (per hour of sleep)")
-    c.set_ylabel("CAP event rate  (per hour of sleep)")
-    c.set_title("B  ·  do they rank the nights the same way?", loc="left", fontsize=10)
-    c.legend(fontsize=8, loc="upper left")
-
-    # positive control: the PSG's own non-cortical arousal channel. If the null in
-    # panel B were just n = 12 nights or a noisy index, this would be null too.
-    d = ax[2]
-    m = np.isfinite(t.autonomic_index) & np.isfinite(t.arousal_index)
-    r = _st.spearmanr(t.arousal_index[m], t.autonomic_index[m]).statistic
-    d.scatter(t.arousal_index[m], t.autonomic_index[m], s=38, color="#16A085",
-              alpha=0.85, label="pleth autonomic   ρ=%+.2f" % r)
-    lim = [0, max(t.arousal_index.max(), t.autonomic_index.max()) * 1.08]
-    d.plot(lim, lim, ls="--", lw=0.8, color=C_MUTED)
-    d.set_xlim(lim); d.set_ylim(lim)
-    d.set_xlabel("PSG arousal index  (per hour of sleep)")
-    d.set_ylabel("autonomic index  (per hour of sleep)")
-    d.set_title("C  ·  positive control, same nights", loc="left", fontsize=10)
-    d.legend(fontsize=8, loc="upper left")
-
-    for a_ in ax:
-        a_.grid(axis="y", color=C_FAINT, lw=0.5)
-        a_.set_axisbelow(True)
-    fig.suptitle("Cortical arousal — PSG scoring against the capacitive mask",
-                 fontsize=11.5, x=0.055, ha="left")
-    fig.tight_layout(rect=(0, 0, 1, 0.94))
+    a.grid(axis="y", color=C_FAINT, lw=0.5)
+    a.set_axisbelow(True)
+    a.set_title("Cortical arousal — PSG scoring against the capacitive mask",
+                loc="left", fontsize=11.5, pad=10)
+    fig.tight_layout()
     p = FIG / "arousal_cap_vs_psg.png"
     fig.savefig(p); plt.close(fig); print("  %s" % p.name)
 
@@ -491,12 +467,21 @@ def fig_table(t):
 
 
 def main():
-    print("Reading PSG arousal scoring")
-    t = build()
-    t = add_cap(t)
-    a = pd.read_csv(AGE)[["subj", "age", "psqi"]].drop_duplicates("subj")
-    t = t.merge(a, left_on="subject", right_on="subj", how="left").drop(columns="subj")
-    t.to_csv(OUT / "arousal_counts.csv", index=False)
+    # Building costs a reload of twelve recordings, so the finished table is
+    # cached and reused. Delete the CSV to re-read the scoring from source.
+    cache = OUT / "arousal_counts.csv"
+    if cache.exists():
+        t = pd.read_csv(cache)
+        print("loaded cached counts (%d nights) — delete %s to rebuild"
+              % (len(t), cache.name))
+    else:
+        print("Reading PSG arousal scoring")
+        t = build()
+        t = add_cap(t)
+        a = pd.read_csv(AGE)[["subj", "age", "psqi"]].drop_duplicates("subj")
+        t = t.merge(a, left_on="subject", right_on="subj",
+                    how="left").drop(columns="subj")
+        t.to_csv(cache, index=False)
 
     pd.set_option("display.width", 220)
     print("\nPer night\n")

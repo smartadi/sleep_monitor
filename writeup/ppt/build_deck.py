@@ -185,7 +185,7 @@ SLIDES = [
      "Twelve panels, a subject to a row, so a night pair sits together. Shared axes throughout.",
      "prof_metrics/arousal_hourly_by_subject.png"),
     (None, "Cortical arousal — PSG scoring against the mask",
-     "The mask's event rate does not track the scored arousal index; the PSG's own autonomic channel does.",
+     "Both rates per hour of sleep, night by night. Note the separate axes: the scales differ.",
      "prof_metrics/arousal_cap_vs_psg.png"),
 ]
 

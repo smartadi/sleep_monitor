@@ -834,3 +834,19 @@ the spaghetti plot remain generated.
 What the layout shows: S3 and S4 hold a wide EEG-over-CAP gap on both of their
 nights, S2 and S6 track closely on both, and S1 crosses over late in both nights.
 The separation is a property of the subject, not of a particular night.
+
+## 2026-08-27 (cont. 6) — correlation panels dropped from the arousal comparison
+
+`fig_cap_vs_psg` is now a single descriptive panel: PSG index and both CAP rates
+per night, per hour of sleep, on separate axes. The two Spearman scatter panels
+(CAP-vs-PSG, and the autonomic positive control) were removed at the user's
+direction — at this stage the work is being read off plots, and a coefficient
+over twelve nights invites more weight than it can carry. The underlying values
+stay in `reports/psg/arousal_counts.csv` for whenever the analysis is picked up.
+
+Also cached: `main()` reuses `reports/psg/arousal_counts.csv` instead of
+re-reading the scoring from twelve recordings. Delete the CSV to rebuild.
+
+Subtype figures in the deck are the corrected ones throughout (S2N2 respiratory
+23.40, S4N1 16.88), and the CSV carries raw per-label counts alongside the folded
+groups so the grouping stays auditable.
