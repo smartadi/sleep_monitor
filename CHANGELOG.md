@@ -820,3 +820,17 @@ per-night detail view; the deck slide now shows the matrix.
 Visible in it: S3 and S4 are dark across every EEG hour while their CAP rows stay
 pale, S1/S2/S6 track much more closely, and the cohort's EEG rate climbs through
 the night while the mask's does not.
+
+## 2026-08-27 (cont. 5) — hourly arousals as twelve dot-and-line panels
+
+`analysis/swa_validation/arousal_hourly_lines.py` (new) caches the per-hour table
+to `reports/psg/arousal_hourly.csv` on first build, so re-plotting no longer costs
+a three-minute reload of twelve recordings. Two figures from it: a single-axes
+spaghetti version with cohort means, and `arousal_hourly_by_subject.png` — twelve
+panels, a subject to a row, so each subject's two nights sit side by side under
+shared axes. The deck slide now carries the by-subject version; the heatmap and
+the spaghetti plot remain generated.
+
+What the layout shows: S3 and S4 hold a wide EEG-over-CAP gap on both of their
+nights, S2 and S6 track closely on both, and S1 crosses over late in both nights.
+The separation is a property of the subject, not of a particular night.
