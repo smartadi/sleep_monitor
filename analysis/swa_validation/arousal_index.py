@@ -321,6 +321,109 @@ def fig_hourly(t):
     fig.savefig(p); plt.close(fig); print("  %s" % p.name)
 
 
+def fig_hourly_matrix(t):
+    """Every night, every hour, both instruments -- one axes.
+
+    The twelve-panel version put time on y and needed twelve panels. Transposed
+    and folded into a single heatmap: hour along x, one row per instrument per
+    night, colour as the rate. Two marginals carry what a heatmap alone loses --
+    the night totals down the right, and the cohort's hourly shape along the
+    bottom -- so the whole comparison is legible from one figure.
+    """
+    from matplotlib import gridspec
+    from sleep_monitor.loader import load_session, load_arousals
+    from sleep_monitor.sessions import SESSION_META
+
+    cap = pd.read_csv(CAP_EVENTS) if CAP_EVENTS.exists() else None
+    labs, eegs, caps = [], [], []
+    for i, _ in enumerate(SESSION_META):
+        sess = load_session(i)
+        lab = sess.meta["label"]
+        ar = load_arousals(sess)
+        if ar is None:
+            continue
+        dur = float(sess.time_hr[-1])
+        edges = np.arange(0, np.ceil(dur) + 1)
+        cover = np.clip(np.minimum(edges[1:], dur) - edges[:-1], 1e-6, None)
+        e = np.histogram(ar["start_hr"], bins=edges)[0] / cover
+        c = (np.histogram(cap[cap.session == lab].t_hr, bins=edges)[0] / cover
+             if cap is not None else np.zeros_like(e))
+        labs.append(lab); eegs.append(e); caps.append(c)
+
+    nh = max(len(e) for e in eegs)
+    M = np.full((2 * len(labs), nh), np.nan)
+    for i, (e, c) in enumerate(zip(eegs, caps)):
+        M[2 * i, :len(e)] = e
+        M[2 * i + 1, :len(c)] = c
+
+    fig = plt.figure(figsize=(250 * MM, 150 * MM))
+    gs = gridspec.GridSpec(2, 2, figure=fig, width_ratios=[4.4, 1.0],
+                           height_ratios=[4.6, 1.0], hspace=0.06, wspace=0.04)
+    ax = fig.add_subplot(gs[0, 0])
+    cmap = plt.get_cmap("YlOrRd").copy()
+    cmap.set_bad("#F0F1F3")
+    im = ax.imshow(np.ma.masked_invalid(M), aspect="auto", cmap=cmap,
+                   vmin=0, vmax=np.nanmax(M), interpolation="nearest",
+                   extent=(0, nh, 2 * len(labs), 0))
+
+    for i in range(len(labs)):                      # night separators
+        ax.axhline(2 * i, color="white", lw=1.8)
+    ax.set_yticks(np.arange(2 * len(labs)) + 0.5)
+    ylab, ycol = [], []
+    for lab in labs:
+        ylab += ["%s  EEG" % lab, "%s  CAP" % lab]
+        ycol += ["#2980B9", "#E67E22"]
+    ax.set_yticklabels(ylab, fontsize=7.5)
+    for tick, col in zip(ax.get_yticklabels(), ycol):
+        tick.set_color(col)
+    ax.set_xticks(np.arange(nh) + 0.5)
+    ax.set_xticklabels(range(nh), fontsize=8)
+    ax.set_xlabel("")
+    ax.tick_params(axis="x", labelbottom=False, length=0)
+    ax.tick_params(axis="y", length=0)
+    for sp in ax.spines.values():
+        sp.set_visible(False)
+
+    # the bottom-right cell is the only empty one, so the scale lives there
+    axc = fig.add_subplot(gs[1, 1])
+    axc.axis("off")
+    cax = axc.inset_axes([0.06, 0.24, 0.88, 0.14])
+    cb = fig.colorbar(im, cax=cax, orientation="horizontal")
+    cb.set_label("arousals per hour", fontsize=8.5)
+    cb.ax.tick_params(labelsize=8)
+
+    # right marginal: the whole-night rate for each row
+    axr = fig.add_subplot(gs[0, 1], sharey=ax)
+    tot = np.nanmean(M, axis=1)
+    axr.barh(np.arange(2 * len(labs)) + 0.5, tot,
+             color=["#2980B9" if i % 2 == 0 else "#E67E22" for i in range(len(tot))],
+             height=0.72)
+    axr.set_xlabel("night mean (/h)", fontsize=8.5)
+    axr.tick_params(labelleft=False, labelsize=8)
+    axr.grid(axis="x", color=C_FAINT, lw=0.5); axr.set_axisbelow(True)
+    for sp in ("top", "right", "left"):
+        axr.spines[sp].set_visible(False)
+
+    # bottom marginal: the cohort's shape through the night
+    axb = fig.add_subplot(gs[1, 0], sharex=ax)
+    axb.plot(np.arange(nh) + 0.5, np.nanmean(M[0::2], axis=0), "o-",
+             color="#2980B9", lw=1.6, ms=4, label="EEG scored")
+    axb.plot(np.arange(nh) + 0.5, np.nanmean(M[1::2], axis=0), "s-",
+             color="#E67E22", lw=1.6, ms=4, label="CAP detected")
+    axb.set_xlim(0, nh)
+    axb.set_xticks(np.arange(nh) + 0.5)
+    axb.set_xticklabels(range(nh), fontsize=8.5)
+    axb.set_xlabel("hour of recording", fontsize=9.5)
+    axb.set_ylabel("cohort mean\n(/h)", fontsize=8.5)
+    axb.grid(color=C_FAINT, lw=0.5); axb.set_axisbelow(True)
+    axb.legend(fontsize=8.5, ncol=2, loc="upper left")
+
+    fig.suptitle("Arousals per hour — every night, every hour, both instruments",
+                 fontsize=11.5, x=0.055, ha="left", y=0.965)
+    p = FIG / "arousal_hourly_matrix.png"
+    fig.savefig(p, bbox_inches="tight"); plt.close(fig); print("  %s" % p.name)
+
+
 def fig_index(t):
     t = t.sort_values("session")
     x = np.arange(len(t))
@@ -405,6 +508,7 @@ def main():
     print("\nFigures")
     fig_index(t)
     fig_hourly(t)
+    fig_hourly_matrix(t)
     fig_cap_vs_psg(t)
     fig_table(t)
     print("\ntable -> %s" % (OUT / "arousal_counts.csv"))

@@ -806,3 +806,17 @@ axis so each panel reads like a hypnogram; rate runs along x. Counts are divided
 by the recording time falling in each hour bin, so a partial final hour is a rate
 rather than a short bar. Shared x scale across panels so nights are comparable
 by eye. Deck 101 -> 102 slides.
+
+## 2026-08-27 (cont. 4) — hourly arousals folded into one figure
+
+`fig_hourly_matrix` transposes the twelve-panel version and folds it into a single
+axes: hour along x, one row per instrument per night (24 rows, paired, white rule
+between nights), colour as the rate, masked grey past each recording's end. Two
+marginals carry what a bare heatmap loses — night means down the right, the
+cohort's hourly shape along the bottom — and the colour scale sits in the
+otherwise empty bottom-right cell. The twelve-panel `fig_hourly` is kept as the
+per-night detail view; the deck slide now shows the matrix.
+
+Visible in it: S3 and S4 are dark across every EEG hour while their CAP rows stay
+pale, S1/S2/S6 track much more closely, and the cohort's EEG rate climbs through
+the night while the mask's does not.
