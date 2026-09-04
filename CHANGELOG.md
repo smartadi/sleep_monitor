@@ -769,3 +769,31 @@ nearly the same measurement, not independent evidence. This is the gain dependen
 already noted for the threshold policy, now visible in a second metric.
 
 Results table gains the CAP columns; deck 100 -> 101 slides.
+
+## 2026-08-27 (cont. 2) — arousal subtypes were mis-grouped; provenance verified
+
+Prompted by a check of where the arousal numbers came from. Both halves of that
+check are recorded because one passed and one did not.
+
+PROVENANCE, VERIFIED. The counts come from the PSG's own `Classification Arousal
+- NNNNN.txt` beside each Sleep Profile. S1N1's file holds 242 scored events; the
+loader returns 230 inside the CSV recording window, of which 184 fall in scored
+sleep — matching the reported total exactly. The 1.9–20% of events outside sleep
+land in scored WAKE epochs, not outside the profile (at most 13 unscored per
+night), so this is the ordinary scoring effect where a long arousal carries its
+epoch to wake, not a time-alignment fault.
+
+SUBTYPE GROUPING, WRONG AND NOW FIXED. `classify()` folded labels by substring
+and the scorer uses six, not three: Arousal (1541), Respiratory Arousal (551),
+LM Arousal (297), SpO2 Arousal (178), PLM Arousal (102), Cardiac Arousal (52).
+`SpO2 Arousal` and `Cardiac Arousal` — 230 events, 8.5% of the cohort — matched
+no rule and fell through into "spontaneous", inflating it and understating
+respiratory. Grouping is now on exact labels: SpO2 joins respiratory (it is
+desaturation-related), PLM joins limb, cardiac gets its own column, and an
+unrecognised label is counted as "other" and printed rather than silently folded.
+Raw per-label counts are also written to the CSV so the fold can be audited.
+
+Totals and the arousal index are unaffected. Subtype indices move a lot on some
+nights: S2N2 respiratory 14.10 -> 23.40 and spontaneous 21.75 -> 12.45; S4N1
+respiratory 7.44 -> 16.88, spontaneous 29.95 -> 19.24. The subtype figures
+reported before this fix should not be used.

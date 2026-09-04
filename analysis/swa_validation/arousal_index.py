@@ -60,7 +60,22 @@ STAGE = {4: "Wake", 3: "N1", 2: "N2", 1: "N3", 0: "REM"}
 C_INK = "#1B2A41"
 C_MUTED = "#5A6472"
 C_FAINT = "#D6DBE1"
-BY_TYPE = {"spontaneous": "#2980B9", "respiratory": "#C0392B", "limb movement": "#E67E22"}
+# The scorer's own vocabulary, verbatim, and the grouping applied to it. Folding
+# is done on exact labels rather than substrings: an earlier substring rule sent
+# "SpO2 Arousal" and "Cardiac Arousal" -- 230 events, 8.5% of the cohort -- into
+# the spontaneous bucket, which inflated spontaneous and understated respiratory.
+# SpO2 arousals are desaturation-related and belong with respiratory; PLM is a
+# limb subtype; cardiac gets its own column rather than a guess.
+LABEL_GROUP = {
+    "Arousal": "spontaneous",
+    "Respiratory Arousal": "respiratory",
+    "SpO2 Arousal": "respiratory",
+    "LM Arousal": "limb",
+    "PLM Arousal": "limb",
+    "Cardiac Arousal": "cardiac",
+}
+BY_TYPE = {"spontaneous": "#2980B9", "respiratory": "#C0392B",
+           "limb": "#E67E22", "cardiac": "#8E44AD"}
 
 MM = 1 / 25.4
 plt.rcParams.update({
@@ -76,14 +91,16 @@ plt.rcParams.update({
 })
 
 
+_UNKNOWN = set()
+
+
 def classify(label):
-    """Fold the scorer's label into the three standard arousal subtypes."""
-    t = (label or "").lower()
-    if "resp" in t:
-        return "respiratory"
-    if "lm" in t or "limb" in t or "leg" in t or "plm" in t:
-        return "limb movement"
-    return "spontaneous"
+    """Group a scorer label. Unknown labels are reported, never silently folded."""
+    t = (label or "").strip()
+    if t in LABEL_GROUP:
+        return LABEL_GROUP[t]
+    _UNKNOWN.add(t)
+    return "other"
 
 
 def stage_at(t_hr, prof):
@@ -132,10 +149,13 @@ def build():
             rec["per_recording_hour"] = rec["n_arousals"] / rec_hr if rec_hr else np.nan
             rec["median_duration_s"] = float(np.median(ar["duration_s"][in_sleep])) \
                 if in_sleep.any() else np.nan
-            for k in BY_TYPE:
+            for k in list(BY_TYPE) + ["other"]:
                 n = int(((kinds == k) & in_sleep).sum())
-                rec["n_" + k.split()[0]] = n
-                rec["idx_" + k.split()[0]] = n / tst_hr if tst_hr else np.nan
+                rec["n_" + k] = n
+                rec["idx_" + k] = n / tst_hr if tst_hr else np.nan
+            for lab in LABEL_GROUP:                       # raw counts, unfolded
+                rec["raw_" + lab.replace(" ", "_")] = int(
+                    ((np.array(ar["types"]) == lab) & in_sleep).sum())
             for code, name in STAGE.items():
                 if code in SLEEP_CODES:
                     rec["n_in_" + name] = int((st == code).sum())
@@ -317,7 +337,7 @@ def main():
     print("\nPer night\n")
     print(t[["session", "age", "psqi", "recording_hr", "tst_hr", "n_arousals",
              "arousal_index", "idx_spontaneous", "idx_respiratory", "idx_limb",
-             "autonomic_index", "cap_detected_index",
+             "idx_cardiac", "autonomic_index", "cap_detected_index",
              "cap_kept_index"]].round(2).to_string(index=False))
 
     print("\nFigures")
