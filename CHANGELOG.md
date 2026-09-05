@@ -850,3 +850,33 @@ re-reading the scoring from twelve recordings. Delete the CSV to rebuild.
 Subtype figures in the deck are the corrected ones throughout (S2N2 respiratory
 23.40, S4N1 16.88), and the CSV carries raw per-label counts alongside the folded
 groups so the grouping stays auditable.
+
+## 2026-08-28 — why the mask finds few arousals on two subjects
+
+`analysis/swa_validation/arousal_yield_vs_signal.py` (new), prompted by the
+professor's observation that some sessions agree with the EEG and some do not.
+
+Two corrections to the framing. It is not two sessions but two SUBJECTS, all four
+of their nights: S3 and S4 register 0.15-0.18 mask events per scored arousal
+against 0.75-0.96 on S1 and S2. And the sessions that "agree" agree on RATE, not
+on timing -- hour-by-hour correlation between the two instruments is near zero on
+almost every night (-0.88 to +0.73, median -0.13), so nothing supports a claim of
+temporal agreement anywhere in the cohort.
+
+The cause is that the mask has almost nothing to detect on those subjects, not
+that it disagrees. The 90th percentile of per-epoch CLE-CRE variance is 0.73-1.61
+fF^2 on S3 and S4 against 5.4-35.0 on S1, S2 and S6 -- a 10-40x difference in
+excursion size. A transient detector needs transients.
+
+Three explanations ruled out. Not arousal burden: S3 and S4 have the HIGHEST
+scored indices in the cohort (41.5-54.3/h). Not body motion: accelerometer
+distributions are indistinguishable across subjects (p99 of 30 s SD spans
+0.012-0.057 with S3N1 among the highest). Not rhythmic coupling: respiratory SNR
+is 15.9-18.0 dB on S3 and S4, mid-range and comparable to S1 at 16.0 dB, which
+has ten times the excursion amplitude.
+
+So the mask transduces respiration and pulse normally on these subjects while
+producing far smaller slow transients. Mechanical fit -- how much the mask can
+shift against the skin -- is the leading hypothesis but is not established here.
+
+Outputs `reports/psg/arousal_yield_vs_signal.csv` and a two-panel figure.
