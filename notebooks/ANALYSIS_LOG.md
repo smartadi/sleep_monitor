@@ -2888,3 +2888,41 @@ sitting at the edge of significance on twelve nights. Worth more nights before i
 is called anything; not worth a claim on this cohort. Figures
 `writeup/figures/prof_metrics/bump_matching_{nights,summary}.png`; tables in
 `reports/psg/bump_{matching,delays}.csv`.
+
+## 2026-09-06 — Linear model, mask to EEG arousal rate: fails, and so does the ceiling
+
+`analysis/swa_validation/arousal_linear_model.py`. Non-overlapping 20-minute
+windows (230 over twelve nights) so observations are near-independent, scored
+leave-one-subject-out against two baselines: the night's own mean arousal rate,
+and PSG stage composition as a ceiling.
+
+| model | LOSO r | R² vs night mean |
+|---|---|---|
+| CAP variance only | **−0.436** | −1.045 |
+| CAP variance + spread + threshold | −0.381 | −1.045 |
+| CAP + motion | −0.343 | −1.049 |
+| PSG stage composition (ceiling) | +0.049 | −0.807 |
+| night's own mean (baseline) | +0.616 | 0.000 |
+
+**The CAP models predict backwards on held-out subjects.** A negative LOSO r is
+not a weak model, it is a model whose slope has the wrong sign out of sample —
+the between-subject inversion already seen, where high-variance subjects (S1, S2)
+carry moderate arousal indices while low-variance subjects (S3, S4) carry the
+highest. A cross-subject linear fit learns that inverted relation and applies it.
+
+**The more important number is the ceiling.** PSG stage composition — the gold
+standard, unavailable to any wearable — predicts the within-night arousal rate at
+LOSO r = 0.049, essentially nothing. So at 20-minute resolution the within-night
+arousal rate is barely predictable from staging either. This is not a capacitive
+failure specifically; the target has little cross-subject-learnable structure at
+this scale.
+
+**Where the variance actually is.** The night's own mean scores R² = 0.380 against
+the cohort mean, so 38% of the variance in windowed arousal rate is between nights
+and 62% within, and nothing tested here recovers the within part.
+
+Read together with the bump matching (2× chance coincidence, p = 0.052), the
+picture is consistent: episodes coincide loosely, but nothing supports a
+quantitative mapping from capacitive level to arousal rate. Report the coincidence,
+not a model. Figure `writeup/figures/prof_metrics/arousal_linear_model.png`;
+`reports/psg/arousal_linear_model.csv`.
