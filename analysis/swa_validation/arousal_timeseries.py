@@ -157,16 +157,25 @@ def one(sess, ev, var, imb, cap):
                  color="#E67E22", label="mask, kept")
     ax1.set_ylim(0.25, 1.35)
     ax1.set_yticks([1.0, 0.55]); ax1.set_yticklabels(["EEG", "mask"])
+    # The density lines must not reuse a tick colour: blue ticks are one EEG
+    # subtype while the blue line was every subtype, and orange ticks were kept
+    # mask events while the orange line was all detections. Same colour, different
+    # sets -- so the lines get their own two colours and say what they count.
     axd = ax1.twinx()
     gt, de = density(ge.t_hr.to_numpy(), tmax)
-    axd.plot(gt, de, color="#2980B9", lw=1.3, alpha=0.9)
+    axd.plot(gt, de, color="#111111", lw=1.6, alpha=0.9, zorder=5,
+             label="EEG density, all subtypes")
     if len(gc):
         gt2, dc = density(gc.t_hr.to_numpy(), tmax)
-        axd.plot(gt2, dc, color="#E67E22", lw=1.3, alpha=0.9)
+        axd.plot(gt2, dc, color="#16A085", lw=1.6, alpha=0.9, zorder=5,
+                 label="mask density, all detections")
     axd.set_ylabel("events/h\n(%g min smooth)" % SMOOTH_MIN, fontsize=7.5)
     axd.tick_params(labelsize=7.5)
     axd.spines["top"].set_visible(False)
     handles, labels = ax1.get_legend_handles_labels()
+    hd, ld = axd.get_legend_handles_labels()
+    handles += hd
+    labels += ld
 
     # 3 ── capacitive variance
     ax2 = fig.add_subplot(gs[2], sharex=ax0)
