@@ -241,6 +241,35 @@ def main():
     p2 = FIG / "bump_matching_summary.png"
     fig.savefig(p2); plt.close(fig); print("wrote %s" % p2.name)
 
+    # ── deck version: the result and the subject split, nothing else
+    dd = d.sort_values("session")
+    by = d.groupby("subject")[["cap_to_eeg_tol10", "null_mean"]].mean().reset_index()
+    fig, ax = plt.subplots(1, 2, figsize=(250 * MM, 100 * MM),
+                           gridspec_kw={"width_ratios": [1.7, 1.0]})
+    x = np.arange(len(dd))
+    ax[0].bar(x - 0.2, dd.cap_to_eeg_tol10, width=0.4, color=C_VAR, label="observed")
+    ax[0].bar(x + 0.2, dd.null_mean, width=0.4, color="#B0B7C0", label="chance")
+    ax[0].set_xticks(x); ax[0].set_xticklabels(dd.session, rotation=90, fontsize=8.5)
+    ax[0].set_ylabel("mask bumps with an EEG\narousal bump within 10 min")
+    ax[0].set_title("Per night", loc="left", fontsize=10)
+    ax[0].legend(fontsize=8.5)
+
+    xb = np.arange(len(by))
+    ax[1].bar(xb - 0.2, by.cap_to_eeg_tol10, width=0.4, color=C_VAR)
+    ax[1].bar(xb + 0.2, by.null_mean, width=0.4, color="#B0B7C0")
+    ax[1].set_xticks(xb); ax[1].set_xticklabels(by.subject, fontsize=9)
+    ax[1].set_title("By subject — it differs between people", loc="left", fontsize=10)
+
+    for a_ in ax:
+        a_.set_ylim(0, 1)
+        a_.grid(axis="y", color=C_FAINT, lw=0.5)
+        a_.set_axisbelow(True)
+    fig.suptitle("Mask activity bumps land where EEG arousals cluster, about twice as "
+                 "often as chance", fontsize=11.5, x=0.055, ha="left")
+    fig.tight_layout(rect=(0, 0, 1, 0.94))
+    p3 = FIG / "bump_matching_simple.png"
+    fig.savefig(p3); plt.close(fig); print("wrote %s" % p3.name)
+
 
 if __name__ == "__main__":
     main()

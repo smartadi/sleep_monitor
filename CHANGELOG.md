@@ -880,3 +880,11 @@ producing far smaller slow transients. Mechanical fit -- how much the mask can
 shift against the skin -- is the leading hypothesis but is not established here.
 
 Outputs `reports/psg/arousal_yield_vs_signal.csv` and a two-panel figure.
+
+## 2026-09-06 — bump matching added to the deck
+
+Two slides after the arousal tables: `bump_matching_simple.png` (per night and
+per subject, observed against chance) and `bump_matching_nights.png` (the twelve
+nights with episodes marked). The linear-model work is deliberately not in the
+deck — it fails, and its useful part is a caveat about the target rather than a
+result to show. Deck 102 -> 104 slides.
