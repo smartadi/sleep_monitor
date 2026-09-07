@@ -2849,3 +2849,42 @@ strongest night at r = +0.37, p = 0.002, and its two curves visibly track. It do
 not generalise to the cohort. Figure
 `writeup/figures/prof_metrics/variance_vs_arousal_density.png`; per-night values in
 `reports/psg/variance_vs_arousal_density.csv`.
+
+## 2026-09-06 — Bump matching: the mask and the EEG do land together, weakly
+
+`analysis/swa_validation/bump_matching.py`. Correlation demands two levels covary
+linearly, which is a strong ask across two mechanisms, and it returned a near-null
+that is not by itself evidence of no relationship. This asks the weaker question:
+detect episodes in each signal independently against that night's own baseline,
+then ask whether they coincide more than chance. Amplitudes never meet, so the
+per-night gain differences that dominated every earlier comparison drop out.
+
+Bumps are prominent peaks of the 20-minute-smoothed curve (arousal rate; log
+variance), prominence set from the night's own IQR, minimum 15 minutes apart —
+3 to 9 mask bumps and 4 to 14 EEG bumps per night.
+
+**Median 0.67 of mask bumps have an EEG bump within 10 minutes, against a
+circular-shift null of 0.34 — roughly twice chance. Above its own null on 8 of 12
+nights.** No night reaches p < 0.05 alone, which is expected rather than
+disappointing: with 3–9 bumps a per-night test has almost no power, so the evidence
+is the consistency across nights. Paired Wilcoxon on (match − null) over 12 nights:
+median +0.222, **p = 0.052**. Sign test on 8/12 is p = 0.39.
+
+**It is subject-dependent, as suspected.** Mean match against mean null: S1 0.71 /
+0.50, S2 0.75 / 0.47, S5 0.73 / 0.45 clearly above; S3 0.20 / 0.36 below; S4 and S6
+mixed. S3 is the same subject whose variance never reaches the event threshold.
+
+**Tolerance matters and the asymmetry is informative.** Mask→EEG median 0.31 at
+±5 min, 0.67 at ±10, 0.67 at ±15; EEG→mask 0.20 / 0.38 / 0.46. The mask finds the
+EEG better than the reverse, which is what a sparser detector against a denser one
+should do, and argues the ±10 min figure is not just chance inflation.
+
+**No consistent lead or lag.** Nearest-EEG-bump delays (n = 63) have a median of
+−4.0 min with 54% inside ±10 min and a direction sign test at p = 0.08. Slightly
+EEG-first if anything, not enough to claim a direction.
+
+Read: a real but weak coincidence, present in three subjects and absent in one,
+sitting at the edge of significance on twelve nights. Worth more nights before it
+is called anything; not worth a claim on this cohort. Figures
+`writeup/figures/prof_metrics/bump_matching_{nights,summary}.png`; tables in
+`reports/psg/bump_{matching,delays}.csv`.
