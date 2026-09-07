@@ -2816,3 +2816,36 @@ REM epochs is fragile, and the REM claim should not be made on this data alone.
 
 Figures: `writeup/figures/mean_value/high_variance_zones.png` (per-recording timeline against
 the hypnogram, motion-flagged marks separated) and `high_variance_enrichment.png`.
+
+## 2026-09-06 — Does smoothed capacitive variance track the arousal rate? Mostly no
+
+`analysis/swa_validation/variance_vs_arousal_density.py`. Prompted by an observation
+off the per-night timeseries: where CLE−CRE variance stays elevated, the scored
+arousal rate looks elevated too — an "integral" relationship rather than the
+event-to-event one already tested and rejected. Both signals put on a 1-minute grid
+and smoothed with the same 20-minute boxcar; variance in log units so one motion
+spike cannot set the level for a whole window.
+
+**Result: 8 of 12 nights positive, but only 1 of 12 beats a circular-shift null.**
+Median r at lag zero is **+0.03**. Per night: S1N1 +0.37 (p = 0.002), S6N1 +0.47
+(p = 0.078), S2N1 +0.40 (p = 0.104), S6N2 +0.28, then a scatter around zero, with
+S3N2 at −0.48.
+
+Two follow-ups, both of which argue against the hypothesis rather than for it.
+
+**Window sweep.** Median r falls as the window lengthens — 5 min +0.094, 10 min
++0.064, 20 min +0.029, 40 min +0.024, 60 min +0.060. An integral effect should
+strengthen with integration; this weakens.
+
+**Lag search, ±60 min.** Median r rises to +0.35 when each night is allowed its own
+best lag, but that is a selection effect over 25 candidate lags, and the chosen lags
+are scattered across the whole range with no consistent direction (+0, +45, −5, +60,
++20, +60, +60, −40, −60, +45, −15, +10). A real accumulate-then-arouse mechanism
+would put them at a consistent positive lag. This is noise-fitting, and the
+lag-selected number should not be quoted.
+
+**What is true:** the observation holds on the night it came from. S1N1 is the
+strongest night at r = +0.37, p = 0.002, and its two curves visibly track. It does
+not generalise to the cohort. Figure
+`writeup/figures/prof_metrics/variance_vs_arousal_density.png`; per-night values in
+`reports/psg/variance_vs_arousal_density.csv`.
