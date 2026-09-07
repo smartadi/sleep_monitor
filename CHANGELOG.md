@@ -888,3 +888,11 @@ per subject, observed against chance) and `bump_matching_nights.png` (the twelve
 nights with episodes marked). The linear-model work is deliberately not in the
 deck — it fails, and its useful part is a caveat about the target rather than a
 result to show. Deck 102 -> 104 slides.
+
+## 2026-09-06 (cont.) — per-night arousal timeseries added to the deck
+
+The twelve `arousal_timeseries/<session>.png` figures now get a slide each,
+placed before the bump-matching slides so the raw view comes ahead of the
+analysis drawn from it. Deck 104 -> 116 slides, 104 figures, 157 MB. Verified
+after the build: the only slides without a picture are the title and the eleven
+section dividers.
