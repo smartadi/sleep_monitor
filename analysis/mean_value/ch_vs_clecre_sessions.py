@@ -124,43 +124,42 @@ def fig_grid(traces, sessions, out):
     for ax, lbl in zip(axes.ravel(), sessions):
         tr = traces[lbl]
         t, codes = tr['t'], tr['codes']
-        for j in range(len(t) - 1):
-            ax.axvspan(t[j], t[j + 1], color=STAGE_COLORS.get(int(codes[j]), '#AAA'),
-                       alpha=0.13, lw=0)
+        # Stage background shading removed for clarity (prof request 2026-09): the
+        # coloured hypnogram bands crowded the traces. Stage context lives in the
+        # companion hypnogram figures instead.
         # Each channel on its own axis: they differ in scale by up to ~9x, so a
         # shared axis would hide the shape of whichever one is smaller.
         lim_c = CLIP_SD * max(tr['sd_ch'], 1e-6)
-        ax.plot(t, np.clip(tr['ch'], -lim_c, lim_c), lw=1.1, color=CH_COLOR, zorder=3)
+        ax.plot(t, np.clip(tr['ch'], -lim_c, lim_c), lw=1.3, color=CH_COLOR, zorder=3)
         ax.axhline(0, color='#2C3E50', ls='--', lw=0.8, zorder=2)
         ax.set_ylim(-lim_c * 1.1, lim_c * 1.1)
-        ax.set_ylabel(f'CH − mean ({CAP_UNIT})', fontsize=8, color=CH_COLOR)
-        ax.tick_params(axis='y', labelcolor=CH_COLOR, labelsize=7)
+        ax.set_ylabel(f'CH − mean ({CAP_UNIT})', fontsize=12, color=CH_COLOR)
+        ax.tick_params(axis='y', labelcolor=CH_COLOR, labelsize=11)
+        ax.tick_params(axis='x', labelsize=11)
 
         ax2 = ax.twinx()
         lim_d = CLIP_SD * max(tr['sd_di'], 1e-6)
-        ax2.plot(t, np.clip(tr['diff'], -lim_d, lim_d), lw=1.1, color=DIFF_COLOR,
+        ax2.plot(t, np.clip(tr['diff'], -lim_d, lim_d), lw=1.3, color=DIFF_COLOR,
                  zorder=4)
         ax2.set_ylim(-lim_d * 1.1, lim_d * 1.1)
-        ax2.set_ylabel(f'CLE−CRE − mean ({CAP_UNIT})', fontsize=8, color=DIFF_COLOR)
-        ax2.tick_params(axis='y', labelcolor=DIFF_COLOR, labelsize=7)
+        ax2.set_ylabel(f'CLE−CRE − mean ({CAP_UNIT})', fontsize=12, color=DIFF_COLOR)
+        ax2.tick_params(axis='y', labelcolor=DIFF_COLOR, labelsize=11)
 
         ax.set_title(f'{lbl}    CH mean {tr["mu_ch"]:,.0f}   '
                      f'CLE−CRE mean {tr["mu_di"]:,.0f} {CAP_UNIT}',
-                     fontsize=10, fontweight='bold')
+                     fontsize=13, fontweight='bold')
         ax.grid(True, alpha=0.12)
     for ax in axes[-1]:
-        ax.set_xlabel('Time (hours)', fontsize=9)
+        ax.set_xlabel('Time (hours)', fontsize=12)
     handles = [plt.Line2D([], [], color=CH_COLOR, lw=2.5, label='CH (hardware), left axis'),
                plt.Line2D([], [], color=DIFF_COLOR, lw=2.5,
                           label='CLE−CRE (arithmetic), right axis')]
-    handles += [mpatches.Patch(color=STAGE_COLORS[k], label=STAGE_LABELS[k])
-                for k in STAGE_ORDER]
-    fig.legend(handles=handles, loc='upper center', ncol=7, fontsize=10,
+    fig.legend(handles=handles, loc='upper center', ncol=2, fontsize=13,
                framealpha=0.9, bbox_to_anchor=(0.5, 1.004))
     fig.suptitle('CH and CLE−CRE over the night, each referenced to its own session '
                  f'mean — all 12 sessions.  Independent axes (the two differ in scale '
                  f'by up to 9x); traces clipped at ±{CLIP_SD:.0f} sd.',
-                 fontsize=14.5, fontweight='bold', y=1.019)
+                 fontsize=17, fontweight='bold', y=1.019)
     fig.tight_layout()
     fig.savefig(out, dpi=140, bbox_inches='tight'); plt.close(fig)
 

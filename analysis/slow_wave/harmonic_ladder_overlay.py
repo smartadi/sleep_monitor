@@ -107,9 +107,9 @@ def draw_stage_ladder(ax, sp):
     """Hypnogram as a connected stepped LADDER (staircase), not colour-coded
     dashes.  Top->bottom = Wake, N1, N2, N3, REM."""
     ax.set_yticks([0, 1, 2, 3, 4])
-    ax.set_yticklabels(['REM', 'N3', 'N2', 'N1', 'Wake'], fontsize=7)
+    ax.set_yticklabels(['REM', 'N3', 'N2', 'N1', 'Wake'], fontsize=12)
     ax.set_ylim(-0.5, 4.5)
-    ax.set_ylabel('Stage', fontsize=9)
+    ax.set_ylabel('Stage', fontsize=14)
     if sp is None:
         return
     t = np.asarray(sp['t_ep_hr'], float)
@@ -294,10 +294,11 @@ def detect_channel(session, ch):
 
 def overlay(session):
     sp = session.sleep_profile
-    fig, axes = plt.subplots(len(CHANNELS) + 1, 1, figsize=(16, 11),
+    fig, axes = plt.subplots(len(CHANNELS) + 1, 1, figsize=(17, 12),
                              gridspec_kw={'height_ratios': [0.4] + [1.0] * len(CHANNELS)},
                              sharex=True)
     draw_stage_ladder(axes[0], sp)
+    axes[0].tick_params(labelsize=12)
     rows = []
     summary = []
     for ax, ch in zip(axes[1:], CHANNELS):
@@ -310,7 +311,8 @@ def overlay(session):
             for fr, s0, s1 in ep['bands']:
                 ax.plot([t_hr[s0], t_hr[s1]], [fr, fr], color='#00E5FF', lw=2.0, alpha=0.95)
         ax.set_ylim(0, FMAX)
-        ax.set_ylabel(f'{ch}\nFreq (Hz)', fontsize=9)
+        ax.set_ylabel(f'{ch}\nFreq (Hz)', fontsize=13)
+        ax.tick_params(labelsize=12)
         active_min = active.sum() * STEP_SEC / 60
         if episodes:
             longest = max(ep['hi'] - ep['lo'] for ep in episodes)
@@ -329,9 +331,9 @@ def overlay(session):
                              longest_min=round(longest_min, 1), dominant_stage=dom))
         else:
             summary.append(f'{ch}: none')
-    axes[-1].set_xlabel('Time (hr)', fontsize=10)
+    axes[-1].set_xlabel('Time (hr)', fontsize=14)
     axes[0].set_title(f'{session.label} — flat harmonic ladders  |  ' + '   '.join(summary),
-                      fontsize=11)
+                      fontsize=14)
     out = FIG_DIR / f'ladder_{session.label}.png'
     fig.savefig(out, dpi=150, bbox_inches='tight', facecolor='white')
     plt.close(fig)

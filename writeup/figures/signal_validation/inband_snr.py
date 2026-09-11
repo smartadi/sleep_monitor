@@ -100,7 +100,7 @@ print(summary.to_string(index=False))
 print('\nchannel means (dB):', {ch: round(v, 1) for ch, v in means.items()})
 
 # ── Figure: grouped bars, one group per session, 3 channels ──────────────────
-fig, ax = plt.subplots(figsize=(12.5, 5.8))
+fig, ax = plt.subplots(figsize=(14.5, 7.2))
 x = np.arange(len(labels))
 w = 0.26
 for i, ch in enumerate(CHANNELS):
@@ -111,13 +111,14 @@ for i, ch in enumerate(CHANNELS):
 
 ax.axhline(0, color='gray', lw=1.0, zorder=2)
 ax.set_xticks(x)
-ax.set_xticklabels(labels, rotation=45, ha='right', fontsize=9)
-ax.set_ylabel('Physiological-band SNR (dB, per-Hz density)', fontsize=11)
-ax.set_xlabel('Session', fontsize=11)
+ax.set_xticklabels(labels, rotation=45, ha='right', fontsize=13)
+ax.set_ylabel('Physiological-band SNR (dB, per-Hz density)', fontsize=15)
+ax.set_xlabel('Session', fontsize=15)
+ax.tick_params(axis='y', labelsize=13)
 ax.set_title('Respiratory + cardiac band SNR per session, per raw channel',
-             fontsize=13, fontweight='bold')
+             fontsize=17, fontweight='bold')
 ax.grid(True, axis='y', alpha=0.25, zorder=0)
-ax.legend(loc='upper right', fontsize=9.5, frameon=True, framealpha=0.95, ncol=3)
+ax.legend(loc='upper right', fontsize=13, frameon=True, framealpha=0.95, ncol=3)
 ax.margins(y=0.14)
 
 # The SNR definition lives in the figure caption, not on the axes: repeating it

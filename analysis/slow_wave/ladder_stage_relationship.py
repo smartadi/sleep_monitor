@@ -170,25 +170,33 @@ def main():
 
     # ── figure: onset-aligned stage occupancy ──
     P = {s: occ[s] / max(n_ev, 1) for s in STAGE_ORDER}
-    fig, axes = plt.subplots(1, 2, figsize=(15, 5.5))
+    fig, axes = plt.subplots(1, 2, figsize=(16, 6.2))
     ax = axes[0]
     for st in STAGE_ORDER:
         ax.plot(TAUS, P[st], color=STAGE_COLORS[st], lw=2, label=STAGE_LABELS[st])
     ax.axvline(0, color='k', lw=1, ls='--')
-    ax.set_xlabel('minutes relative to event onset')
-    ax.set_ylabel('P(stage)')
-    ax.set_title(f'Stage occupancy around ladder-event onset (n={n_ev} events)')
-    ax.legend(fontsize=8)
+    ax.set_xlabel('minutes relative to event onset', fontsize=14)
+    ax.set_ylabel('P(stage)', fontsize=14)
+    ax.set_title(f'Stage occupancy around ladder-event onset (n={n_ev} events)',
+                 fontsize=15, fontweight='bold')
+    ax.tick_params(labelsize=12)
+    ax.legend(fontsize=12)
     ax.grid(alpha=0.15)
+    ax.text(-0.10, 1.03, '(a)', transform=ax.transAxes, fontsize=18,
+            fontweight='bold', va='bottom', ha='left')
 
     ax = axes[1]
     remc = STAGE_COLORS[REM]
     ax.plot(TAUS, P[REM], color=remc, lw=2.5, label='P(REM) around onset')
     ax.axvline(0, color='k', lw=1, ls='--')
-    ax.set_xlabel('minutes relative to event onset')
-    ax.set_ylabel('P(REM)')
-    ax.set_title('REM occupancy vs event onset (left=before, right=during/after)')
+    ax.set_xlabel('minutes relative to event onset', fontsize=14)
+    ax.set_ylabel('P(REM)', fontsize=14)
+    ax.set_title('REM occupancy vs event onset (left=before, right=during/after)',
+                 fontsize=15, fontweight='bold')
+    ax.tick_params(labelsize=12)
     ax.grid(alpha=0.15)
+    ax.text(-0.10, 1.03, '(b)', transform=ax.transAxes, fontsize=18,
+            fontweight='bold', va='bottom', ha='left')
     fig.tight_layout()
     fig.savefig(FIG_DIR / 'ladder_stage_relationship.png', dpi=150, facecolor='white')
     plt.close(fig)

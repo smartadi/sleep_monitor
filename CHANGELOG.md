@@ -6,6 +6,13 @@ Records all code changes to library modules, scripts, and notebooks.
 
 ## 2026-09-11
 
+- **Redrew six manuscript figures with larger fonts** (prof request, Sep-2026 round) — font/figsize bumps only, no data or layout change except where noted:
+  - **Fig 3** `writeup/figures/signal_validation/inband_snr.py` — figsize 12.5×5.8→14.5×7.2; ticks 9→13, labels 11→15, title 13→17, legend 9.5→13.
+  - **Fig 4 + S7/S8** `analysis/rates/rerun_session_plots.py` — shared rcParams 7/7.5/6.5→11/11.5/10; representative-night figsize 183×88→205×108 mm and 12-panel 183×168→215×200 mm; panel letters 9→13, in-panel text 6.5→9.5, suptitle 8.5→12.5.
+  - **Fig 8** `analysis/delta_onset/delta_onset_figures.py` — rcParams font 9→12, figsize 11×6.4→13.5×7.9, titles 9.5→12, suptitle 11→13.5, legends 7/8.5→9.5/10.5 (regenerates the whole delta_onset set). **Note for the author:** the manuscript Fig 8 caption describes a bands-rows × channels-cols 3×3 grid, but the shipped `fig_delta_onset_cohort.png` is a 2×3 A–F layout — caption and figure disagree (pre-existing; not fixed here).
+  - **Fig 9** `analysis/slow_wave/harmonic_ladder_overlay.py` — figsize 16×11→17×12; stage/freq labels 7–10→11–14, tick labels →12, title 11→14 (run `--session S6N1`).
+  - **Fig 10** `analysis/slow_wave/ladder_stage_relationship.py` — figsize 15×5.5→16×6.2; titles/labels →14–15, ticks →12, legend 8→12; **added (a)/(b) panel labels**.
+  - **Fig S4** `analysis/mean_value/ch_vs_clecre_sessions.py` — **removed the stage-shading background** (prof: "remove the background color"); fonts 7–14.5→11–17; dropped the now-meaningless stage-color legend patches.
 - **Added** `analysis/prof_requests_sep2026/` — four scripts answering the professor's Sep 7–9 manuscript emails, with `FINDINGS.md` summary. Plots → `notebooks/plots/prof_requests_sep2026/`, tables → `reports/prof_requests_sep2026/`. Descriptive/per-subject, no headline p-values.
   - `mean_cap_vs_rem.py` — slow (sleep-cycle) mean of CH/CLE/CRE/CLE-CRE vs REM: 12-panel overlay (REM shaded), REM-onset-triggered average, REM−NREM direction per night, and slow-mean × REM-occupancy-cycle correlation. Reuses the mean-value/VLF idiom from `analysis/mean_value/mean_value_vs_stage.py`.
   - `band_power_comparison.py` — per-epoch Welch band power (fF²) for respiratory/cardiac/SWS(N3) bands + harmonic-comb vs non-comb in-band power, per channel; median-PSD figure with bands shaded. Comb epochs joined from `reports/slow_wave/ladder_quantify/per_window_channels.parquet`. Writes `reports/prof_requests_sep2026/band_power_epochs.parquet`.

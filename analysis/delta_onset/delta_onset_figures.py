@@ -97,7 +97,7 @@ CACHE = Path(os.environ.get('TEMP', '/tmp')) / 'delta_onset_figs'
 BAND_COLORS = {'0-0.5': '#1ABC9C', '0.5-1': '#8E44AD', '1-3': '#E67E22'}
 NULL_COLOR = '#999999'
 ONSET_COLOR = '#27AE60'
-plt.rcParams.update({'font.size': 9, 'axes.linewidth': 0.8,
+plt.rcParams.update({'font.size': 12, 'axes.linewidth': 0.8,
                      'axes.spines.top': False, 'axes.spines.right': False})
 
 
@@ -402,7 +402,7 @@ def fig_cohort(sessions, tag, cal):
     tax = sessions[0]['tax']
     ns = len(subj)
 
-    fig = plt.figure(figsize=(11.0, 6.4))
+    fig = plt.figure(figsize=(13.5, 7.9))
     gs = fig.add_gridspec(2, 3, height_ratios=[0.85, 1.25], hspace=0.42, wspace=0.30,
                           left=0.07, right=0.925, top=0.90, bottom=0.09)
 
@@ -414,7 +414,7 @@ def fig_cohort(sessions, tag, cal):
     ax.fill_between(tax, m - sem, m + sem, color='#2C3E50', alpha=0.18, lw=0)
     ax.plot(tax, np.nanmean(N, 0), color=NULL_COLOR, ls='--', lw=0.8)
     ax.axvline(0, color=ONSET_COLOR, lw=1.1); ax.axhline(0, color='k', lw=0.5)
-    ax.set_xlim(tax[0], tax[-1]); ax.set_title('EEG delta (trigger)', fontsize=9.5)
+    ax.set_xlim(tax[0], tax[-1]); ax.set_title('EEG delta (trigger)', fontsize=12)
     ax.set_ylabel('z'); ax.set_xlabel('s from delta onset')
 
     # B — the same measurement with movement excluded (CH, the largest channel).
@@ -430,11 +430,11 @@ def fig_cohort(sessions, tag, cal):
     ax.axvline(0, color=ONSET_COLOR, lw=1.1); ax.axhline(0, color='k', lw=0.5)
     ax.set_xlim(tax[0], tax[-1])
     ax.set_title(f'CH — motion-free onsets only ({sum(int(s["n_onsets_clean"]) for s in sessions)}'
-                 f'/{sum(int(s["n_onsets"]) for s in sessions)})', fontsize=9.5)
+                 f'/{sum(int(s["n_onsets"]) for s in sessions)})', fontsize=12)
     ax.set_ylabel('CAP band power (z)'); ax.set_xlabel('s from delta onset')
     ax.legend(handles=[Line2D([], [], color='#555', lw=0.9, alpha=0.5, label='all onsets'),
                        Line2D([], [], color='#555', lw=1.5, label='motion-free')],
-              frameon=False, fontsize=7, loc='upper left')
+              frameon=False, fontsize=9.5, loc='upper left')
 
     # C — response amplitude. A window MEAN, not a peak: the max of a noisy per-subject
     # curve is biased upward, and the bias is largest for the subjects with fewest
@@ -461,13 +461,13 @@ def fig_cohort(sessions, tag, cal):
                 zorder=5)
     ax.set_xticks(np.arange(len(CHANNELS))); ax.set_xticklabels(CHANNELS)
     ax.axhline(0, color='k', lw=0.5)
-    ax.set_title(f'Response, {RESP_WIN[0]:.0f}–{RESP_WIN[1]:.0f} s', fontsize=9.5)
+    ax.set_title(f'Response, {RESP_WIN[0]:.0f}–{RESP_WIN[1]:.0f} s', fontsize=12)
     ax.set_ylabel('mean (z)')
     ax.legend(handles=[Line2D([], [], ls='none', marker='o', mfc='none', mec='#C0392B',
                               mew=1.3, ms=5, label='motion-free onsets'),
                        Line2D([], [], ls='none', marker='_', color=NULL_COLOR, mew=1.6,
                               ms=9, label='null')],
-              frameon=False, fontsize=7, loc='upper left')
+              frameon=False, fontsize=9.5, loc='upper left')
 
     # D-F — the response, all bands, per channel (shared y so channel rank is readable),
     # with the motion profile shaded behind each panel so the two are read together
@@ -485,7 +485,7 @@ def fig_cohort(sessions, tag, cal):
             lim = max(lim, np.nanmax(cur[bn] + sem[bn]), np.nanmax(nul[bn]))
         motion_backdrop(axes[j], tax, mo, np.nanmax(mo), label=(j == len(CHANNELS) - 1))
         band_panel(axes[j], tax, cur, nul, sem)
-        axes[j].set_title(ch, fontsize=9.5)
+        axes[j].set_title(ch, fontsize=12)
         axes[j].set_xlabel('s from delta onset')
     axes[0].set_ylabel('CAP band power (z)')
     for a in axes:
@@ -495,8 +495,8 @@ def fig_cohort(sessions, tag, cal):
 
     fig.suptitle(f'CAP band power at EEG delta-burst onset  (n={ns} subjects, '
                  f'{sum(s["n_onsets"] for s in sessions)} onsets, causal envelope)',
-                 fontsize=11, y=0.975)
-    band_legend(fig, loc='lower center', ncol=4, bbox_to_anchor=(0.5, -0.004), fontsize=8.5)
+                 fontsize=13.5, y=0.975)
+    band_legend(fig, loc='lower center', ncol=4, bbox_to_anchor=(0.5, -0.004), fontsize=10.5)
     p = OUT_FIG / 'fig_delta_onset_cohort.png'
     fig.savefig(p, dpi=200); plt.close(fig)
     print(f'  saved {p.name}')
@@ -522,7 +522,7 @@ def fig_motion(sessions, tag):
     _, M = per_subject(keep, 'motion_nullc')
     ax.plot(tax, np.nanmean(M, 0) * 100, color=NULL_COLOR, ls='--', lw=0.8)
     ax.axvline(0, color=ONSET_COLOR, lw=1.1); ax.set_ylim(bottom=0)
-    ax.set_xlim(tax[0], tax[-1]); ax.set_title('Head motion', fontsize=9.5)
+    ax.set_xlim(tax[0], tax[-1]); ax.set_title('Head motion', fontsize=12)
     ax.set_ylabel('% samples flagged'); ax.set_xlabel('s from delta onset')
     ax.legend(frameon=False, fontsize=7.5, loc='upper left')
 
@@ -539,7 +539,7 @@ def fig_motion(sessions, tag):
             lim = max(lim, np.nanmax(np.nanmean(R, 0)), np.nanmax(np.nanmean(C, 0)))
         ax.axvline(0, color=ONSET_COLOR, lw=1.1); ax.axhline(0, color='k', lw=0.5)
         ax.set_xlim(tax[0], tax[-1])
-        ax.set_title(ch, fontsize=9.5); ax.set_xlabel('s from delta onset')
+        ax.set_title(ch, fontsize=12); ax.set_xlabel('s from delta onset')
     axes[1].set_ylabel('CAP band power (z)')
     for a in axes[1:]:
         a.set_ylim(-0.45, lim * 1.12)
@@ -568,7 +568,7 @@ def fig_session(sessions, tag):
     ax.plot(tax, s['eeg_real'], color='#2C3E50', lw=1.5)
     ax.plot(tax, s['eeg_nullm'], color=NULL_COLOR, ls='--', lw=0.8)
     ax.axvline(0, color=ONSET_COLOR, lw=1.1); ax.axhline(0, color='k', lw=0.5)
-    ax.set_xlim(tax[0], tax[-1]); ax.set_title('EEG delta (trigger)', fontsize=9.5)
+    ax.set_xlim(tax[0], tax[-1]); ax.set_title('EEG delta (trigger)', fontsize=12)
     ax.set_ylabel('z'); ax.set_xlabel('s from delta onset')
 
     lim = 0
@@ -580,7 +580,7 @@ def fig_session(sessions, tag):
         band_panel(axes[j + 1], tax, cur, nul)
         lim = max(lim, max(np.nanmax(v) for v in cur.values()),
                   max(np.nanmax(v) for v in nul.values()))
-        axes[j + 1].set_title(ch, fontsize=9.5); axes[j + 1].set_xlabel('s from delta onset')
+        axes[j + 1].set_title(ch, fontsize=12); axes[j + 1].set_xlabel('s from delta onset')
     axes[1].set_ylabel('CAP band power (z)')
     for a in axes[1:]:
         a.set_ylim(-0.45, lim * 1.12)
@@ -659,7 +659,7 @@ def fig_age(sessions, tag, cal):
                 rows.append({'tag': tag, 'channel': ch, 'band_hz': bn, 'metric': metric,
                              'spearman_rho': round(float(rho), 3), 'p_value': round(float(p), 3),
                              'n_subj': len(subj)})
-        axes[0, j].set_title(ch, fontsize=9.5)
+        axes[0, j].set_title(ch, fontsize=12)
         axes[1, j].set_xlabel('Age (years)')
     axes[0, 0].set_ylabel(f'response {RESP_WIN[0]:.0f}–{RESP_WIN[1]:.0f} s\n(robust z, MAD)')
     axes[1, 0].set_ylabel('half-rise latency (s, corrected)')

@@ -68,8 +68,8 @@ LEGEND_ORDER = ['PSG reference', 'spectral, 4 s Welch (published)',
 plt.rcParams.update({
     'font.family': 'sans-serif',
     'font.sans-serif': ['Arial', 'Helvetica', 'DejaVu Sans'],
-    'font.size': 7, 'axes.titlesize': 7.5, 'axes.labelsize': 7,
-    'xtick.labelsize': 6.5, 'ytick.labelsize': 6.5, 'legend.fontsize': 7,
+    'font.size': 11, 'axes.titlesize': 11.5, 'axes.labelsize': 11,
+    'xtick.labelsize': 10, 'ytick.labelsize': 10, 'legend.fontsize': 10,
     'axes.linewidth': 0.6, 'xtick.major.width': 0.6, 'ytick.major.width': 0.6,
     'xtick.major.size': 2.5, 'ytick.major.size': 2.5,
     'axes.spines.top': False, 'axes.spines.right': False,
@@ -90,7 +90,7 @@ def fit_k(raw, gt):
 def plot_band(df: pd.DataFrame, band: str) -> None:
     g0 = df[(df.band == band) & (df.channel == CHANNEL)].dropna(subset=['gt_hz'])
     sessions = sorted(g0.session.unique())
-    fig, axes = plt.subplots(4, 3, figsize=(183 * MM, 168 * MM), sharey=True)
+    fig, axes = plt.subplots(4, 3, figsize=(215 * MM, 200 * MM), sharey=True)
 
     for ax, sess in zip(axes.ravel(), sessions):
         g = g0[g0.session == sess].sort_values('epoch')
@@ -107,11 +107,11 @@ def plot_band(df: pd.DataFrame, band: str) -> None:
             ax.plot(t[m], raw[m] / k, ls=ls, color=colour, lw=lw, alpha=alpha,
                     zorder=z, label=label, solid_capstyle='butt')
 
-        ax.set_title(sess, color=C_INK, pad=3, loc='left', fontsize=7.5)
+        ax.set_title(sess, color=C_INK, pad=3, loc='left', fontsize=11.5)
         ax.set_ylim(*YLIM[band])
         ax.set_xlim(0, max(t.max(), 1))
         ax.text(0.985, 0.04, f'ref SD {np.std(gt):.2f}', transform=ax.transAxes,
-                ha='right', va='bottom', fontsize=6, color=C_MUTED, zorder=8,
+                ha='right', va='bottom', fontsize=9, color=C_MUTED, zorder=8,
                 bbox=dict(fc='white', ec='none', alpha=0.8, pad=1.2))
         ax.grid(axis='y', color=C_FAINT, lw=0.4, zorder=0)
         ax.set_axisbelow(True)
@@ -128,11 +128,11 @@ def plot_band(df: pd.DataFrame, band: str) -> None:
                bbox_to_anchor=(0.5, -0.035), handlelength=1.6, columnspacing=1.6)
     fig.suptitle(f'{BAND_NAME[band]} rate across the whole night, all twelve '
                  f'recordings ({CHANNEL} channel, each estimator k-scaled to its own night)',
-                 fontsize=8.5, y=1.002)
+                 fontsize=12.5, y=1.002)
     fig.text(0.5, -0.055,
              'Every estimator is divided by a scale factor fitted on the same night, '
              'which is the most favourable case. SD is of the plotted trace.',
-             ha='center', fontsize=6.5, color=C_MUTED)
+             ha='center', fontsize=9.5, color=C_MUTED)
     fig.tight_layout(w_pad=1.6, h_pad=1.9)
     out = FIG / f'fig_sessions_{band}.png'
     fig.savefig(out)
@@ -157,7 +157,7 @@ def plot_representative(df: pd.DataFrame, session: str = 'S1N1') -> None:
 
     The twelve-panel versions carry the cohort; this carries the reader.
     """
-    fig, axes = plt.subplots(2, 1, figsize=(183 * MM, 88 * MM), sharex=True)
+    fig, axes = plt.subplots(2, 1, figsize=(205 * MM, 108 * MM), sharex=True)
     for ax, band in zip(axes, ['resp', 'card']):
         g = (df[(df.band == band) & (df.channel == CHANNEL) & (df.session == session)]
              .dropna(subset=['gt_hz']).sort_values('epoch'))
@@ -175,14 +175,14 @@ def plot_representative(df: pd.DataFrame, session: str = 'S1N1') -> None:
         ax.set_axisbelow(True)
         err = np.median(np.abs(raw[m] / k - gt[m]))
         ax.text(0.995, 0.94, f'k = {k:.2f}   median |error| {err:.2f} {UNIT[band]}',
-                transform=ax.transAxes, ha='right', va='top', fontsize=6.5,
+                transform=ax.transAxes, ha='right', va='top', fontsize=9.5,
                 color=C_MUTED)
         ax.text(-0.075, 1.02, 'AB'['resp card'.split().index(band)], transform=ax.transAxes,
-                fontsize=9, fontweight='bold', va='bottom', color=C_INK)
+                fontsize=13, fontweight='bold', va='bottom', color=C_INK)
     axes[1].set_xlabel('time (h)')
     axes[0].legend(loc='lower left', ncol=2, handlelength=1.6, borderpad=0.2)
     fig.suptitle(f'Respiratory and cardiac rate across one night ({session})',
-                 fontsize=8.5, y=0.995)
+                 fontsize=12.5, y=0.995)
     fig.tight_layout(h_pad=1.4)
     out = FIG / 'fig_representative_night.png'
     fig.savefig(out)
