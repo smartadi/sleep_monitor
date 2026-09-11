@@ -58,9 +58,9 @@ _LADDER_LABELS = ['REM', 'N3', 'N2', 'N1', 'Wake']
 def draw_stage_ladder(ax, sp):
     """Hypnogram as a connected stepped ladder (staircase), Wake top / REM bottom."""
     ax.set_yticks(_LADDER_TICKS)
-    ax.set_yticklabels(_LADDER_LABELS, fontsize=7)
+    ax.set_yticklabels(_LADDER_LABELS, fontsize=12)
     ax.set_ylim(-0.5, 4.5)
-    ax.set_ylabel('Stage', fontsize=9)
+    ax.set_ylabel('Stage', fontsize=13)
     if sp is None:
         return
     t = np.asarray(sp['t_ep_hr'], float)
@@ -238,14 +238,15 @@ def overlay(session, ch):
     t_card, card_tr, card_p = track_single_ridge(sig, fs, **TRACK['card'])
     slow_rr = detect(session, ch, 'slow')
 
-    fig = plt.figure(figsize=(16, 9))
+    fig = plt.figure(figsize=(17, 10.5))
     gs = fig.add_gridspec(3, 1, height_ratios=[0.32, 1.0, 0.72], hspace=0.14)
 
     # stepped sleep-stage ladder
     ax0 = fig.add_subplot(gs[0])
     draw_stage_ladder(ax0, sp)
+    ax0.tick_params(labelsize=12)
     ax0.set_title(f'{session.label} ({ch}) — resp/cardiac Viterbi traces '
-                  f'(conf {resp_p:.0%}/{card_p:.0%})', fontsize=12)
+                  f'(conf {resp_p:.0%}/{card_p:.0%})', fontsize=15)
 
     # 0-3 Hz enhanced spectrogram + single resp/cardiac traces
     ax1 = fig.add_subplot(gs[1], sharex=ax0)
@@ -255,8 +256,9 @@ def overlay(session, ch):
                    vmin=0, vmax=vmax, rasterized=True)
     ax1.plot(t_resp, resp_tr, color=BAND_COLOR['resp'], lw=2.0, alpha=0.95, label='resp rate')
     ax1.plot(t_card, card_tr, color=BAND_COLOR['card'], lw=2.0, alpha=0.95, label='cardiac rate')
-    ax1.set_ylim(0, 3.0); ax1.set_ylabel('Frequency (Hz)', fontsize=9)
-    ax1.legend(loc='upper right', fontsize=8)
+    ax1.set_ylim(0, 3.0); ax1.set_ylabel('Frequency (Hz)', fontsize=13)
+    ax1.tick_params(labelsize=12)
+    ax1.legend(loc='upper right', fontsize=11)
 
     # Slow band 0-0.3 Hz as a plain power spectrum.
     #
@@ -272,8 +274,9 @@ def overlay(session, ch):
     lo, hi = np.percentile(dbS, [5, 99])
     ax2.pcolormesh(tS / 3600, fS, dbS, shading='gouraud', cmap='viridis',
                    vmin=lo, vmax=hi, rasterized=True)
-    ax2.set_ylim(0.0, 0.30); ax2.set_ylabel('Slow (Hz)', fontsize=9)
-    ax2.set_xlabel('Time (hr)', fontsize=10)
+    ax2.set_ylim(0.0, 0.30); ax2.set_ylabel('Slow (Hz)', fontsize=13)
+    ax2.tick_params(labelsize=12)
+    ax2.set_xlabel('Time (hr)', fontsize=14)
 
     out = FIG_DIR / f'ridge_tune_{session.label}_{ch}.png'
     fig.savefig(out, dpi=150, bbox_inches='tight', facecolor='white')

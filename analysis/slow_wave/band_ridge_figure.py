@@ -7,6 +7,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+plt.rcParams.update({'xtick.labelsize': 11, 'ytick.labelsize': 11})
 from scipy.stats import kruskal, mannwhitneyu
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
@@ -58,7 +59,7 @@ def box_by_stage(ax, d, col, present_only=True):
     return kruskal(*data)[1] if len(data) >= 2 else np.nan
 
 
-fig, axes = plt.subplots(2, 3, figsize=(15, 8), squeeze=False)
+fig, axes = plt.subplots(2, 3, figsize=(16.5, 9), squeeze=False)
 for r, band in enumerate(BANDS):
     d = pool(band)
     # col 0: mean active ridges per epoch
@@ -66,21 +67,21 @@ for r, band in enumerate(BANDS):
     bar_by_stage(ax, d, 'n_ridges', 'mean')
     kw = kruskal(*[d.loc[d.stage_code == sc, 'n_ridges'].dropna().values
                    for sc in STAGE_ORDER if (d.stage_code == sc).any()])[1]
-    ax.set_title(f'Mean active ridges / epoch\nKW p={kw:.1e}', fontsize=9)
-    ax.set_ylabel(f'{BANDS[band]}\n({POOL_CH})', fontsize=9)
+    ax.set_title(f'Mean active ridges / epoch\nKW p={kw:.1e}', fontsize=12)
+    ax.set_ylabel(f'{BANDS[band]}\n({POOL_CH})', fontsize=12)
     ax.grid(True, alpha=0.15, axis='y')
     # col 1: total ridge power (present epochs)
     ax = axes[r, 1]
     kw = box_by_stage(ax, d, 'total_ridge_power', present_only=True)
-    ax.set_title(f'Total ridge power (ridge-present epochs)\nKW p={kw:.1e}', fontsize=9)
+    ax.set_title(f'Total ridge power (ridge-present epochs)\nKW p={kw:.1e}', fontsize=12)
     ax.grid(True, alpha=0.15, axis='y')
     # col 2: lowest ridge freq (present epochs)
     ax = axes[r, 2]
     kw = box_by_stage(ax, d, 'min_ridge_freq', present_only=True)
-    ax.set_title(f'Lowest ridge freq (Hz)\nKW p={kw:.1e}', fontsize=9)
+    ax.set_title(f'Lowest ridge freq (Hz)\nKW p={kw:.1e}', fontsize=12)
     ax.grid(True, alpha=0.15, axis='y')
 
-fig.suptitle('Band-restricted ridge structure by sleep stage (CRE, 12 sessions)', fontsize=13)
+fig.suptitle('Band-restricted ridge structure by sleep stage (CRE, 12 sessions)', fontsize=16)
 fig.tight_layout(rect=[0, 0, 1, 0.95])
 out = FIG_DIR / 'band_ridge_by_stage.png'
 fig.savefig(out, dpi=180)

@@ -24,6 +24,7 @@ import pandas as pd
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+plt.rcParams.update({'xtick.labelsize': 11, 'ytick.labelsize': 11})
 
 HERE = os.path.dirname(__file__)
 NPZ = os.path.join(HERE, 'outputs', 'spindle_lowband_detection.npz')
@@ -42,7 +43,7 @@ df = df[df.session != 'POOLED'].reset_index(drop=True)
 labels = df.session.tolist()
 n_spindles = int(df.n_spindles_N2.sum())
 
-fig, axes = plt.subplots(1, 3, figsize=(18, 5.6),
+fig, axes = plt.subplots(1, 3, figsize=(18.5, 6.6),
                          gridspec_kw={'wspace': 0.30, 'width_ratios': [1.3, 1.3, 1.1]})
 
 # ---- (A) all 12 CH curves + grand mean ----
@@ -57,10 +58,10 @@ ax.fill_between(t, gm - gs, gm + gs, color=CH_COLORS['CH'], alpha=0.20)
 ax.plot(t, gm, color=CH_COLORS['CH'], lw=2.4, label='grand mean ± SD (12 sessions)')
 ax.axvline(0, color='k', lw=0.8, alpha=0.6)
 ax.set_title('(A) CH low-band (0.1–3 Hz) power at spindle center\n'
-             'every one of 12 sessions shows the bump', fontsize=10.5, fontweight='bold')
-ax.set_xlabel('Time from spindle center (s)', fontsize=9)
-ax.set_ylabel('CH 0.1–3 Hz power (dB vs own baseline)', fontsize=9)
-ax.legend(fontsize=8, loc='upper left')
+             'every one of 12 sessions shows the bump', fontsize=13, fontweight='bold')
+ax.set_xlabel('Time from spindle center (s)', fontsize=12)
+ax.set_ylabel('CH 0.1–3 Hz power (dB vs own baseline)', fontsize=12)
+ax.legend(fontsize=11, loc='upper left')
 ax.set_xlim(t.min(), t.max())
 
 # ---- (B) per-session bump + detection rate ----
@@ -69,22 +70,23 @@ peaks = trigCH[:, core].mean(axis=1)          # per-session onset core dB
 x = np.arange(len(labels))
 bars = ax.bar(x, peaks, color=CH_COLORS['CH'], alpha=0.85)
 ax.axhline(0, color='k', lw=0.8)
-ax.set_xticks(x); ax.set_xticklabels(labels, rotation=45, ha='right', fontsize=8)
-ax.set_ylabel('CH onset bump (core dB)', fontsize=9, color=CH_COLORS['CH'])
+ax.set_xticks(x); ax.set_xticklabels(labels, rotation=45, ha='right', fontsize=10.5)
+ax.set_ylabel('CH onset bump (core dB)', fontsize=12, color=CH_COLORS['CH'])
 ax.tick_params(axis='y', labelcolor=CH_COLORS['CH'])
 ax.set_title(f'(B) Per-session onset bump & per-spindle detection rate\n'
              f'{int((peaks>0).sum())}/12 sessions positive '
-             f'(median +{np.median(peaks):.2f} dB)', fontsize=10.5, fontweight='bold')
+             f'(median +{np.median(peaks):.2f} dB)', fontsize=13, fontweight='bold')
 # detection rate on twin axis
 ax2 = ax.twinx()
 det = df.CH_low_detrate.to_numpy() * 100
 null = df.CH_low_nullrate.to_numpy() * 100
 ax2.plot(x, det, 'o-', color='#C0392B', lw=1.2, ms=5, label='detection rate')
 ax2.plot(x, null, '--', color='gray', lw=1.0, label='chance (matched controls)')
-ax2.set_ylabel('per-spindle detection rate (%)', fontsize=9, color='#C0392B')
+ax2.set_ylabel('per-spindle detection rate (%)', fontsize=12, color='#C0392B')
 ax2.tick_params(axis='y', labelcolor='#C0392B')
 ax2.set_ylim(45, 60)
-ax2.legend(fontsize=7.5, loc='upper right')
+ax2.legend(fontsize=10, loc='upper right')
+ax2.tick_params(labelsize=11)
 
 # ---- (C) grand-mean per channel ----
 ax = axes[2]
@@ -98,15 +100,15 @@ ax.axvline(0, color='k', lw=0.8, alpha=0.6)
 sig_det = df.CH_sigma_detrate.mean() * 100
 ax.set_title('(C) Grand-mean onset response by channel\n'
              f'CH strongest; sigma (11–16 Hz) stays at chance ({sig_det:.0f}%)',
-             fontsize=10.5, fontweight='bold')
-ax.set_xlabel('Time from spindle center (s)', fontsize=9)
-ax.set_ylabel('0.1–3 Hz power (dB vs own baseline)', fontsize=9)
-ax.legend(fontsize=8, loc='upper left')
+             fontsize=13, fontweight='bold')
+ax.set_xlabel('Time from spindle center (s)', fontsize=12)
+ax.set_ylabel('0.1–3 Hz power (dB vs own baseline)', fontsize=12)
+ax.legend(fontsize=11, loc='upper left')
 ax.set_xlim(t.min(), t.max())
 
 fig.suptitle(f'Low-band (0.1–3 Hz) spindle response in the capacitive mask — all 12 sessions, '
              f'{n_spindles:,} N2 spindles',
-             fontsize=13, fontweight='bold', y=1.02)
+             fontsize=15.5, fontweight='bold', y=1.02)
 os.makedirs(os.path.dirname(FIG), exist_ok=True)
 fig.savefig(FIG, dpi=200, bbox_inches='tight', facecolor='white')
 plt.close(fig)
