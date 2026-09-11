@@ -4,6 +4,14 @@ Records all code changes to library modules, scripts, and notebooks.
 
 ---
 
+## 2026-09-11
+
+- **Added** `analysis/prof_requests_sep2026/` — four scripts answering the professor's Sep 7–9 manuscript emails, with `FINDINGS.md` summary. Plots → `notebooks/plots/prof_requests_sep2026/`, tables → `reports/prof_requests_sep2026/`. Descriptive/per-subject, no headline p-values.
+  - `mean_cap_vs_rem.py` — slow (sleep-cycle) mean of CH/CLE/CRE/CLE-CRE vs REM: 12-panel overlay (REM shaded), REM-onset-triggered average, REM−NREM direction per night, and slow-mean × REM-occupancy-cycle correlation. Reuses the mean-value/VLF idiom from `analysis/mean_value/mean_value_vs_stage.py`.
+  - `band_power_comparison.py` — per-epoch Welch band power (fF²) for respiratory/cardiac/SWS(N3) bands + harmonic-comb vs non-comb in-band power, per channel; median-PSD figure with bands shaded. Comb epochs joined from `reports/slow_wave/ladder_quantify/per_window_channels.parquet`. Writes `reports/prof_requests_sep2026/band_power_epochs.parquet`.
+  - `cre_vs_cle_laterality.py` — CLE/CRE/CH ridge occurrence by stage and per-night left/right laterality index, from existing `reports/slow_wave/{band_ridge_epochs,overlay/ridge_overlay_epochs,ladder_quantify/per_window_channels}.parquet` (no recompute).
+  - `kcomplex_comparison.py` — K-complex-triggered SEC band-power grid (N2 delta onsets = K-complex proxy, n=340), reusing `analysis/delta_onset/delta_cap_precursor.py` (envelope cache, peri-stack, random-NREM null). Response follows the K-complex (+2..+5 s), no precursor — the Fultz-2019 lead/lag direction.
+
 ## 2026-08-27
 
 - **Removed the abstract** from `writeup/main/CAP_sleep_mask_manuscript_main.docx` — restored the `[Abstract — to be written.]` placeholder (user did not ask for it; the 2026-08-26 draft was written unprompted). Figure S5 (Bland–Altman) stays removed. Backup `...BACKUP_2026-08-27_pre-abstract-removal.docx`.
