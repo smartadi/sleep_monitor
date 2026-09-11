@@ -2927,3 +2927,27 @@ picture is consistent: episodes coincide loosely, but nothing supports a
 quantitative mapping from capacitive level to arousal rate. Report the coincidence,
 not a model. Figure `writeup/figures/prof_metrics/arousal_linear_model.png`;
 `reports/psg/arousal_linear_model.csv`.
+
+## 2026-09-11 — Night-to-night similarity: can we call a subject's two nights "similar"?
+
+`analysis/prof_requests_sep2026/night_similarity.py`. One raw-CAP feature vector per
+session (24 features: median 30-s band power in slow/resp/cardiac + log variance + resp/
+cardiac spectral-peak freq, for CH/CLE/CRE/CLE-CRE; no PSG, no k), z-scored across the 12
+recordings, Euclidean distance, retrieval test (is the same-subject partner night the
+nearest of the other 11?).
+
+**Answer: only weakly, and it is subject-dependent — not a general yes.**
+- Nearest-neighbour hit rate 3/12 nights (chance ~1.1/12); median partner rank 4.5 of 11.
+- Within-subject mean distance 5.21 vs between 5.96; permutation p = 0.097 — within is
+  smaller but not separable from chance at n = 6.
+- Per subject the partner-night rank is: **S3 (1,1) — both nights are each other's nearest
+  neighbour**, S6 (5,1), S5 (3,6), S4 (4,7), S1 (10,6), **S2 (11,4) — one night's partner is
+  the farthest of all 11**. S2N2 is a whole-vector outlier (bright row/column in the heatmap).
+- Consistent with §4.1 (the three *individual* features — amplitude, time-above-threshold,
+  median variance — reproduce moderately-strongly) and with the imbalance burden being a
+  night-specific property (differs 2.0–5.8× between a subject's nights, para 85): the full
+  vector mixes reproducible spectral/variance features with night-specific coupling/posture
+  features, so it does not cleanly identify the subject.
+- Figures `notebooks/plots/prof_requests_sep2026/E_night_similarity.png` (heatmap + within/
+  between + rank), `E_night_psd_pairs.png` (per-subject two-night CH PSD overlay).
+  Tables `reports/prof_requests_sep2026/night_similarity_{features,summary}.csv`.
