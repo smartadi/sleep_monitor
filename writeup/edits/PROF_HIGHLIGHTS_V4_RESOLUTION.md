@@ -10,14 +10,27 @@ Ten were already discharged in the V5/V3 build (2026-09-11: the eight
 "(LARGER font size)" / "(Redraw…)" annotations plus the two cross-refs
 S4→S12 and S3→S2). This round closes the remaining 14 + 1.
 
-Built by `writeup/ppt/_build_v6.py`:
+## Files
 
-| output | from |
-|---|---|
-| `writeup/ppt/CAP_sleep_mask_manuscript_V6.docx` | V5 |
-| `writeup/ppt/CAP_sleep_mask_manuscript supplementary V4.docx` | supp V3 |
+**The reviewer's own files are never written to.** `writeup/review/address/` still
+holds exactly what he sent — verified byte-identical (MD5 `4183FD12D3AB` for main
+V4, `185927A264CB` for supplementary V1). Every mark and note he made is intact
+there.
 
-No highlight marks remain in either file.
+| output | from | built by | what it is |
+|---|---|---|---|
+| `writeup/ppt/CAP_sleep_mask_manuscript_V6_responses.docx` | V6 | `_build_v6_responses.py` | **the one to send back** — edits applied, his highlights put back where each change landed, a margin comment on every one |
+| `...supplementary V4_responses.docx` | supp V4 | `_build_v6_responses.py` | same, for the supplement |
+| `writeup/ppt/CAP_sleep_mask_manuscript_V6.docx` | V5 | `_build_v6.py` | clean submission copy — same edits, no marks or comments |
+| `...supplementary V4.docx` | supp V3 | `_build_v6.py` | same, for the supplement |
+
+In the response copies: **35 comments** in the main text (24 answering his
+highlights, 11 marked `[Additional fix]`) and **4** in the supplement (2 + 2).
+His highlighted spans are highlighted; the `[Additional fix]` items are commented
+but *not* highlighted, so his marks stay distinguishable from ours in the margin.
+Notes that were instructions to us — "(LARGER font size)", "(Can you redraw the
+figures? …)" — are **quoted verbatim inside the comment** rather than put back
+into the manuscript body, so nothing he wrote is dropped anywhere.
 
 ---
 
