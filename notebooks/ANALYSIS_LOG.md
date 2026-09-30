@@ -2953,3 +2953,38 @@ nearest of the other 11?).
 - Figures `notebooks/plots/prof_requests_sep2026/E_night_similarity.png` (heatmap + within/
   between + rank), `E_night_psd_pairs.png` (per-subject two-night CH PSD overlay).
   Tables `reports/prof_requests_sep2026/night_similarity_{features,summary}.csv`.
+
+## 2026-09-30 — Reviewer-style critique of manuscript V6
+
+`writeup/review/address/CAP_sleep_mask_manuscript_V6_reviewer_critique_and_revision_plan.docx`.
+Adversarial read of V6 (revision marks accepted) as an external reviewer: 14 major claim
+challenges, 8 statistical items, a language pass, 20 consistency defects, prioritised action
+list. Verdict: major revision, all six blocking items textual — no new data or analysis needed.
+
+**Three findings that came out of checking the paper against its own numbers:**
+- **Table 3 refutes the cardiac claim.** Cardiac night error: same-night k 1.56, other-night
+  3.77, population 3.19, **no-sensor baseline 2.76 BPM**. Both *deployable* calibrations are
+  worse than assigning the cohort median and never switching the sensor on. Only respiratory
+  night-mean beats the baseline transferably (0.57–0.94 vs 1.20). Never stated in the text;
+  comment 10 in the V6 notes flagged the respiratory half and deferred it as "a content
+  decision".
+- **Reported coherence sits inside its own null floor.** E[MSC] = 1/N under the null; the paper
+  states 3–5 Welch segments per 30-s epoch → floor **0.20–0.33**, which brackets the headline
+  median of 0.31. The sentence that should give this floor is the one whose symbols were lost
+  in the build ("approximately  for -averaged segments"). The real effect size is the margin
+  over control: 0.062 resp / 0.059 card.
+- **§4.1/§4.2 R² values, tested.** At n = 6: R²=0.63 → p=0.059 (§4.1 calls all three
+  "significant"; this one is not), 0.68 → 0.043, 0.71 → 0.035. §4.2's nine associations at
+  n = 6: **none reach p<0.05** (largest, R²=0.46, p=0.14); at n = 12 four do — and the figure
+  caption never says which n applies to which panel. Also: 5/6 participants = sign-test
+  p = 0.22, not "a consistent temporal relationship" (§3.7); 4/6 = p = 0.69 (§3.4).
+
+Other substantive items: EEG is not a valid respiratory negative control (pulse/respiration
+artefact in scalp EEG); channel-independence inference is backwards (shared mount, ground,
+FDC1004, supply — agreement is the *signature* of common-mode artefact); §2.1 asserts the
+sensor's insensitivity to neuronal activity that §3.5 then "finds"; the motion canceller
+removes 0.1% of in-band variance and this is reported as success; same-night night-mean error
+is the residual of a one-parameter fit to the quantity reported; comb detector has no
+surrogate null; the 0.07 Hz ridge has no documented detection method; the abstract contains
+no results at all. §2.2's BMI/health exclusions *caused* the 14.4–16.8 br/min range that lets
+the constant predictor win — a design limitation, not a sampling accident.
