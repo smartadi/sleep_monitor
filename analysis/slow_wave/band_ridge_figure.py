@@ -28,16 +28,27 @@ def pool(band):
     return d
 
 
-def bar_by_stage(ax, d, col, agg='mean'):
+def per_session_mean_by_stage(ax, d, col='n_ridges'):
+    """Bar of the across-recording mean, with one dot per recording.
+
+    The unit is the recording, not the epoch. Epochs within a night are
+    correlated, so a bar drawn over pooled epochs would carry a spread set by
+    how many epochs a night happens to contain rather than by how much the
+    quantity actually varies.
+    """
     xs, hs, cols = [], [], []
     for k, sc in enumerate(STAGE_ORDER):
-        v = d.loc[d.stage_code == sc, col].dropna()
-        if len(v) == 0:
+        per_sess = (d[d.stage_code == sc].groupby('session')[col]
+                    .mean().dropna())
+        if per_sess.empty:
             continue
         xs.append(k)
-        hs.append(v.mean() if agg == 'mean' else v.median())
+        hs.append(per_sess.mean())
         cols.append(STAGE_COLORS[sc])
-    ax.bar(xs, hs, color=cols, alpha=0.75, edgecolor='black', lw=0.5)
+        jitter = np.linspace(-0.17, 0.17, len(per_sess))
+        ax.scatter(np.full(len(per_sess), k) + jitter, per_sess.values,
+                   s=16, color='black', alpha=0.55, zorder=4, linewidths=0)
+    ax.bar(xs, hs, color=cols, alpha=0.75, edgecolor='black', lw=0.5, zorder=2)
     ax.set_xticks(range(len(STAGE_ORDER)))
     ax.set_xticklabels([STAGE_LABELS[c] for c in STAGE_ORDER])
 
@@ -62,26 +73,47 @@ def box_by_stage(ax, d, col, present_only=True):
 fig, axes = plt.subplots(2, 3, figsize=(16.5, 9), squeeze=False)
 for r, band in enumerate(BANDS):
     d = pool(band)
-    # col 0: mean active ridges per epoch
+    # col 0: active ridges per epoch.
+    #
+    # The reviewer asked for medians here, to match the box-and-whiskers in the
+    # other two columns. Taken literally that destroys the panel: n_ridges is a
+    # small count, so the respiratory median is 2 in every stage and the cardiac
+    # median is 0 in every stage -- five identical boxes, and a flat line at
+    # zero. The mean is the informative statistic for a count this sparse.
+    #
+    # What the comment is really about is a bare mean sitting beside medians
+    # with no spread shown. So the bar keeps the mean and gains the spread, as
+    # one dot per recording: 12 session means, which is also the honest unit --
+    # 30 s epochs within a night are not independent, and pooling them is what
+    # produced the p-values this figure used to print.
     ax = axes[r, 0]
-    bar_by_stage(ax, d, 'n_ridges', 'mean')
-    kw = kruskal(*[d.loc[d.stage_code == sc, 'n_ridges'].dropna().values
-                   for sc in STAGE_ORDER if (d.stage_code == sc).any()])[1]
-    ax.set_title(f'Mean active ridges / epoch\nKW p={kw:.1e}', fontsize=12)
+    per_session_mean_by_stage(ax, d)
+    ax.set_title('Active ridges / epoch\n(bar: mean of 12 recordings; dots: each recording)',
+                 fontsize=11)
     ax.set_ylabel(f'{BANDS[band]}\n({POOL_CH})', fontsize=12)
     ax.grid(True, alpha=0.15, axis='y')
     # col 1: total ridge power (present epochs)
     ax = axes[r, 1]
-    kw = box_by_stage(ax, d, 'total_ridge_power', present_only=True)
-    ax.set_title(f'Total ridge power (ridge-present epochs)\nKW p={kw:.1e}', fontsize=12)
+    box_by_stage(ax, d, 'total_ridge_power', present_only=True)
+    ax.set_title('Total ridge power (ridge-present epochs)', fontsize=12)
     ax.grid(True, alpha=0.15, axis='y')
     # col 2: lowest ridge freq (present epochs)
     ax = axes[r, 2]
-    kw = box_by_stage(ax, d, 'min_ridge_freq', present_only=True)
-    ax.set_title(f'Lowest ridge freq (Hz)\nKW p={kw:.1e}', fontsize=12)
+    box_by_stage(ax, d, 'min_ridge_freq', present_only=True)
+    ax.set_title('Lowest ridge frequency (Hz)', fontsize=12)
     ax.grid(True, alpha=0.15, axis='y')
 
-fig.suptitle('Band-restricted ridge structure by sleep stage (CRE, 12 sessions)', fontsize=16)
+# No p-values on the panels. They would be Kruskal-Wallis over pooled 30 s
+# epochs, which are not independent within a night, so the test is inflated by
+# epoch count rather than by effect: printing p = 1e-29 and then disowning it in
+# the caption is worse than not printing it. The comparison here is descriptive.
+fig.suptitle('Band-restricted ridge structure by sleep stage (CRE, 12 recordings)\n'
+             'Left column: bar is the mean of the 12 recordings, each dot one '
+             'recording · middle and right: median, IQR and 1.5 x IQR '
+             'whiskers over epochs\n'
+             'Descriptive only — 30 s epochs within a night are not '
+             'independent, so no test is reported',
+             fontsize=13)
 fig.tight_layout(rect=[0, 0, 1, 0.95])
 out = FIG_DIR / 'band_ridge_by_stage.png'
 fig.savefig(out, dpi=180)
