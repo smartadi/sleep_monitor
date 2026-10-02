@@ -1,0 +1,174 @@
+"""
+The scaling factor k, per night, per subject, per channel, for both methods.
+
+The rate story in one quantity. Run a detector on a filtered SEC channel, count
+what it finds, compare that with the PSG reference, and the ratio is k -- how
+many things the sensor reports per real physiological cycle. k is not a
+correction bolted on afterwards; it is the measurement of what the waveform
+actually contains.
+
+Two detectors, reported the same way so they can be compared directly:
+
+    peak counting   loose peak detector on the band-passed channel
+    spectral        peak of the Welch spectrum in the band
+
+and both for respiration and for cardiac activity, on all three raw channels
+(CH, CLE, CRE), for each of the twelve nights.
+
+What the numbers say
+--------------------
+Peak counting gives a stable k that means something physical. Respiration lands
+just above 1 (CH 1.04, CLE 1.14, CRE 1.18): roughly one detected peak per
+breath, with CH closest to exactly one. Cardiac lands just under 2 on every
+channel (1.93-1.96): two deflections per heartbeat, which matches the
+R-peak-triggered average of 2.02 and a biphasic systolic/dicrotic waveform.
+
+Spectral gives k near 1 for cardiac (0.94-1.30), so it is finding the
+fundamental rather than a harmonic -- but its spread across nights is two to
+three times wider than peak counting's, which is the same instability that
+makes its epoch-level error five times larger.
+
+For respiration the spectral k is identical on all three channels (0.963, with
+identical spread). That is not a coincidence and not a result: the respiratory
+spectral estimator returns the same value in almost every epoch, so its k is
+just that constant divided by the reference. It is reported here because the
+degeneracy is visible in exactly this figure, and a reader comparing methods
+should see why that column is not usable.
+
+Reads   artifacts/rate_rerun_phase_a.parquet   (per epoch, per channel, both
+        bands, every estimator, with the PSG reference)
+Writes  reports/rates/k_by_channel.csv
+        writeup/figures/rate_supp/fig_k_by_channel.png
+
+Usage
+-----
+    .venv/Scripts/python.exe analysis/rates/supp_k_by_channel.py
+"""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt      # noqa: E402
+import numpy as np                    # noqa: E402
+import pandas as pd                   # noqa: E402
+
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT))
+from sleep_monitor.sessions import SESSION_META      # noqa: E402
+
+SRC = ROOT / 'artifacts' / 'rate_rerun_phase_a.parquet'
+OUT_FIG = ROOT / 'writeup' / 'figures' / 'rate_supp'
+OUT_TAB = ROOT / 'reports' / 'rates'
+for p in (OUT_FIG, OUT_TAB):
+    p.mkdir(parents=True, exist_ok=True)
+
+CHANNELS = ['CH', 'CLE', 'CRE']
+METHODS = [('peaks_loose', 'Peak counting'), ('spectral', 'Spectral peak')]
+BANDS = [('resp', 'Breathing'), ('card', 'Heart rate')]
+CLIP = (0.3, 5.0)          # the deployed clip on individual epoch ratios
+
+# one colour per subject, so a reader can see night-to-night pairing
+SUBJ_COLORS = ['#1f77b4', '#d62728', '#2ca02c', '#9467bd', '#ff7f0e', '#17becf']
+
+plt.rcParams.update({
+    'font.size': 16, 'axes.titlesize': 18, 'axes.labelsize': 16,
+    'xtick.labelsize': 15, 'ytick.labelsize': 15, 'legend.fontsize': 13,
+    'axes.spines.top': False, 'axes.spines.right': False,
+    'figure.dpi': 110, 'savefig.dpi': 200,
+})
+
+
+def k_table() -> pd.DataFrame:
+    """k per (band, method, channel, session), with its subject."""
+    subj = {m['label']: m['subject'] for m in SESSION_META}
+    d = pd.read_parquet(SRC)
+    d = d[d.channel.isin(CHANNELS)]
+    rows = []
+    for meth, _ in METHODS:
+        ratio = (d[meth] / d.gt_hz).clip(*CLIP)
+        t = d.assign(k=ratio).dropna(subset=['k'])
+        g = (t.groupby(['band', 'channel', 'session'])['k']
+             .agg(k='median', n_epochs='size').reset_index())
+        g['method'] = meth
+        rows.append(g)
+    k = pd.concat(rows, ignore_index=True)
+    k['subject'] = k.session.map(subj)
+    k['night'] = k.session.str[-1].astype(int)
+    return k.sort_values(['band', 'method', 'channel', 'session'])
+
+
+def figure(k: pd.DataFrame):
+    fig, axes = plt.subplots(2, 2, figsize=(14.0, 9.6), sharex=True)
+    subjects = sorted(k.subject.unique())
+    cmap = dict(zip(subjects, SUBJ_COLORS))
+
+    for r, (band, band_lbl) in enumerate(BANDS):
+        for c, (meth, meth_lbl) in enumerate(METHODS):
+            ax = axes[r, c]
+            sub = k[(k.band == band) & (k.method == meth)]
+            for xi, ch in enumerate(CHANNELS):
+                s = sub[sub.channel == ch]
+                jit = np.linspace(-0.22, 0.22, len(s))
+                ax.scatter(xi + jit, s.k, s=95,
+                           c=[cmap[x] for x in s.subject],
+                           edgecolor='white', linewidth=1.0, zorder=3)
+                med = s.k.median()
+                ax.plot([xi - 0.34, xi + 0.34], [med] * 2, color='black',
+                        lw=3.0, zorder=4)
+                ax.annotate(f'{med:.2f}', (xi, med), xytext=(0, 11),
+                            textcoords='offset points', ha='center',
+                            fontsize=16, fontweight='bold', zorder=5)
+            ax.axhline(1.0, color='#999999', lw=1.6, ls=':', zorder=1)
+            ax.set_xticks(range(len(CHANNELS)))
+            ax.set_xticklabels(CHANNELS)
+            ax.set_ylabel('k   (detected per real cycle)' if c == 0 else '')
+            ax.set_title(f'{band_lbl}  —  {meth_lbl}', loc='left',
+                         fontweight='bold')
+            ax.grid(axis='y', alpha=0.25)
+            lo, hi = sub.k.min(), sub.k.max()
+            pad = 0.18 * max(hi - lo, 0.4)
+            ax.set_ylim(min(lo, 0.85) - pad, hi + pad * 1.6)
+
+    handles = [plt.Line2D([], [], marker='o', ls='', ms=11, color=cmap[s],
+                          label=f'subject {i + 1}')
+               for i, s in enumerate(subjects)]
+    fig.legend(handles=handles, loc='lower center', ncol=6, frameon=False,
+               bbox_to_anchor=(0.5, -0.005))
+    fig.suptitle('k — how many peaks the sensor reports per real cycle\n'
+                 'One point per night; black bar is the median of the twelve; '
+                 'dotted line is k = 1',
+                 fontsize=20, fontweight='bold', x=0.015, ha='left', y=0.995)
+    fig.tight_layout(rect=(0, 0.055, 1, 0.93))
+    p = OUT_FIG / 'fig_k_by_channel.png'
+    fig.savefig(p, bbox_inches='tight', facecolor='white')
+    plt.close(fig)
+    print('wrote', p.name)
+
+
+def main():
+    k = k_table()
+    k.to_csv(OUT_TAB / 'k_by_channel.csv', index=False)
+    figure(k)
+
+    pd.set_option('display.width', 200)
+    print('\nk, median across the 12 nights (IQR in brackets)\n')
+    print(f"{'band':6s} {'method':13s} " +
+          '  '.join(f'{c:>16s}' for c in CHANNELS))
+    for band, _ in BANDS:
+        for meth, _ in METHODS:
+            cells = []
+            for ch in CHANNELS:
+                s = k[(k.band == band) & (k.method == meth)
+                      & (k.channel == ch)].k
+                cells.append(f'{s.median():.2f} [{s.quantile(.25):.2f}'
+                             f'–{s.quantile(.75):.2f}]')
+            print(f'{band:6s} {meth:13s} ' + '  '.join(f'{c:>16s}' for c in cells))
+    print(f'\n-> {OUT_TAB / "k_by_channel.csv"}')
+
+
+if __name__ == '__main__':
+    main()
