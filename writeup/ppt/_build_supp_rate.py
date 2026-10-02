@@ -239,22 +239,48 @@ def build():
               'the rest do not.')
 
     # ── 5 ────────────────────────────────────────────────────────────────────
-    h(doc, '5.  Could k be learned during a recording?', 1)
-    para(doc, 'A device that calibrated itself would have to learn k while '
-              'running. Recomputing k in a 30-minute trailing window, using the '
-              'same definition, shows what such a device would see.')
-    figure(doc, 'fig_rate_running_k.png',
-           'Figure S-R4. k recomputed continuously in a 30-minute trailing '
-           'window. One faint line per recording; the heavy line is the median '
-           'across recordings; the dashed line is the whole-night k used '
-           'elsewhere.')
-    para(doc, 'The median across recordings settles within the first hour and '
-              'then sits on the whole-night value for the rest of the night in '
-              'both bands. Individual recordings wander more: the within-night '
-              'swing of the running k is 0.29 on a k of 1.18 for breathing and '
-              '0.49 on a k of 1.96 for cardiac activity, roughly ±12% '
-              'either way. Live calibration therefore looks feasible in '
-              'principle, and ±12% is the cost of it.')
+    h(doc, '5.  One k for a whole recording, and how much it moves', 1)
+    para(doc, 'The pipeline uses a single k for each recording and band. '
+              'Applying it epoch by epoch and smoothing over five epochs gives '
+              'the output the pipeline would actually produce for a night, '
+              'which can be drawn against the reference directly.')
+    figure(doc, 'fig_rate_fullnight.png',
+           'Figure S-R4. One whole recording. The SEC estimate is the per-epoch '
+           'peak count divided by that recording’s single k; both traces '
+           'are smoothed over five epochs (2.5 min).')
+    para(doc, 'The estimate sits at the right level all night — that is '
+              'what k buys — but it does not follow the reference’s '
+              'excursions. On this recording the median absolute difference is '
+              '1.47 breaths/min and 2.39 beats/min. This is the same result as '
+              'the near-zero within-night correlation reported above, shown '
+              'rather than tabulated: the pipeline recovers the level of a '
+              'night’s breathing and heart rate, not their minute-to-minute '
+              'course.')
+    para(doc, 'How far would k have to move to fix that? A per-epoch k can be '
+              'computed directly from the reference, k(t) = count(t) / '
+              'reference(t). This is not an estimator — it uses the answer '
+              '— but it says how much the ratio actually varies, and it is '
+              'reported for every recording and channel separately. The twelve '
+              'recordings are six participants on two nights each and are '
+              'independent of one another, so nothing is averaged across them.')
+    figure(doc, 'fig_k_per_epoch.png',
+           'Figure S-R5. Median per-epoch k and its interquartile range, for '
+           'every recording and channel, in both bands. Each recording stands '
+           'alone.')
+    para(doc, 'Within a recording, k is fairly steady: the interquartile width '
+              'of the per-epoch k is about 0.18–0.20 for breathing and '
+              '0.19–0.24 for cardiac activity. Between recordings it moves '
+              'much more. Breathing k ranges from about 1.0 to 1.4 across the '
+              'twelve, and cardiac k sits near 2 on most recordings but falls '
+              'to about 1.3 and 0.95 on the two recordings from one '
+              'participant — for whom the detector resolves one deflection '
+              'per heartbeat rather than two.')
+    para(doc, 'That pattern explains the calibration results in Section 4. One '
+              'k per recording is a reasonable approximation, because k moves '
+              'little within a night. A k carried over from another recording '
+              'is not, because k moves a lot between them, and a single '
+              'participant whose cardiac k is near 1 rather than 2 is enough to '
+              'make a population-level cardiac k worse than using no sensor.')
 
     # ── 6 ────────────────────────────────────────────────────────────────────
     h(doc, '6.  Limitations', 1)
@@ -279,7 +305,8 @@ def build():
     OUT.parent.mkdir(parents=True, exist_ok=True)
     doc.save(OUT)
     print(f'wrote {OUT}')
-    print(f'  {len(doc.paragraphs)} paragraphs, 4 figures, 2 tables')
+    print(f'  {len(doc.paragraphs)} paragraphs, '
+          f'{len(doc.inline_shapes)} figures, {len(doc.tables)} tables')
 
 
 if __name__ == '__main__':

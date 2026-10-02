@@ -42,6 +42,10 @@ Outputs
     writeup/figures/rate_supp/fig_rate_pipeline.png
     writeup/figures/rate_supp/fig_rate_result.png
 
+The per-epoch and whole-night views live in supp_rate_epoch_k.py; an earlier
+running-k figure was removed because it drew twelve independent recordings on
+one time axis and took a median across them, which they do not support.
+
 Usage
 -----
     .venv/Scripts/python.exe analysis/rates/supp_rate_pipeline.py
@@ -197,87 +201,6 @@ def fig_result():
     print('wrote', p.name)
 
 
-def fig_running_k(win_min=30.0):
-    """k recomputed continuously, to show whether it could be learned live.
-
-    The deployed k is one number per recording: the median of
-    (raw count / PSG reference) over that recording's valid epochs, individual
-    ratios clipped to 0.3-5.0. Running it in a trailing window instead asks the
-    question a real-time device would face -- does k settle quickly, and does it
-    then stay put, or does it wander enough that a value learned early is wrong
-    later?
-
-    Same definition as the deployed one, just over a trailing window.
-    """
-    d = pd.read_parquet(ROOT / 'artifacts' / 'rate_rerun_phase_a.parquet')
-    d = d[d.channel == 'CRE']                    # the operational channel
-    fig, axes = plt.subplots(1, 2, figsize=(15.0, 6.4), sharex=True)
-
-    for ax, (band, title, k_night) in zip(
-            axes, [('resp', 'Breathing', K_RESP), ('card', 'Heart rate', K_CARD)]):
-        b = d[d.band == band]
-        # a shared time axis, so the recordings can be averaged without
-        # depending on where each one happens to have epochs
-        grid_t = np.arange(0.0, 9.0, 0.05)
-        curves = []
-        for sess, g in b.groupby('session'):
-            g = g.sort_values('t_hr')
-            ratio = (g.peaks_loose / g.gt_hz).clip(0.3, 5.0)
-            ok = np.isfinite(ratio).to_numpy()
-            t, r = g.t_hr.to_numpy()[ok], ratio.to_numpy()[ok]
-            if len(r) < 50:
-                continue
-            run = (pd.Series(r, index=pd.to_timedelta(t, unit='h'))
-                   .rolling(f'{int(win_min)}min').median().to_numpy())
-            ax.plot(t, run, color=BLUE, lw=1.3, alpha=0.45)
-            on_grid = np.interp(grid_t, t, run, left=np.nan, right=np.nan)
-            curves.append(on_grid)
-        if curves:
-            stack = np.vstack(curves)
-            n_at_t = np.sum(np.isfinite(stack), axis=0)
-            with np.errstate(invalid='ignore'):
-                med = np.nanmedian(stack, axis=0)
-            # late in the night only one or two recordings are still running,
-            # and a "median" of one recording is just that recording
-            med[n_at_t < 4] = np.nan
-            ax.plot(grid_t, med, color='#13305a', lw=3.6,
-                    label='median of the recordings', zorder=5)
-        ax.axhline(k_night, color=RED, lw=2.6, ls='--', zorder=4,
-                   label=f'k used in the paper = {k_night}')
-        ax.set_title(title, loc='left', fontweight='bold')
-        ax.set_xlabel('hours into the night')
-        ax.set_ylabel('k  (peaks counted per real cycle)')
-        ax.set_ylim(0.8, 3.0 if band == 'card' else 1.8)
-        ax.grid(alpha=0.25)
-        ax.legend(loc='upper right')
-
-    fig.suptitle('Could k be learned live?   k recomputed in a '
-                 f'{int(win_min)}-minute trailing window\n'
-                 'One faint line per recording; the same definition the paper '
-                 'uses, just rolling', fontsize=20, fontweight='bold',
-                 x=0.015, ha='left', y=0.99)
-    fig.tight_layout(rect=(0, 0, 1, 0.86))
-    p = OUT / 'fig_rate_running_k.png'
-    fig.savefig(p, bbox_inches='tight', facecolor='white')
-    plt.close(fig)
-    print('wrote', p.name)
-
-    # the number that decides whether live calibration is plausible
-    for band, k_night in [('resp', K_RESP), ('card', K_CARD)]:
-        b = d[d.band == band]
-        spread = []
-        for sess, g in b.groupby('session'):
-            ratio = (g.sort_values('t_hr').peaks_loose / g.sort_values('t_hr').gt_hz).clip(0.3, 5.0)
-            r = ratio[np.isfinite(ratio)].to_numpy()
-            if len(r) < 50:
-                continue
-            run = pd.Series(r).rolling(int(win_min * 2)).median().dropna()
-            spread.append(run.max() - run.min())
-        print(f'  {band}: within-night swing of running k, median across '
-              f'recordings = {np.median(spread):.2f} (whole-night k = {k_night})')
-
-
 if __name__ == '__main__':
     fig_result()                       # no session load needed
-    fig_running_k()
     fig_pipeline(worked_example())
