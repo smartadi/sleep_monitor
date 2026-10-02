@@ -138,6 +138,52 @@ class Doc:
                 z.writestr(name, data)
 
 
+def repair_tables(doc) -> tuple[int, int]:
+    """Make the table structures legal again after paragraphs were removed.
+
+    The twelve-panel image blocks are laid out as tables, so deleting their
+    paragraphs empties the cells rather than removing the grid. A <w:tc> with no
+    <w:p> is invalid OOXML and Word reports the file as corrupt, which is what
+    the first build of this document did.
+
+    A table whose cells are now all empty is dropped; any cell still empty in a
+    table that survives gets an empty paragraph back.
+    """
+    dropped = patched = 0
+    for tbl in list(doc.root.iter(q('tbl'))):
+        cells = list(tbl.iter(q('tc')))
+        if cells and not any(c.find(q('p')) is not None for c in cells):
+            tbl.getparent().remove(tbl)
+            dropped += 1
+    for tc in doc.root.iter(q('tc')):
+        if tc.find(q('p')) is None:
+            etree.SubElement(tc, q('p'))
+            patched += 1
+    return dropped, patched
+
+
+def prune_orphan_media(doc) -> tuple[int, float]:
+    """Drop images nothing references any more.
+
+    Removing a figure removes the drawing that embeds it, but the image part and
+    its relationship stay in the package. On this document that left roughly a
+    third of the file as media no reader will ever see.
+    """
+    used = {b.get('{%s}embed' % R) for b in doc.root.iter('{%s}blip' % A)}
+    used |= {b.get('{%s}link' % R) for b in doc.root.iter('{%s}blip' % A)}
+    used.discard(None)
+    freed = 0
+    for rel in list(doc.rels):
+        rid, target = rel.get('Id'), rel.get('Target') or ''
+        if not target.startswith('media/') or rid in used:
+            continue
+        name = 'word/' + target
+        if name in doc.parts:
+            freed += len(doc.parts.pop(name))
+        doc.rels.remove(rel)
+    return len(used), freed / 1e6
+
+
 def clone_text(tmpl, text):
     p = copy.deepcopy(tmpl)
     runs = list(p.iter(q('r')))
@@ -379,7 +425,9 @@ def main():
         if CUT_TABLE_STARTING in txt and 'Resp night err' in txt:
             tbl.getparent().remove(tbl)
             break
-    print(f'  removed {len(doomed)} paragraphs + Table S2')
+    dropped, patched = repair_tables(doc)
+    print(f'  removed {len(doomed)} paragraphs + Table S2; '
+          f'dropped {dropped} emptied tables, repaired {patched} cells')
 
     # ── 2. append the new rate section ───────────────────────────────────────
     cursor = tail
@@ -424,6 +472,9 @@ def main():
                 x.text = ''
     print(f'  renumbered {n} figure captions in document order')
 
+    kept, freed = prune_orphan_media(doc)
+    print(f'  pruned orphan media: {freed:.1f} MB freed, {kept} images still referenced')
+
     doc.save(DST)
 
     chk = Doc(DST)
@@ -432,6 +483,11 @@ def main():
     assert 'CAPTION_PLACEHOLDER' not in '\n'.join(chk.text(p) for p in chk.paras)
     assert 'Bland' not in '\n'.join(chk.text(p) for p in chk.paras), \
         'Bland-Altman survived'
+    # the check that matters for Word: every cell must still hold a paragraph
+    bad = [tc for tc in chk.root.iter(q('tc')) if tc.find(q('p')) is None]
+    assert not bad, f'{len(bad)} table cells have no paragraph; Word will reject this'
+    ct = chk.parts['[Content_Types].xml'].decode('utf8', 'ignore')
+    assert 'Extension="png"' in ct, 'png not declared in [Content_Types].xml'
     print(f'built {DST.name}')
     print(f'  paragraphs {n0} -> {len(chk.paras)}, '
           f'images {len([x for x in chk.parts if x.startswith("word/media/")])}, '
