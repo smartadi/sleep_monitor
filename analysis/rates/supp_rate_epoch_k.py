@@ -78,41 +78,58 @@ def smooth(s):
     return s.rolling(SMOOTH_EPOCHS, center=True, min_periods=2).median()
 
 
-def fig_fullnight(d, channel='CRE'):
-    """One night: the pipeline's output against the reference."""
+def fig_fullnight(d):
+    """One night, all three channels: the pipeline's output against the
+    reference.
+
+    A row per channel rather than three traces on one axis -- the estimates are
+    noisy enough that overlaying them hides exactly the thing the figure is for,
+    which is how much of the reference each channel follows.
+    """
     # the recording with the most usable epochs, so the figure is not an
     # argument about coverage
-    cov = (d[(d.channel == channel) & d.peaks_loose.notna()]
+    cov = (d[(d.channel == 'CRE') & d.peaks_loose.notna()]
            .groupby('session').size())
     sess = cov.idxmax()
-    g = d[(d.session == sess) & (d.channel == channel)]
+    g = d[d.session == sess]
 
-    fig, axes = plt.subplots(2, 1, figsize=(14.5, 8.4), sharex=True)
-    for ax, (band, title, unit) in zip(axes, BANDS):
-        b = g[g.band == band].sort_values('t_hr')
-        k = (b.peaks_loose / b.gt_hz).clip(*CLIP).median()
-        est = smooth(b.peaks_loose / k) * 60.0
-        ref = smooth(b.gt_hz) * 60.0
-        ax.plot(b.t_hr, ref, color='#111111', lw=2.6, label='PSG reference')
-        ax.plot(b.t_hr, est, color=CH_COLORS[channel], lw=2.0, alpha=0.9,
-                label=f'SEC, peaks ÷ k  (k = {k:.2f})')
-        ax.set_ylabel(f'{title}\n({unit})')
-        ax.grid(alpha=0.25)
-        ax.legend(loc='upper right', ncol=2)
-        err = float(np.nanmedian(np.abs(est - ref)))
-        ax.annotate(f'median |difference| = {err:.2f} {unit}',
-                    (0.012, 0.06), xycoords='axes fraction', fontsize=15,
-                    color='#444444')
-    axes[-1].set_xlabel('hours into the recording')
-    fig.suptitle(f'One whole night, {sess}, channel {channel}\n'
+    fig, axes = plt.subplots(len(CHANNELS), len(BANDS), sharex=True,
+                             figsize=(16.0, 11.0))
+    for r, ch in enumerate(CHANNELS):
+        for c, (band, title, unit) in enumerate(BANDS):
+            ax = axes[r, c]
+            b = g[(g.channel == ch) & (g.band == band)].sort_values('t_hr')
+            k = (b.peaks_loose / b.gt_hz).clip(*CLIP).median()
+            est = smooth(b.peaks_loose / k) * 60.0
+            ref = smooth(b.gt_hz) * 60.0
+            ax.plot(b.t_hr, ref, color='#111111', lw=2.4,
+                    label='PSG reference')
+            ax.plot(b.t_hr, est, color=CH_COLORS[ch], lw=1.9, alpha=0.9,
+                    label=f'SEC {ch}  ÷ k = {k:.2f}')
+            err = float(np.nanmedian(np.abs(est - ref)))
+            ax.annotate(f'median |difference| = {err:.2f} {unit}',
+                        (0.012, 0.055), xycoords='axes fraction', fontsize=13.5,
+                        color='#444444')
+            ax.grid(alpha=0.25)
+            ax.legend(loc='upper right', ncol=2, fontsize=12.5)
+            if r == 0:
+                ax.set_title(f'{title}  ({unit})', loc='left',
+                             fontweight='bold')
+            if c == 0:
+                ax.set_ylabel(f'{ch}\n({unit})')
+            else:
+                ax.set_ylabel(f'({unit})')
+    for ax in axes[-1]:
+        ax.set_xlabel('hours into the recording')
+    fig.suptitle(f'One whole night, {sess}, all three channels\n'
                  'Both traces smoothed over 5 epochs (2.5 min); a single k per '
-                 'band for the whole recording',
-                 fontsize=20, fontweight='bold', x=0.015, ha='left', y=0.99)
-    fig.tight_layout(rect=(0, 0, 1, 0.88))
+                 'channel and band for the whole recording',
+                 fontsize=20, fontweight='bold', x=0.015, ha='left', y=0.995)
+    fig.tight_layout(rect=(0, 0, 1, 0.93))
     p = FIG / 'fig_rate_fullnight.png'
     fig.savefig(p, bbox_inches='tight', facecolor='white')
     plt.close(fig)
-    print('wrote', p.name, f'({sess}, {channel})')
+    print('wrote', p.name, f'({sess}, {", ".join(CHANNELS)})')
     return sess
 
 

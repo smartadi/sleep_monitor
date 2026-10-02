@@ -245,17 +245,23 @@ def build():
               'the output the pipeline would actually produce for a night, '
               'which can be drawn against the reference directly.')
     figure(doc, 'fig_rate_fullnight.png',
-           'Figure S-R4. One whole recording. The SEC estimate is the per-epoch '
-           'peak count divided by that recording’s single k; both traces '
-           'are smoothed over five epochs (2.5 min).')
-    para(doc, 'The estimate sits at the right level all night — that is '
-              'what k buys — but it does not follow the reference’s '
+           'Figure S-R4. One whole recording, all three channels. The SEC '
+           'estimate is the per-epoch peak count divided by that channel and '
+           'band’s single k; both traces are smoothed over five epochs '
+           '(2.5 min). A row per channel rather than three traces on one axis, '
+           'since the estimates are noisy enough that overlaying them would '
+           'hide how much of the reference each one follows.', width=6.6)
+    para(doc, 'Every channel sits at the right level all night — that is '
+              'what k buys — and none of them follows the reference’s '
               'excursions. On this recording the median absolute difference is '
-              '1.47 breaths/min and 2.39 beats/min. This is the same result as '
-              'the near-zero within-night correlation reported above, shown '
-              'rather than tabulated: the pipeline recovers the level of a '
-              'night’s breathing and heart rate, not their minute-to-minute '
-              'course.')
+              '1.82, 1.89 and 1.47 breaths/min for CH, CLE and CRE, and 3.03, '
+              '2.72 and 2.39 beats/min. CRE is the closest in both bands, which '
+              'is why it is the channel the pipeline uses, but the differences '
+              'between channels are small next to the gap between any of them '
+              'and the reference. This is the near-zero within-night '
+              'correlation reported above, shown rather than tabulated: the '
+              'pipeline recovers the level of a night’s breathing and heart '
+              'rate, not their minute-to-minute course.')
     para(doc, 'How far would k have to move to fix that? A per-epoch k can be '
               'computed directly from the reference, k(t) = count(t) / '
               'reference(t). This is not an estimator — it uses the answer '
