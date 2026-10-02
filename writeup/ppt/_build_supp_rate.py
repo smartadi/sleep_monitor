@@ -240,12 +240,35 @@ def build():
 
     # ── 5 ────────────────────────────────────────────────────────────────────
     h(doc, '5.  One k for a whole recording, and how much it moves', 1)
-    para(doc, 'The pipeline uses a single k for each recording and band. '
-              'Applying it epoch by epoch and smoothing over five epochs gives '
-              'the output the pipeline would actually produce for a night, '
-              'which can be drawn against the reference directly.')
+    para(doc, 'Before the division by k, it is worth seeing what is actually '
+              'counted. The figure below puts the raw peak count — '
+              'undivided — on the same axis as the reference, so the gap '
+              'between the two is k made visible, and then shows that ratio '
+              'epoch by epoch.')
+    figure(doc, 'fig_rate_counts_and_k.png',
+           'Figure S-R4. Top: the raw peak count per minute for each channel '
+           'against the PSG reference, undivided. Bottom: the implied per-epoch '
+           'k, with each channel’s single whole-night k drawn flat across '
+           'it. All traces smoothed over five epochs.', width=6.6)
+    para(doc, 'The cardiac panel is the more revealing of the two. The counted '
+              'rate sits near 120 per minute for the whole night and barely '
+              'moves, while the reference heart rate varies between about 55 '
+              'and 80. The count is close to constant, so after division by k '
+              'the estimate is close to constant too: what makes the night '
+              'average come out near the right value is k, not the counting. '
+              'The respiratory count does follow part of the reference’s '
+              'shape — both fall together around the fourth hour — but '
+              'with a large and varying offset.')
+    para(doc, 'In the lower row the three channels move together almost '
+              'exactly. Their k excursions are therefore not channel noise; '
+              'something common to all three, or to the reference, is driving '
+              'them.')
+
+    para(doc, 'Applying the single k epoch by epoch and smoothing gives the '
+              'output the pipeline would actually produce for a night, which '
+              'can be drawn against the reference directly.')
     figure(doc, 'fig_rate_fullnight.png',
-           'Figure S-R4. One whole recording, all three channels. The SEC '
+           'Figure S-R5. One whole recording, all three channels. The SEC '
            'estimate is the per-epoch peak count divided by that channel and '
            'band’s single k; both traces are smoothed over five epochs '
            '(2.5 min). A row per channel rather than three traces on one axis, '
@@ -270,7 +293,7 @@ def build():
               'recordings are six participants on two nights each and are '
               'independent of one another, so nothing is averaged across them.')
     figure(doc, 'fig_k_per_epoch.png',
-           'Figure S-R5. Median per-epoch k and its interquartile range, for '
+           'Figure S-R6. Median per-epoch k and its interquartile range, for '
            'every recording and channel, in both bands. Each recording stands '
            'alone.')
     para(doc, 'Within a recording, k is fairly steady: the interquartile width '

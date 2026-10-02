@@ -133,6 +133,66 @@ def fig_fullnight(d):
     return sess
 
 
+def fig_allnight_counts_and_k(d, sess=None):
+    """What is counted, and the ratio it implies, across one night.
+
+    Top row is the raw count -- peaks per minute, undivided -- against the
+    reference, so the gap between them IS k, visible rather than asserted. The
+    cardiac counts run at about twice the reference and the respiratory counts
+    somewhat above it, which is the whole content of the calibration.
+
+    Bottom row is that ratio epoch by epoch, with each channel's whole-night k
+    drawn flat across it. How far the trace departs from its own flat line is
+    what a single k per recording gets wrong.
+    """
+    if sess is None:
+        sess = (d[(d.channel == 'CRE') & d.peaks_loose.notna()]
+                .groupby('session').size().idxmax())
+    g = d[d.session == sess]
+
+    fig, axes = plt.subplots(2, 2, figsize=(16.5, 10.0), sharex=True)
+    for c, (band, title, unit) in enumerate(BANDS):
+        top, bot = axes[0, c], axes[1, c]
+        ref = None
+        for ch in CHANNELS:
+            b = g[(g.channel == ch) & (g.band == band)].sort_values('t_hr')
+            if ref is None:
+                ref = (b.t_hr.to_numpy(), (smooth(b.gt_hz) * 60.0).to_numpy())
+            top.plot(b.t_hr, smooth(b.peaks_loose) * 60.0, lw=1.7,
+                     color=CH_COLORS[ch], alpha=0.9, label=ch)
+
+            ke_raw = (b.peaks_loose / b.gt_hz).clip(*CLIP)
+            bot.plot(b.t_hr, smooth(ke_raw), lw=1.7, color=CH_COLORS[ch],
+                     alpha=0.9, label=ch)
+            bot.axhline(ke_raw.median(), color=CH_COLORS[ch], lw=1.6, ls='--',
+                        alpha=0.85)
+
+        top.plot(ref[0], ref[1], color='#111111', lw=2.8,
+                 label='PSG reference', zorder=5)
+        top.set_title(f'{title}', loc='left', fontweight='bold')
+        top.set_ylabel(f'peaks counted per minute\n({unit} for the reference)')
+        top.grid(alpha=0.25)
+        top.legend(loc='upper right', ncol=4, fontsize=12.5)
+
+        bot.axhline(1.0, color='#999999', ls=':', lw=1.6)
+        bot.set_ylabel('per-epoch k\n(count ÷ reference)')
+        bot.set_xlabel('hours into the recording')
+        bot.grid(alpha=0.25)
+        bot.legend(loc='upper right', ncol=3, fontsize=12.5)
+
+    # kept short on each line: a long single-line suptitle is wider than the
+    # canvas, and bbox_inches='tight' then grows the figure sideways to fit it
+    fig.suptitle(f'What is counted, and the ratio it implies — {sess}\n'
+                 'Top: raw peak count vs reference, undivided — the gap is k\n'
+                 'Bottom: that ratio per epoch; dashed = the night’s single k',
+                 fontsize=17, fontweight='bold', x=0.015, ha='left', y=0.995)
+    fig.tight_layout(rect=(0, 0, 1, 0.90))
+    p = FIG / 'fig_rate_counts_and_k.png'
+    fig.savefig(p, bbox_inches='tight', facecolor='white')
+    plt.close(fig)
+    print('wrote', p.name, f'({sess})')
+
+
 def fig_k_per_epoch(d):
     """Per-epoch k, reported per recording and channel -- never pooled."""
     sessions = sorted(d.session.unique())
@@ -187,7 +247,8 @@ def fig_k_per_epoch(d):
 
 def main():
     d = load()
-    fig_fullnight(d)
+    sess = fig_fullnight(d)
+    fig_allnight_counts_and_k(d, sess)      # same night, so they read together
     fig_k_per_epoch(d)
     print(f'\n-> {TAB / "k_per_epoch_spread.csv"}')
 
