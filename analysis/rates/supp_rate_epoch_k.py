@@ -58,9 +58,13 @@ BANDS = [('resp', 'Breathing', 'breaths/min'),
 CLIP = (0.3, 5.0)
 SMOOTH_EPOCHS = 5          # 5 x 30 s = 2.5 min
 
+# from analysis/rates/outputs/k_vs_age_per_subject.csv
+AGE = {'OS006': 25, 'OS003': 37, 'OS004': 54,
+       'OS005': 55, 'OS001': 61, 'OS002': 66}
+
 plt.rcParams.update({
-    'font.size': 16, 'axes.titlesize': 18, 'axes.labelsize': 16,
-    'xtick.labelsize': 14, 'ytick.labelsize': 15, 'legend.fontsize': 14,
+    'font.size': 19, 'axes.titlesize': 21, 'axes.labelsize': 19,
+    'xtick.labelsize': 17, 'ytick.labelsize': 18, 'legend.fontsize': 17,
     'axes.spines.top': False, 'axes.spines.right': False,
     'figure.dpi': 110, 'savefig.dpi': 200,
 })
@@ -219,9 +223,12 @@ def fig_k_per_epoch(d):
         ax.set_ylabel('per-epoch k')
         ax.set_title(title, loc='left', fontweight='bold')
         ax.grid(axis='y', alpha=0.25)
+    subj_of = dict(zip(d.session, d.subject))
     axes[-1].set_xticks(range(len(sessions)))
-    axes[-1].set_xticklabels(sessions, rotation=45, ha='right')
-    axes[-1].set_xlabel('recording   (two nights per participant)')
+    axes[-1].set_xticklabels(
+        [f'{s}\n{AGE.get(subj_of.get(s), "?")} y' for s in sessions],
+        rotation=0, ha='center')
+    axes[-1].set_xlabel('recording   (two nights per participant, with age)')
     handles = [plt.Line2D([], [], color=CH_COLORS[c], lw=5, label=c)
                for c in CHANNELS]
     axes[0].legend(handles=handles, loc='upper right', ncol=3)

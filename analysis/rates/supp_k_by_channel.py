@@ -71,12 +71,17 @@ METHODS = [('peaks_loose', 'Peak counting'), ('spectral', 'Spectral peak')]
 BANDS = [('resp', 'Breathing'), ('card', 'Heart rate')]
 CLIP = (0.3, 5.0)          # the deployed clip on individual epoch ratios
 
-# one colour per subject, so a reader can see night-to-night pairing
-SUBJ_COLORS = ['#1f77b4', '#d62728', '#2ca02c', '#9467bd', '#ff7f0e', '#17becf']
+# one colour per participant, so a reader can see night-to-night pairing.
+# Ordered by age below, so the colour ramp carries the age ordering too.
+SUBJ_COLORS = ['#1f77b4', '#2ca02c', '#ff7f0e', '#9467bd', '#8c564b', '#d62728']
+
+# from analysis/rates/outputs/k_vs_age_per_subject.csv
+AGE = {'OS006': 25, 'OS003': 37, 'OS004': 54,
+       'OS005': 55, 'OS001': 61, 'OS002': 66}
 
 plt.rcParams.update({
-    'font.size': 16, 'axes.titlesize': 18, 'axes.labelsize': 16,
-    'xtick.labelsize': 15, 'ytick.labelsize': 15, 'legend.fontsize': 13,
+    'font.size': 19, 'axes.titlesize': 21, 'axes.labelsize': 19,
+    'xtick.labelsize': 18, 'ytick.labelsize': 18, 'legend.fontsize': 16,
     'axes.spines.top': False, 'axes.spines.right': False,
     'figure.dpi': 110, 'savefig.dpi': 200,
 })
@@ -102,8 +107,9 @@ def k_table() -> pd.DataFrame:
 
 
 def figure(k: pd.DataFrame):
-    fig, axes = plt.subplots(2, 2, figsize=(14.0, 9.6), sharex=True)
-    subjects = sorted(k.subject.unique())
+    fig, axes = plt.subplots(2, 2, figsize=(15.5, 10.6), sharex=True)
+    # ordered by age, so the legend reads as an age ladder
+    subjects = sorted(k.subject.unique(), key=lambda s: AGE.get(s, 999))
     cmap = dict(zip(subjects, SUBJ_COLORS))
 
     for r, (band, band_lbl) in enumerate(BANDS):
@@ -119,12 +125,15 @@ def figure(k: pd.DataFrame):
                 med = s.k.median()
                 ax.plot([xi - 0.34, xi + 0.34], [med] * 2, color='black',
                         lw=3.0, zorder=4)
-                ax.annotate(f'{med:.2f}', (xi, med), xytext=(0, 11),
-                            textcoords='offset points', ha='center',
-                            fontsize=16, fontweight='bold', zorder=5)
+                # beside the bar, not above it: the jitter cloud spans +/-0.22
+                # and a centred label lands inside it
+                ax.annotate(f'{med:.2f}', (xi + 0.38, med), ha='left',
+                            va='center', fontsize=19, fontweight='bold',
+                            zorder=5)
             ax.axhline(1.0, color='#999999', lw=1.6, ls=':', zorder=1)
             ax.set_xticks(range(len(CHANNELS)))
             ax.set_xticklabels(CHANNELS)
+            ax.set_xlim(-0.55, len(CHANNELS) - 1 + 0.92)
             ax.set_ylabel('k   (detected per real cycle)' if c == 0 else '')
             ax.set_title(f'{band_lbl}  —  {meth_lbl}', loc='left',
                          fontweight='bold')
@@ -133,16 +142,17 @@ def figure(k: pd.DataFrame):
             pad = 0.18 * max(hi - lo, 0.4)
             ax.set_ylim(min(lo, 0.85) - pad, hi + pad * 1.6)
 
-    handles = [plt.Line2D([], [], marker='o', ls='', ms=11, color=cmap[s],
-                          label=f'subject {i + 1}')
-               for i, s in enumerate(subjects)]
+    handles = [plt.Line2D([], [], marker='o', ls='', ms=13, color=cmap[s],
+                          label=f'{AGE[s]} y')
+               for s in subjects]
     fig.legend(handles=handles, loc='lower center', ncol=6, frameon=False,
-               bbox_to_anchor=(0.5, -0.005))
+               bbox_to_anchor=(0.5, -0.012), title='participant age',
+               title_fontsize=17)
     fig.suptitle('k — how many peaks the sensor reports per real cycle\n'
-                 'One point per night; black bar is the median of the twelve; '
-                 'dotted line is k = 1',
-                 fontsize=20, fontweight='bold', x=0.015, ha='left', y=0.995)
-    fig.tight_layout(rect=(0, 0.055, 1, 0.93))
+                 'One point per night, coloured by participant age; black bar '
+                 'is the median of the twelve; dotted line is k = 1',
+                 fontsize=22, fontweight='bold', x=0.015, ha='left', y=0.995)
+    fig.tight_layout(rect=(0, 0.075, 1, 0.92))
     p = OUT_FIG / 'fig_k_by_channel.png'
     fig.savefig(p, bbox_inches='tight', facecolor='white')
     plt.close(fig)
