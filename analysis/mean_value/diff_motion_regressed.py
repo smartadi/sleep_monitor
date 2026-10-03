@@ -93,46 +93,78 @@ def blocks(x, n):
     return x[:m * n].reshape(m, n).mean(axis=1)
 
 
+def _regress(y, G):
+    """Remove the head-orientation component of y. Returns fit, residual, R^2."""
+    ok = np.isfinite(y) & np.isfinite(G).all(axis=1)
+    X = np.column_stack([np.ones(ok.sum()), G[ok]])
+    beta, *_ = np.linalg.lstsq(X, y[ok], rcond=None)
+    fit = np.full(len(y), np.nan)
+    fit[ok] = X @ beta
+    res = y - fit
+    ss = float(np.nansum((y[ok] - y[ok].mean()) ** 2))
+    r2 = float(1 - np.nansum(res[ok] ** 2) / ss) if ss > 0 else np.nan
+    return fit, res, r2, beta
+
+
+def _smooth(x):
+    """Causal trailing median: the output cannot anticipate."""
+    win = max(3, int(round(SMOOTH_MIN * 60 / BLOCK_S)))
+    return pd.Series(x).rolling(win, min_periods=win // 3).median().to_numpy()
+
+
 def one_session(meta):
+    """Regress each channel separately, then form the difference.
+
+    Regressing the difference directly forces ONE coefficient to describe how
+    both electrodes respond to head orientation. They need not respond the same
+    way -- the two sit on opposite temples, and a turn presses one toward the
+    skin while lifting the other -- so a single coefficient can only remove the
+    common part. Fitting CLE and CRE separately gives each its own, and the
+    difference of the residuals removes whatever each one accounted for.
+
+    CH is carried through the identical chain so it can be drawn against the
+    difference on the same footing.
+    """
     s = load_session(meta)
     prof = load_sleep_profile(s)
     n = int(BLOCK_S * FS)
 
-    cle = np.asarray(s.cap['CLE'], float) * CAP_SCALE_TO_FF
-    cre = np.asarray(s.cap['CRE'], float) * CAP_SCALE_TO_FF
-    d_full = cle - cre
     # gravity = orientation; the 0.05 Hz split is motion.py's convention
     g = {ax: lowpass(np.asarray(s.cap[ax], float), GRAV_HZ, FS)
          for ax in ('aX', 'aY', 'aZ')}
-
-    d = blocks(d_full, n)
     G = np.column_stack([blocks(g[ax], n) for ax in ('aX', 'aY', 'aZ')])
-    t_hr = (np.arange(len(d)) * BLOCK_S + BLOCK_S / 2) / 3600.0
+
+    ch = {}
+    for name in ('CLE', 'CRE', 'CH'):
+        y = blocks(np.asarray(s.cap[name], float) * CAP_SCALE_TO_FF, n)
+        y = y - np.nanmean(y)
+        fit, res, r2, beta = _regress(y, G)
+        ch[name] = dict(y=y, fit=fit, res=res, r2=r2, beta=beta)
+
+    t_hr = (np.arange(len(G)) * BLOCK_S + BLOCK_S / 2) / 3600.0
+
+    # the difference, both ways, so the two can be compared directly
+    d = ch['CLE']['y'] - ch['CRE']['y']
     d = d - np.nanmean(d)
+    fit_direct, res_direct, r2_direct, _ = _regress(d, G)
+    res_sep = ch['CLE']['res'] - ch['CRE']['res']
+    res_sep = res_sep - np.nanmean(res_sep)
+    ok = np.isfinite(d) & np.isfinite(res_sep)
+    ss = float(np.nansum((d[ok] - d[ok].mean()) ** 2))
+    r2_sep = float(1 - np.nansum(res_sep[ok] ** 2) / ss) if ss > 0 else np.nan
 
-    ok = np.isfinite(d) & np.isfinite(G).all(axis=1)
-    X = np.column_stack([np.ones(ok.sum()), G[ok]])
-    beta, *_ = np.linalg.lstsq(X, d[ok], rcond=None)
-    fit = np.full(len(d), np.nan)
-    fit[ok] = X @ beta
-    res = d - fit
-    ss_tot = float(np.nansum((d[ok] - d[ok].mean()) ** 2))
-    r2 = float(1 - np.nansum(res[ok] ** 2) / ss_tot) if ss_tot > 0 else np.nan
-
-    # causal smoothing: trailing window, so the output cannot anticipate
-    win = max(3, int(round(SMOOTH_MIN * 60 / BLOCK_S)))
-    sm = pd.Series(res).rolling(win, min_periods=win // 3).median().to_numpy()
-
-    codes = np.full(len(d), -1)
     tep, cc = prof['t_ep_hr'], np.asarray(prof['codes'])
-    j = np.clip(np.searchsorted(tep, t_hr) - 1, 0, len(cc) - 1)
-    codes = cc[j]
-    # head turn in degrees, from the same gravity vector the fit used:
-    # positive = subject's left (motion.py convention)
+    codes = cc[np.clip(np.searchsorted(tep, t_hr) - 1, 0, len(cc) - 1)]
     gx, gy, gz = G[:, 0], G[:, 1], G[:, 2]
     turn = np.degrees(np.arctan2(gy, np.sqrt(gx ** 2 + gz ** 2)))
-    return dict(label=meta['label'], t=t_hr, d=d, res=res, sm=sm, fit=fit,
-                turn=turn, codes=codes, r2=r2, beta=beta)
+
+    return dict(label=meta['label'], t=t_hr, codes=codes, turn=turn,
+                d=d, fit=fit_direct, res=res_direct, sm=_smooth(res_direct),
+                r2=r2_direct,
+                res_sep=res_sep, sm_sep=_smooth(res_sep), r2_sep=r2_sep,
+                ch_res=ch['CH']['res'], ch_sm=_smooth(ch['CH']['res']),
+                r2_ch=ch['CH']['r2'], r2_cle=ch['CLE']['r2'],
+                r2_cre=ch['CRE']['r2'])
 
 
 def draw_one(r, out_dir):
@@ -159,9 +191,13 @@ def draw_one(r, out_dir):
     lad.set_yticklabels([STAGE_LABELS[c] for c in STAGE_ORDER], fontsize=13)
     lad.set_ylim(-0.6, len(STAGE_ORDER) - 0.4)
     lad.grid(alpha=0.18, axis='y')
-    lad.set_title(f"{r['label']}   —   head orientation explains "
-                  f"{100*r['r2']:.0f}% of the slow CLE−CRE",
-                  loc='left', fontsize=20)
+    lad.set_title(
+        f"{r['label']}   —   head orientation explains "
+        f"CLE {100*r['r2_cle']:.0f}%   CRE {100*r['r2_cre']:.0f}%   "
+        f"CH {100*r['r2_ch']:.0f}%   |   of CLE−CRE: "
+        f"{100*r['r2']:.0f}% fitting the difference, "
+        f"{100*r['r2_sep']:.0f}% fitting each channel first",
+        loc='left', fontsize=17)
 
     hd.plot(t, r['turn'], lw=2.4, color='#1B7A43')
     hd.axhline(0, color='#2C3E50', ls=':', lw=1.2)
@@ -181,19 +217,35 @@ def draw_one(r, out_dir):
     m0 = np.median(v); s0 = 1.4826 * np.median(np.abs(v - m0))
     raw.set_ylim(m0 - max(6 * s0, 1e-3), m0 + max(6 * s0, 1e-3))
 
-    res.plot(t, r['res'], lw=1.0, color='#5B6B7F', alpha=0.8,
-             label='residual, head orientation removed')
-    res.plot(t, r['sm'], lw=3.4, color=SM_COLOR,
-             label=f'causal {SMOOTH_MIN:.0f}-min median')
+    res.plot(t, r['res'], lw=0.9, color='#C2C8D0',
+             label='residual, difference fitted directly')
+    res.plot(t, r['sm'], lw=2.2, color='#8A94A3', ls='--',
+             label='its causal median')
+    res.plot(t, r['sm_sep'], lw=3.6, color=SM_COLOR,
+             label='each channel fitted first, then subtracted')
     res.axhline(0, color='#2C3E50', ls='--', lw=1.1)
-    res.set_ylabel('fF')
+    res.set_ylabel('CLE−CRE\n(fF)')
     res.set_xlabel('Time (hours)')
-    res.legend(loc='upper right', fontsize=14)
     res.grid(alpha=0.2)
-    v = r['res'][np.isfinite(r['res'])]
+    v = r['res_sep'][np.isfinite(r['res_sep'])]
     m1 = np.median(v); s1 = 1.4826 * np.median(np.abs(v - m1))
-    half = max(6 * s1, np.nanstd(r['sm']) * 4, 1e-3)
+    half = max(6 * s1, np.nanstd(r['sm_sep']) * 4, 1e-3)
     res.set_ylim(m1 - half, m1 + half)
+
+    # CH on its own axis: same regression, same causal smoothing, but its
+    # excursions are an order of magnitude larger so a shared axis hides both
+    ax2 = res.twinx()
+    ax2.plot(t, r['ch_sm'], lw=3.0, color='#1F618D', alpha=0.9, label='CH')
+    ax2.set_ylabel('CH (fF)', color='#1F618D')
+    ax2.tick_params(axis='y', labelcolor='#1F618D')
+    ax2.spines['top'].set_visible(False)
+    w = r['ch_sm'][np.isfinite(r['ch_sm'])]
+    if w.size:
+        m2 = np.median(w); s2 = 1.4826 * np.median(np.abs(w - m2))
+        ax2.set_ylim(m2 - max(5 * s2, 1e-3), m2 + max(5 * s2, 1e-3))
+    h1, l1 = res.get_legend_handles_labels()
+    h2, l2 = ax2.get_legend_handles_labels()
+    res.legend(h1 + h2, l1 + l2, loc='upper right', fontsize=12, ncol=2)
 
     lad.set_xlim(t[0], t[-1])
     fig.tight_layout()
@@ -212,16 +264,22 @@ def main():
             print(f'  {meta["label"]}: skipped ({type(e).__name__}: {e})')
             continue
         out.append(r)
-        rows.append(dict(session=r['label'], r2_head_orientation=r['r2'],
-                         beta_aX=r['beta'][1], beta_aY=r['beta'][2],
-                         beta_aZ=r['beta'][3]))
-        print(f"  {r['label']}  R2 = {r['r2']:.3f}")
+        rows.append(dict(session=r['label'], r2_CLE=r['r2_cle'],
+                         r2_CRE=r['r2_cre'], r2_CH=r['r2_ch'],
+                         r2_diff_direct=r['r2'], r2_diff_separate=r['r2_sep']))
+        print(f"  {r['label']}  CLE {r['r2_cle']:.2f}  CRE {r['r2_cre']:.2f}  "
+              f"CH {r['r2_ch']:.2f}  |  diff direct {r['r2']:.2f}  "
+              f"separate {r['r2_sep']:.2f}")
     pd.DataFrame(rows).to_csv(TAB / 'diff_motion_regressed.csv', index=False)
     for r in out:
         print('  wrote', draw_one(r, FIG).name)
-    r2 = np.array([r['r2'] for r in out])
-    print(f'\nhead orientation explains median {100*np.median(r2):.0f}% '
-          f'of the slow CLE-CRE (range {100*r2.min():.0f}-{100*r2.max():.0f}%)')
+    print('\nfraction of each slow signal explained by head orientation:')
+    for key, lbl in (('r2_cle', 'CLE'), ('r2_cre', 'CRE'), ('r2_ch', 'CH'),
+                     ('r2', 'CLE-CRE, difference fitted directly'),
+                     ('r2_sep', 'CLE-CRE, each channel fitted first')):
+        v = np.array([r[key] for r in out])
+        print(f'  {lbl:40s} median {100*np.median(v):3.0f}%  '
+              f'range {100*v.min():3.0f}-{100*v.max():3.0f}%')
 
 
 if __name__ == '__main__':
