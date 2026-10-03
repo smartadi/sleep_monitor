@@ -4,6 +4,18 @@ Records all code changes to library modules, scripts, and notebooks.
 
 ---
 
+## 2026-10-03
+
+- **Added** `analysis/mean_value/stage_event_locked.py` -> `writeup/figures/imbalance/fig_stage_event_locked.png`, `fig_sleep_onset_locked.png`; tables `reports/mean_value/{stage_event_locked,stage_event_counts,hypnogram_fragmentation}.csv`. Event-locked averaging of the **de-stepped** CH and CLE-CRE markers at sleep-stage transitions, reusing `diff_motion_regressed.one_session` so the motion treatment is exactly the committed one.
+  - **Window length is set by the hypnograms, not by preference.** These scorings are heavily fragmented - N3 bouts run a median of **2 epochs (60 s)**, REM 5 epochs, Wake 1 epoch - so the +/-15 min window the analysis started with left **7 usable events in the whole dataset**. Rebuilt at +/-5 min, which yields 44 movement-free N3 entries across 12/12 recordings. Fragmentation table added so the constraint is visible rather than implicit.
+  - **Three filters, all reported with their cost in events:** de-stepped input; transitions within 1.5 min of a head movement dropped; each stage held >=1 min either side. Trace deliberately **not** causally smoothed - the 5-min causal median used for display lags by half its window and would shift every response later by the same amount.
+  - **Null is matched random times in the same recording, away from movement**, not a flat zero line, so it absorbs the drift and autocorrelation of the trace.
+  - **Added** `mirror_null()` - shifts every event of a recording by one common random offset, preserving the trace and the entry-to-exit spacing while destroying alignment to the scorer.
+  - **Fixed** sleep onset returning 0 events: stability was measured on single-stage runs, and no one stage holds 10 min here. Now measured on a wake/sleep collapse. The `stable_pre` requirement is 0 because requiring even 1 min of continuous prior wakefulness leaves **one** usable event in 12 nights; the event is therefore named *return to sustained sleep*, not sleep onset.
+  - **Fixed** figure scaling: one night (S6N2) reaches -110 fF entering N3 and flattened every other recording to a horizontal line. Limits now come from the 10th-90th percentile **across recordings** at each time point, with off-scale nights counted on the panel. Events reaching fewer than 6 recordings are not plotted at all (counts retained in the CSV).
+
+---
+
 ## 2026-09-30
 
 - **Added** `writeup/ppt/_build_v7.py` → `writeup/ppt/CAP_sleep_mask_manuscript_V7.docx` (29 edits; docx not git-tracked). First build of V7 **from the reviewer's V9**, per the user's call to keep his handwritten edits and replay ours. Edits are re-targeted **by expected text, not paragraph index** — V9 has 368 paragraphs against V6's 414 — and every one asserts what it expects to find, so a miss fails the build.
