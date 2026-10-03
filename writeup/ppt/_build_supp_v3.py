@@ -198,10 +198,22 @@ def clone_text(tmpl, text):
     return p
 
 
-def make_image_para(doc, tmpl, png: Path, name: str):
+def page_width_emu(doc) -> int:
+    """Usable text width of the section, in EMU: page width less margins."""
+    sect = list(doc.root.iter(q('sectPr')))[-1]
+    pg = sect.find(q('pgSz'))
+    mar = sect.find(q('pgMar'))
+    w = int(pg.get(q('w')))
+    left = int(mar.get(q('left')))
+    right = int(mar.get(q('right')))
+    return int((w - left - right) * 635)        # twips -> EMU
+
+
+def make_image_para(doc, tmpl, png: Path, name: str, cx=None):
     node = copy.deepcopy(tmpl)
     rid = doc.add_image(png)
-    cx = int(node.find('.//{%s}extent' % WP).get('cx'))
+    if cx is None:
+        cx = int(node.find('.//{%s}extent' % WP).get('cx'))
     with Image.open(png) as im:
         iw, ih = im.size
     cy = int(round(cx * ih / iw))
@@ -327,33 +339,6 @@ def rate_section(hd, k):
               'and each panel prints the median absolute difference per '
               'channel.'),
 
-        ('t', 'The question to ask of any rate estimate is whether it beats not '
-              'having the sensor. The comparison below predicts the '
-              'cohort-median rate with no SEC input and uses that as the bar, '
-              'under three calibrations: k learned on the night being reported, '
-              'k taken from the same participant’s other night, and k '
-              'taken from everyone else. Only the last two could be used in '
-              'practice.'),
-        ('f', 'fig_rate_result.png'),
-        ('c', 'Error in the night-average rate under each calibration, against '
-              'a no-sensor baseline (dashed line). Bars below the line beat the '
-              'baseline.'),
-
-        ('t', 'Night-average breathing rate beats the baseline under every '
-              f'calibration ({med(hd.loc["resp","night_self"]):.2f}, '
-              f'{med(hd.loc["resp","night_cross"]):.2f} and '
-              f'{med(hd.loc["resp","night_pop"]):.2f} against '
-              f'{med(hd.loc["resp","night_nosensor"]):.2f} breaths/min). '
-              'Night-average heart rate does not: under either transferable '
-              f'calibration the error ({med(hd.loc["card","night_cross"]):.2f} '
-              f'and {med(hd.loc["card","night_pop"]):.2f} beats/min) exceeds '
-              f'the baseline of {med(hd.loc["card","night_nosensor"]):.2f}. '
-              'Epoch by epoch neither band beats the baseline. The honest '
-              'summary is that one quantity survives, the night average of '
-              'breathing rate, and the rest do not. The cardiac comparison '
-              'should be read with the reference caveat above, since two of '
-              'the recordings weighing on it have references that read high.'),
-
         ('t', 'Finally, how much a single k per recording gets wrong. A '
               'per-epoch k computed from the reference is not an estimator — '
               'it uses the answer — but it measures how far the ratio '
@@ -437,7 +422,8 @@ def main():
             png = FIGS / payload
             if not png.exists():
                 raise SystemExit(f'missing figure: {png}')
-            node = make_image_para(doc, img_tmpl, png, f'rate {payload}')
+            node = make_image_para(doc, img_tmpl, png, f'rate {payload}',
+                                   cx=page_width_emu(doc))
             n_fig += 1
         elif kind == 'c':
             node = clone_text(cap_tmpl, 'CAPTION_PLACEHOLDER ' + payload)

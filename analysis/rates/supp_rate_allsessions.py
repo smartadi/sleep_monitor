@@ -57,8 +57,10 @@ AGE = {'OS006': 25, 'OS003': 37, 'OS004': 54,
        'OS005': 55, 'OS001': 61, 'OS002': 66}
 
 plt.rcParams.update({
-    'font.size': 14, 'axes.titlesize': 15, 'axes.labelsize': 14,
-    'xtick.labelsize': 12, 'ytick.labelsize': 12, 'legend.fontsize': 12,
+    'font.size': 18, 'axes.titlesize': 19, 'axes.labelsize': 18,
+    'xtick.labelsize': 16, 'ytick.labelsize': 16, 'legend.fontsize': 16,
+    'font.weight': 'bold', 'axes.labelweight': 'bold',
+    'axes.titleweight': 'bold',
     'axes.spines.top': False, 'axes.spines.right': False,
     'figure.dpi': 110, 'savefig.dpi': 170,
 })
@@ -113,14 +115,7 @@ def main():
             if r == len(sessions) - 1:
                 ax.set_xlabel('hours into the recording')
 
-    fig.suptitle('All twelve recordings: SEC peak-count rate against the PSG '
-                 'reference\n'
-                 'Black is the reference; each colour is one SEC channel '
-                 'converted by its own k\n'
-                 'Smoothed over 5 epochs · numbers are the median '
-                 'absolute difference per channel',
-                 fontsize=17, fontweight='bold', x=0.012, ha='left', y=0.997)
-    fig.tight_layout(rect=(0, 0, 1, 0.975))
+    fig.tight_layout(rect=(0, 0, 1, 1))
     p = FIG / 'fig_rate_allsessions.png'
     fig.savefig(p, bbox_inches='tight', facecolor='white')
     plt.close(fig)

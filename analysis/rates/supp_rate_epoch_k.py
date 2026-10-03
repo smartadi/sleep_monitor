@@ -63,8 +63,10 @@ AGE = {'OS006': 25, 'OS003': 37, 'OS004': 54,
        'OS005': 55, 'OS001': 61, 'OS002': 66}
 
 plt.rcParams.update({
-    'font.size': 19, 'axes.titlesize': 21, 'axes.labelsize': 19,
-    'xtick.labelsize': 17, 'ytick.labelsize': 18, 'legend.fontsize': 17,
+    'font.size': 22, 'axes.titlesize': 24, 'axes.labelsize': 22,
+    'xtick.labelsize': 20, 'ytick.labelsize': 21, 'legend.fontsize': 19,
+    'font.weight': 'bold', 'axes.labelweight': 'bold',
+    'axes.titleweight': 'bold',
     'axes.spines.top': False, 'axes.spines.right': False,
     'figure.dpi': 110, 'savefig.dpi': 200,
 })
@@ -125,11 +127,7 @@ def fig_fullnight(d):
                 ax.set_ylabel(f'({unit})')
     for ax in axes[-1]:
         ax.set_xlabel('hours into the recording')
-    fig.suptitle(f'One whole night, {sess}, all three channels\n'
-                 'Both traces smoothed over 5 epochs (2.5 min); a single k per '
-                 'channel and band for the whole recording',
-                 fontsize=20, fontweight='bold', x=0.015, ha='left', y=0.995)
-    fig.tight_layout(rect=(0, 0, 1, 0.93))
+    fig.tight_layout(rect=(0, 0, 1, 1))
     p = FIG / 'fig_rate_fullnight.png'
     fig.savefig(p, bbox_inches='tight', facecolor='white')
     plt.close(fig)
@@ -186,11 +184,7 @@ def fig_allnight_counts_and_k(d, sess=None):
 
     # kept short on each line: a long single-line suptitle is wider than the
     # canvas, and bbox_inches='tight' then grows the figure sideways to fit it
-    fig.suptitle(f'What is counted, and the ratio it implies — {sess}\n'
-                 'Top: raw peak count vs reference, undivided — the gap is k\n'
-                 'Bottom: that ratio per epoch; dashed = the night’s single k',
-                 fontsize=17, fontweight='bold', x=0.015, ha='left', y=0.995)
-    fig.tight_layout(rect=(0, 0, 1, 0.90))
+    fig.tight_layout(rect=(0, 0, 1, 1))
     p = FIG / 'fig_rate_counts_and_k.png'
     fig.savefig(p, bbox_inches='tight', facecolor='white')
     plt.close(fig)
@@ -232,12 +226,7 @@ def fig_k_per_epoch(d):
     handles = [plt.Line2D([], [], color=CH_COLORS[c], lw=5, label=c)
                for c in CHANNELS]
     axes[0].legend(handles=handles, loc='upper right', ncol=3)
-    fig.suptitle('How much does k move within a recording?\n'
-                 'Point is the median per-epoch k, bar is its interquartile '
-                 'range · each recording stands alone, nothing is pooled '
-                 'across nights',
-                 fontsize=20, fontweight='bold', x=0.015, ha='left', y=0.995)
-    fig.tight_layout(rect=(0, 0, 1, 0.89))
+    fig.tight_layout(rect=(0, 0, 1, 1))
     p = FIG / 'fig_k_per_epoch.png'
     fig.savefig(p, bbox_inches='tight', facecolor='white')
     plt.close(fig)

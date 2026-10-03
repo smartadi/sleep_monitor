@@ -80,8 +80,10 @@ AGE = {'OS006': 25, 'OS003': 37, 'OS004': 54,
        'OS005': 55, 'OS001': 61, 'OS002': 66}
 
 plt.rcParams.update({
-    'font.size': 19, 'axes.titlesize': 21, 'axes.labelsize': 19,
-    'xtick.labelsize': 18, 'ytick.labelsize': 18, 'legend.fontsize': 16,
+    'font.size': 22, 'axes.titlesize': 24, 'axes.labelsize': 22,
+    'xtick.labelsize': 21, 'ytick.labelsize': 21, 'legend.fontsize': 19,
+    'font.weight': 'bold', 'axes.labelweight': 'bold',
+    'axes.titleweight': 'bold',
     'axes.spines.top': False, 'axes.spines.right': False,
     'figure.dpi': 110, 'savefig.dpi': 200,
 })
@@ -134,7 +136,7 @@ def figure(k: pd.DataFrame):
             ax.set_xticks(range(len(CHANNELS)))
             ax.set_xticklabels(CHANNELS)
             ax.set_xlim(-0.55, len(CHANNELS) - 1 + 0.92)
-            ax.set_ylabel('k   (detected per real cycle)' if c == 0 else '')
+            ax.set_ylabel('k' if c == 0 else '')   # long label clips at this type size
             ax.set_title(f'{band_lbl}  —  {meth_lbl}', loc='left',
                          fontweight='bold')
             ax.grid(axis='y', alpha=0.25)
@@ -148,11 +150,7 @@ def figure(k: pd.DataFrame):
     fig.legend(handles=handles, loc='lower center', ncol=6, frameon=False,
                bbox_to_anchor=(0.5, -0.012), title='participant age',
                title_fontsize=17)
-    fig.suptitle('k — how many peaks the sensor reports per real cycle\n'
-                 'One point per night, coloured by participant age; black bar '
-                 'is the median of the twelve; dotted line is k = 1',
-                 fontsize=22, fontweight='bold', x=0.015, ha='left', y=0.995)
-    fig.tight_layout(rect=(0, 0.075, 1, 0.92))
+    fig.tight_layout(rect=(0, 0.075, 1, 1))
     p = OUT_FIG / 'fig_k_by_channel.png'
     fig.savefig(p, bbox_inches='tight', facecolor='white')
     plt.close(fig)

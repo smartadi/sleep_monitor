@@ -86,8 +86,10 @@ K_CARD = 1.96
 # large type throughout: these are supplementary figures meant to be read
 # quickly, and the reviewer asked for bigger fonts
 plt.rcParams.update({
-    'font.size': 17, 'axes.titlesize': 19, 'axes.labelsize': 17,
-    'xtick.labelsize': 15, 'ytick.labelsize': 15, 'legend.fontsize': 15,
+    'font.size': 21, 'axes.titlesize': 23, 'axes.labelsize': 21,
+    'xtick.labelsize': 19, 'ytick.labelsize': 19, 'legend.fontsize': 19,
+    'font.weight': 'bold', 'axes.labelweight': 'bold',
+    'axes.titleweight': 'bold',
     'axes.spines.top': False, 'axes.spines.right': False,
     'figure.dpi': 110, 'savefig.dpi': 200,
 })
@@ -146,10 +148,7 @@ def fig_pipeline(ex):
                    bbox=dict(boxstyle='round,pad=0.5', fc='#eef3f9',
                              ec='#b9c8da'))
 
-    fig.suptitle('How a rate is produced   '
-                 f'({ex["label"]}, 60 s)', fontsize=21, fontweight='bold',
-                 x=0.015, ha='left', y=0.985)
-    fig.tight_layout(rect=(0, 0.16, 1, 0.95))
+    fig.tight_layout(rect=(0, 0.16, 1, 1))
     p = OUT / 'fig_rate_pipeline.png'
     fig.savefig(p, bbox_inches='tight', facecolor='white')
     plt.close(fig)
@@ -191,10 +190,7 @@ def fig_result():
         ax.set_ylim(0, max(max(vals), base) * 1.32)
         ax.grid(axis='y', alpha=0.25, zorder=0)
 
-    fig.suptitle('Does the sensor beat having no sensor?\n'
-                 'Green beats the dashed line; red does not',
-                 fontsize=21, fontweight='bold', x=0.015, ha='left', y=0.99)
-    fig.tight_layout(rect=(0, 0, 1, 0.86))
+    fig.tight_layout(rect=(0, 0, 1, 1))
     p = OUT / 'fig_rate_result.png'
     fig.savefig(p, bbox_inches='tight', facecolor='white')
     plt.close(fig)
