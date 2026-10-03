@@ -74,6 +74,8 @@ FS = 100.0
 BLOCK_S = 10.0            # block average before anything else
 GRAV_HZ = 0.05            # gravity / orientation split, as in motion.py
 SMOOTH_MIN = 5.0          # causal smoothing window
+STEP_THRESH = 0.03        # gravity-vector change that counts as head movement
+STEP_PAD = 3              # blocks either side: capacitance settles after the accelerometer
 RAW_COLOR, RES_COLOR, SM_COLOR = '#C8CDD4', '#5B6B7F', '#B9380B'
 
 plt.rcParams.update({
@@ -91,6 +93,136 @@ plt.rcParams.update({
 def blocks(x, n):
     m = len(x) // n
     return x[:m * n].reshape(m, n).mean(axis=1)
+
+
+def destep(y, G, step_thresh, pad_blocks):
+    """Remove level jumps that happen during head movement, by editing the
+    derivative rather than estimating each step.
+
+    An earlier version detected each jump, estimated its size from medians
+    either side, and subtracted a cumulative staircase. That was worse than
+    doing nothing: every step size carries an estimation error, the staircase
+    accumulates them, and a mis-sized step injects a NEW discontinuity. Measured
+    across the twelve recordings it made the sharpest one-block jumps 19% LARGER
+    and widened the overall range on five nights.
+
+    The fix is to delete the observed jump instead of an estimate of it. Take
+    the first difference, zero every increment that falls inside a head
+    movement, and integrate back. What is removed is exactly the level change
+    that occurred while the head was moving -- no size to estimate, nothing to
+    accumulate. Everything between movements is untouched, so a slow drift
+    running through a posture change survives it.
+
+    pad_blocks widens each movement window, because the capacitance settles a
+    little after the accelerometer does.
+    """
+    dg = np.r_[0.0, np.linalg.norm(np.diff(G, axis=0), axis=1)]
+    moving = dg > step_thresh
+    if pad_blocks:
+        k = np.ones(2 * pad_blocks + 1, bool)
+        moving = np.convolve(moving, k, mode='same') > 0
+
+    dy = np.diff(y, prepend=y[0])
+    dy = np.where(np.isfinite(dy), dy, 0.0)
+    dy[moving] = 0.0                      # the jump itself, deleted
+    out = np.cumsum(dy)
+    return out - np.nanmean(out), moving
+
+
+
+def motion_steps(y, G, win_blocks, step_thresh, min_gap_blocks, min_step_fF):
+    """Find the sharp level jumps that coincide with head movement.
+
+    This is the thing motion actually does to these traces. A posture change
+    does not scale the signal or add a slow trend; it moves the level, in one
+    block, and leaves it there. Regression cannot represent that -- it fits a
+    coefficient on orientation, which is a continuous function, while what
+    happened was a discontinuity.
+
+    A jump is accepted only where the HEAD moved, so a level change with no
+    accompanying movement is left alone: that one is either physiology or
+    something else, and it is not this function's business to delete it.
+
+    Returns (index, step_size) pairs, step measured as the difference between
+    the median just after and the median just before, which is robust to the
+    movement transient sitting in the middle.
+    """
+    dg = np.r_[0.0, np.linalg.norm(np.diff(G, axis=0), axis=1)]
+    cand = np.flatnonzero(dg > step_thresh)
+    steps, last = [], -min_gap_blocks
+    for c in cand:
+        if c - last < min_gap_blocks:
+            continue
+        a0, a1 = max(0, c - win_blocks), max(1, c - 1)
+        b0, b1 = min(len(y) - 1, c + 2), min(len(y), c + 2 + win_blocks)
+        if a1 - a0 < 3 or b1 - b0 < 3:
+            continue
+        before, after = np.nanmedian(y[a0:a1]), np.nanmedian(y[b0:b1])
+        if not (np.isfinite(before) and np.isfinite(after)):
+            continue
+        st = after - before
+        if abs(st) >= min_step_fF:
+            steps.append((int(c), float(st)))
+            last = c
+    return steps
+
+
+def remove_motion_steps(y, steps):
+    """Subtract the staircase: level jumps go, everything between stays.
+
+    The difference from removing a per-segment offset is the whole point. An
+    offset per segment also deletes the level differences BETWEEN segments,
+    which is most of the signal; this subtracts only the discontinuity, so a
+    slow drift running through a posture change survives it intact.
+    """
+    stair = np.zeros(len(y))
+    for idx, st in steps:
+        stair[idx:] += st
+    return y - stair
+
+
+
+def posture_segments(G, min_len_blocks, step_thresh):
+    """Split the night where head orientation actually steps.
+
+    Posture is piecewise constant: the head holds a position for a stretch and
+    then moves. Detecting those steps and fitting one offset per stretch is
+    adaptive exactly where posture changes and frozen where it does not, so it
+    cannot drift into absorbing the signal the way a continuously-adapting
+    filter does.
+
+    The step statistic is the norm of the change in the gravity vector between
+    adjacent blocks, so a movement in any axis counts. A boundary is accepted
+    only if the resulting segment is at least min_len_blocks long, which stops
+    one restless minute from producing fifty segments.
+    """
+    dg = np.linalg.norm(np.diff(G, axis=0), axis=1)
+    dg = np.r_[0.0, dg]
+    cand = np.flatnonzero(dg > step_thresh)
+    bounds, last = [0], 0
+    for c in cand:
+        if c - last >= min_len_blocks:
+            bounds.append(c)
+            last = c
+    bounds.append(len(G))
+    return [(bounds[i], bounds[i + 1]) for i in range(len(bounds) - 1)
+            if bounds[i + 1] - bounds[i] >= min_len_blocks]
+
+
+def fit_posture_offsets(y, segs):
+    """One offset per posture segment: the segment median, removed.
+
+    A median rather than a mean, so a movement artifact inside the segment does
+    not drag the level it is supposed to define.
+    """
+    res = np.array(y, float).copy()
+    for a, b in segs:
+        v = y[a:b]
+        m = np.nanmedian(v)
+        if np.isfinite(m):
+            res[a:b] = y[a:b] - m
+    return res
+
 
 
 def rls(y, G, lam=0.995, delta=1e3):
@@ -200,6 +332,8 @@ def one_session(meta):
     ss = float(np.nansum((d[ok] - d[ok].mean()) ** 2))
     r2_sep = float(1 - np.nansum(res_sep[ok] ** 2) / ss) if ss > 0 else np.nan
 
+    d_destep, moving = destep(d, G, STEP_THRESH, STEP_PAD)
+
     tep, cc = prof['t_ep_hr'], np.asarray(prof['codes'])
     codes = cc[np.clip(np.searchsorted(tep, t_hr) - 1, 0, len(cc) - 1)]
     gx, gy, gz = G[:, 0], G[:, 1], G[:, 2]
@@ -209,9 +343,27 @@ def one_session(meta):
                 d=d, fit=fit_direct, res=res_direct, sm=_smooth(res_direct),
                 r2=r2_direct,
                 res_sep=res_sep, sm_sep=_smooth(res_sep), r2_sep=r2_sep,
+                d_destep=d_destep, sm_destep=_smooth(d_destep), moving=moving,
+                ch_destep=destep(ch['CH']['y'], G, STEP_THRESH, STEP_PAD)[0],
                 ch_res=ch['CH']['res'], ch_sm=_smooth(ch['CH']['res']),
                 r2_ch=ch['CH']['r2'], r2_cle=ch['CLE']['r2'],
                 r2_cre=ch['CRE']['r2'])
+
+
+def _spans(mask):
+    """Contiguous True runs of a boolean mask, as (start, stop) pairs."""
+    out, i, n = [], 0, len(mask)
+    while i < n:
+        if mask[i]:
+            j = i
+            while j + 1 < n and mask[j + 1]:
+                j += 1
+            out.append((i, j + 1))
+            i = j + 1
+        else:
+            i += 1
+    return out
+
 
 
 def draw_one(r, out_dir):
@@ -264,29 +416,30 @@ def draw_one(r, out_dir):
     m0 = np.median(v); s0 = 1.4826 * np.median(np.abs(v - m0))
     raw.set_ylim(m0 - max(6 * s0, 1e-3), m0 + max(6 * s0, 1e-3))
 
-    res.plot(t, r['res'], lw=0.9, color='#C2C8D0',
-             label='residual, difference fitted directly')
-    res.plot(t, r['sm'], lw=2.2, color='#8A94A3', ls='--',
+    for a, b in _spans(r['moving']):
+        res.axvspan(t[a], t[min(b, len(t) - 1)], color='#F2C9C0', lw=0, zorder=0)
+    res.plot(t, r['d'], lw=0.9, color='#C2C8D0', label='CLE−CRE')
+    res.plot(t, r['d_destep'], lw=1.3, color='#5B6B7F', alpha=0.85,
+             label='jumps removed')
+    res.plot(t, r['sm_destep'], lw=3.6, color=SM_COLOR,
              label='its causal median')
-    res.plot(t, r['sm_sep'], lw=3.6, color=SM_COLOR,
-             label='each channel fitted first, then subtracted')
     res.axhline(0, color='#2C3E50', ls='--', lw=1.1)
     res.set_ylabel('CLE−CRE\n(fF)')
     res.set_xlabel('Time (hours)')
     res.grid(alpha=0.2)
-    v = r['res_sep'][np.isfinite(r['res_sep'])]
+    v = r['d_destep'][np.isfinite(r['d_destep'])]
     m1 = np.median(v); s1 = 1.4826 * np.median(np.abs(v - m1))
-    half = max(6 * s1, np.nanstd(r['sm_sep']) * 4, 1e-3)
+    half = max(6 * s1, np.nanstd(r['sm_destep']) * 4, 1e-3)
     res.set_ylim(m1 - half, m1 + half)
 
     # CH on its own axis: same regression, same causal smoothing, but its
     # excursions are an order of magnitude larger so a shared axis hides both
     ax2 = res.twinx()
-    ax2.plot(t, r['ch_sm'], lw=3.0, color='#1F618D', alpha=0.9, label='CH')
+    ax2.plot(t, _smooth(r['ch_destep']), lw=3.0, color='#1F618D', alpha=0.9, label='CH')
     ax2.set_ylabel('CH (fF)', color='#1F618D')
     ax2.tick_params(axis='y', labelcolor='#1F618D')
     ax2.spines['top'].set_visible(False)
-    w = r['ch_sm'][np.isfinite(r['ch_sm'])]
+    w = _smooth(r['ch_destep']); w = w[np.isfinite(w)]
     if w.size:
         m2 = np.median(w); s2 = 1.4826 * np.median(np.abs(w - m2))
         ax2.set_ylim(m2 - max(5 * s2, 1e-3), m2 + max(5 * s2, 1e-3))
