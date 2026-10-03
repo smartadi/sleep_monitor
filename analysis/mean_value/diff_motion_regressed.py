@@ -127,57 +127,80 @@ def one_session(meta):
     tep, cc = prof['t_ep_hr'], np.asarray(prof['codes'])
     j = np.clip(np.searchsorted(tep, t_hr) - 1, 0, len(cc) - 1)
     codes = cc[j]
-    return dict(label=meta['label'], t=t_hr, d=d, res=res, sm=sm,
-                codes=codes, r2=r2, beta=beta)
+    # head turn in degrees, from the same gravity vector the fit used:
+    # positive = subject's left (motion.py convention)
+    gx, gy, gz = G[:, 0], G[:, 1], G[:, 2]
+    turn = np.degrees(np.arctan2(gy, np.sqrt(gx ** 2 + gz ** 2)))
+    return dict(label=meta['label'], t=t_hr, d=d, res=res, sm=sm, fit=fit,
+                turn=turn, codes=codes, r2=r2, beta=beta)
 
 
-def draw(sessions):
-    nrow = len(sessions)
-    fig, axes = plt.subplots(nrow * 2, 1, figsize=(15.5, 3.6 * nrow),
-                             gridspec_kw={'height_ratios': [0.34, 1.0] * nrow})
-    for i, r in enumerate(sessions):
-        lad, ax = axes[2 * i], axes[2 * i + 1]
-        # stage ladder on top, no background shading anywhere
-        pos = {c: k for k, c in enumerate(STAGE_ORDER)}
-        y = np.array([pos.get(int(c), np.nan) for c in r['codes']], float)
-        lad.step(r['t'], y, where='post', color='#2C3E50', lw=2.2)
-        for c in STAGE_ORDER:
-            m = y == pos[c]
-            lad.plot(r['t'][m], y[m], '|', color=STAGE_COLORS[c], ms=9, mew=4)
-        lad.set_yticks(range(len(STAGE_ORDER)))
-        lad.set_yticklabels([STAGE_LABELS[c] for c in STAGE_ORDER], fontsize=12)
-        lad.set_ylim(-0.6, len(STAGE_ORDER) - 0.4)
-        lad.set_xlim(r['t'][0], r['t'][-1])
-        lad.tick_params(labelbottom=False)
-        lad.grid(alpha=0.18, axis='y')
-        lad.set_title(f"{r['label']}   head orientation explains "
-                      f"{100*r['r2']:.0f}% of the slow difference",
-                      loc='left', fontsize=17)
+def draw_one(r, out_dir):
+    """One night, four rows: stages, what was removed, the fit, what is left.
 
-        ax.plot(r['t'], r['d'], lw=0.9, color=RAW_COLOR, label='CLE−CRE, mean-centred')
-        ax.plot(r['t'], r['res'], lw=1.0, color=RES_COLOR, alpha=0.75,
-                label='after regressing out head orientation')
-        ax.plot(r['t'], r['sm'], lw=3.2, color=SM_COLOR,
-                label=f'causal {SMOOTH_MIN:.0f}-min median')
-        ax.axhline(0, color='#2C3E50', ls='--', lw=1.1)
-        ax.set_ylabel('fF')
-        ax.set_xlim(r['t'][0], r['t'][-1])
-        # robust limits: a single re-seat spike otherwise sets the axis and
-        # flattens the whole night into a line
-        v = r['res'][np.isfinite(r['res'])]
-        med = np.median(v)
-        sd = 1.4826 * np.median(np.abs(v - med))
-        half = max(6 * sd, np.nanstd(r['sm']) * 4, 1e-3)
-        ax.set_ylim(med - half, med + half)
-        ax.grid(alpha=0.2)
-        if i == 0:
-            ax.legend(loc='upper right', ncol=3, fontsize=13)
-    axes[-1].set_xlabel('Time (hours)')
+    Row B is the point of this figure. It shows the head-turn angle the fit saw
+    and, over the raw difference in row C, the component the fit removed. If the
+    removed component steps where the head steps, the regression is doing its
+    job; where it does not, the residual in row D is carrying something the head
+    cannot explain.
+    """
+    fig, axes = plt.subplots(4, 1, figsize=(15.5, 10.4), sharex=True,
+                             gridspec_kw={'height_ratios': [0.38, 0.8, 1.0, 1.0]})
+    lad, hd, raw, res = axes
+    t = r['t']
+
+    pos = {c: k for k, c in enumerate(STAGE_ORDER)}
+    y = np.array([pos.get(int(c), np.nan) for c in r['codes']], float)
+    lad.step(t, y, where='post', color='#2C3E50', lw=2.4)
+    for c in STAGE_ORDER:
+        m = y == pos[c]
+        lad.plot(t[m], y[m], '|', color=STAGE_COLORS[c], ms=10, mew=4)
+    lad.set_yticks(range(len(STAGE_ORDER)))
+    lad.set_yticklabels([STAGE_LABELS[c] for c in STAGE_ORDER], fontsize=13)
+    lad.set_ylim(-0.6, len(STAGE_ORDER) - 0.4)
+    lad.grid(alpha=0.18, axis='y')
+    lad.set_title(f"{r['label']}   —   head orientation explains "
+                  f"{100*r['r2']:.0f}% of the slow CLE−CRE",
+                  loc='left', fontsize=20)
+
+    hd.plot(t, r['turn'], lw=2.4, color='#1B7A43')
+    hd.axhline(0, color='#2C3E50', ls=':', lw=1.2)
+    hd.set_ylabel('head turn\n(deg)')
+    hd.annotate('+ left   − right', (0.995, 0.06), xycoords='axes fraction',
+                ha='right', fontsize=13, color='#1B7A43')
+    hd.grid(alpha=0.2)
+
+    raw.plot(t, r['d'], lw=1.1, color='#9AA3AE', label='CLE−CRE, mean-centred')
+    raw.plot(t, r['fit'], lw=3.0, color='#1B7A43',
+             label='component explained by head orientation')
+    raw.axhline(0, color='#2C3E50', ls='--', lw=1.1)
+    raw.set_ylabel('fF')
+    raw.legend(loc='upper right', fontsize=14)
+    raw.grid(alpha=0.2)
+    v = r['d'][np.isfinite(r['d'])]
+    m0 = np.median(v); s0 = 1.4826 * np.median(np.abs(v - m0))
+    raw.set_ylim(m0 - max(6 * s0, 1e-3), m0 + max(6 * s0, 1e-3))
+
+    res.plot(t, r['res'], lw=1.0, color='#5B6B7F', alpha=0.8,
+             label='residual, head orientation removed')
+    res.plot(t, r['sm'], lw=3.4, color=SM_COLOR,
+             label=f'causal {SMOOTH_MIN:.0f}-min median')
+    res.axhline(0, color='#2C3E50', ls='--', lw=1.1)
+    res.set_ylabel('fF')
+    res.set_xlabel('Time (hours)')
+    res.legend(loc='upper right', fontsize=14)
+    res.grid(alpha=0.2)
+    v = r['res'][np.isfinite(r['res'])]
+    m1 = np.median(v); s1 = 1.4826 * np.median(np.abs(v - m1))
+    half = max(6 * s1, np.nanstd(r['sm']) * 4, 1e-3)
+    res.set_ylim(m1 - half, m1 + half)
+
+    lad.set_xlim(t[0], t[-1])
     fig.tight_layout()
-    p = FIG / 'fig_diff_motion_regressed.png'
-    fig.savefig(p, bbox_inches='tight')
+    out = out_dir / f"fig_diff_regressed_{r['label']}.png"
+    fig.savefig(out, bbox_inches='tight')
     plt.close(fig)
-    print('wrote', p.name)
+    return out
 
 
 def main():
@@ -194,7 +217,8 @@ def main():
                          beta_aZ=r['beta'][3]))
         print(f"  {r['label']}  R2 = {r['r2']:.3f}")
     pd.DataFrame(rows).to_csv(TAB / 'diff_motion_regressed.csv', index=False)
-    draw(out)
+    for r in out:
+        print('  wrote', draw_one(r, FIG).name)
     r2 = np.array([r['r2'] for r in out])
     print(f'\nhead orientation explains median {100*np.median(r2):.0f}% '
           f'of the slow CLE-CRE (range {100*r2.min():.0f}-{100*r2.max():.0f}%)')
