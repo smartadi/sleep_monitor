@@ -93,6 +93,53 @@ def blocks(x, n):
     return x[:m * n].reshape(m, n).mean(axis=1)
 
 
+def rls(y, G, lam=0.995, delta=1e3):
+    """Recursive least squares: a coefficient vector that tracks over the night.
+
+    A single OLS coefficient assumes the coupling between head orientation and
+    capacitance is fixed for eight hours. It is not -- the mask re-seats, the
+    skin contact changes, and the same head angle gives a different capacitance
+    before and after. RLS re-estimates the coefficients at every block with an
+    exponential forgetting factor, so the fit follows those changes.
+
+    The residual returned is the A PRIORI error: the coefficients used at block
+    t were learned from blocks before t only. That keeps it causal and stops the
+    filter from explaining a sample with itself.
+
+    lam sets the memory, roughly 1/(1-lam) blocks. At 10 s blocks, 0.995 is
+    about 33 minutes.
+
+    WARNING, and it is the whole difficulty with this approach: as lam falls the
+    filter tracks faster and will absorb anything slow, including whatever
+    physiology the signal carries. R^2 rising is therefore NOT evidence the
+    motion removal improved. The surrogate control below is what separates the
+    two.
+    """
+    n, k = len(y), G.shape[1] + 1
+    X = np.column_stack([np.ones(n), G])
+    beta = np.zeros(k)
+    P = np.eye(k) * delta
+    res = np.full(n, np.nan)
+    for t in range(n):
+        x = X[t]
+        if not np.isfinite(x).all() or not np.isfinite(y[t]):
+            continue
+        e = y[t] - beta @ x              # a priori error: causal
+        res[t] = e
+        Px = P @ x
+        g = Px / (lam + x @ Px)
+        beta = beta + g * e
+        P = (P - np.outer(g, Px)) / lam
+    return res
+
+
+def _r2(y, res):
+    ok = np.isfinite(y) & np.isfinite(res)
+    ss = float(np.nansum((y[ok] - y[ok].mean()) ** 2))
+    return float(1 - np.nansum(res[ok] ** 2) / ss) if ss > 0 else np.nan
+
+
+
 def _regress(y, G):
     """Remove the head-orientation component of y. Returns fit, residual, R^2."""
     ok = np.isfinite(y) & np.isfinite(G).all(axis=1)
