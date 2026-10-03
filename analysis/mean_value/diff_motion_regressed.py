@@ -344,6 +344,7 @@ def one_session(meta):
                 r2=r2_direct,
                 res_sep=res_sep, sm_sep=_smooth(res_sep), r2_sep=r2_sep,
                 d_destep=d_destep, sm_destep=_smooth(d_destep), moving=moving,
+                pct_moving=float(moving.mean()),
                 ch_destep=destep(ch['CH']['y'], G, STEP_THRESH, STEP_PAD)[0],
                 ch_res=ch['CH']['res'], ch_sm=_smooth(ch['CH']['res']),
                 r2_ch=ch['CH']['r2'], r2_cle=ch['CLE']['r2'],
@@ -366,37 +367,70 @@ def _spans(mask):
 
 
 
-def draw_one(r, out_dir):
-    """One night, four rows: stages, what was removed, the fit, what is left.
-
-    Row B is the point of this figure. It shows the head-turn angle the fit saw
-    and, over the raw difference in row C, the component the fit removed. If the
-    removed component steps where the head steps, the regression is doing its
-    job; where it does not, the residual in row D is carrying something the head
-    cannot explain.
-    """
-    fig, axes = plt.subplots(4, 1, figsize=(15.5, 10.4), sharex=True,
-                             gridspec_kw={'height_ratios': [0.38, 0.8, 1.0, 1.0]})
-    lad, hd, raw, res = axes
-    t = r['t']
-
+def _ladder(ax, t, codes, fontsize=12):
     pos = {c: k for k, c in enumerate(STAGE_ORDER)}
-    y = np.array([pos.get(int(c), np.nan) for c in r['codes']], float)
-    lad.step(t, y, where='post', color='#2C3E50', lw=2.4)
+    y = np.array([pos.get(int(c), np.nan) for c in codes], float)
+    ax.step(t, y, where='post', color='#2C3E50', lw=2.0)
     for c in STAGE_ORDER:
         m = y == pos[c]
-        lad.plot(t[m], y[m], '|', color=STAGE_COLORS[c], ms=10, mew=4)
-    lad.set_yticks(range(len(STAGE_ORDER)))
-    lad.set_yticklabels([STAGE_LABELS[c] for c in STAGE_ORDER], fontsize=13)
-    lad.set_ylim(-0.6, len(STAGE_ORDER) - 0.4)
-    lad.grid(alpha=0.18, axis='y')
-    lad.set_title(
-        f"{r['label']}   —   head orientation explains "
-        f"CLE {100*r['r2_cle']:.0f}%   CRE {100*r['r2_cre']:.0f}%   "
-        f"CH {100*r['r2_ch']:.0f}%   |   of CLE−CRE: "
-        f"{100*r['r2']:.0f}% fitting the difference, "
-        f"{100*r['r2_sep']:.0f}% fitting each channel first",
-        loc='left', fontsize=17)
+        ax.plot(t[m], y[m], '|', color=STAGE_COLORS[c], ms=9, mew=4)
+    ax.set_yticks(range(len(STAGE_ORDER)))
+    ax.set_yticklabels([STAGE_LABELS[c] for c in STAGE_ORDER], fontsize=fontsize)
+    ax.set_ylim(-0.6, len(STAGE_ORDER) - 0.4)
+    ax.set_xlim(t[0], t[-1])
+    ax.tick_params(labelbottom=False)
+    ax.grid(alpha=0.18, axis='y')
+
+
+def _trace(ax, r, legend=False, fontsize=13):
+    t = r['t']
+    for a, b in _spans(r['moving']):
+        ax.axvspan(t[a], t[min(b, len(t) - 1)], color='#F2C9C0', lw=0, zorder=0)
+    ax.plot(t, r['d'], lw=0.8, color='#C2C8D0', label='CLE−CRE, raw')
+    ax.plot(t, r['d_destep'], lw=1.2, color='#5B6B7F', alpha=0.85,
+            label='jumps removed')
+    ax.plot(t, r['sm_destep'], lw=3.0, color=SM_COLOR, label='causal median')
+    ax.axhline(0, color='#2C3E50', ls='--', lw=1.0)
+    v = r['d_destep'][np.isfinite(r['d_destep'])]
+    m1 = np.median(v); s1 = 1.4826 * np.median(np.abs(v - m1))
+    half = max(6 * s1, np.nanstd(r['sm_destep']) * 4, 1e-3)
+    ax.set_ylim(m1 - half, m1 + half)
+    ax.set_xlim(t[0], t[-1])
+    ax.grid(alpha=0.2)
+
+    ax2 = ax.twinx()
+    chs = _smooth(r['ch_destep'])
+    ax2.plot(t, chs, lw=2.4, color='#1F618D', alpha=0.9, label='CH')
+    ax2.set_ylabel('CH (fF)', color='#1F618D', fontsize=fontsize)
+    ax2.tick_params(axis='y', labelcolor='#1F618D', labelsize=fontsize - 2)
+    ax2.spines['top'].set_visible(False)
+    w = chs[np.isfinite(chs)]
+    if w.size:
+        m2 = np.median(w); s2 = 1.4826 * np.median(np.abs(w - m2))
+        ax2.set_ylim(m2 - max(5 * s2, 1e-3), m2 + max(5 * s2, 1e-3))
+    if legend:
+        h1, l1 = ax.get_legend_handles_labels()
+        h2, l2 = ax2.get_legend_handles_labels()
+        ax.legend(h1 + h2, l1 + l2, loc='upper right', fontsize=fontsize - 1,
+                  ncol=4)
+    return ax2
+
+
+def draw_one(r, out_dir):
+    """One night: stages, the head angle, and the de-stepped difference.
+
+    The regression rows are gone. Head orientation regression explained about
+    30 percentage points genuinely and no adaptive variant improved on that,
+    whereas removing the jumps takes out 77% of the sharp level changes, which
+    is what motion actually does to this signal.
+    """
+    fig, axes = plt.subplots(3, 1, figsize=(15.5, 8.6), sharex=True,
+                             gridspec_kw={'height_ratios': [0.38, 0.72, 1.25]})
+    lad, hd, tr = axes
+    t = r['t']
+    _ladder(lad, t, r['codes'], fontsize=13)
+    lad.set_title(f"{r['label']}   —   {100*r['pct_moving']:.0f}% of blocks "
+                  f"inside a head movement", loc='left', fontsize=19)
 
     hd.plot(t, r['turn'], lw=2.4, color='#1B7A43')
     hd.axhline(0, color='#2C3E50', ls=':', lw=1.2)
@@ -404,55 +438,42 @@ def draw_one(r, out_dir):
     hd.annotate('+ left   − right', (0.995, 0.06), xycoords='axes fraction',
                 ha='right', fontsize=13, color='#1B7A43')
     hd.grid(alpha=0.2)
+    hd.tick_params(labelbottom=False)
 
-    raw.plot(t, r['d'], lw=1.1, color='#9AA3AE', label='CLE−CRE, mean-centred')
-    raw.plot(t, r['fit'], lw=3.0, color='#1B7A43',
-             label='component explained by head orientation')
-    raw.axhline(0, color='#2C3E50', ls='--', lw=1.1)
-    raw.set_ylabel('fF')
-    raw.legend(loc='upper right', fontsize=14)
-    raw.grid(alpha=0.2)
-    v = r['d'][np.isfinite(r['d'])]
-    m0 = np.median(v); s0 = 1.4826 * np.median(np.abs(v - m0))
-    raw.set_ylim(m0 - max(6 * s0, 1e-3), m0 + max(6 * s0, 1e-3))
-
-    for a, b in _spans(r['moving']):
-        res.axvspan(t[a], t[min(b, len(t) - 1)], color='#F2C9C0', lw=0, zorder=0)
-    res.plot(t, r['d'], lw=0.9, color='#C2C8D0', label='CLE−CRE')
-    res.plot(t, r['d_destep'], lw=1.3, color='#5B6B7F', alpha=0.85,
-             label='jumps removed')
-    res.plot(t, r['sm_destep'], lw=3.6, color=SM_COLOR,
-             label='its causal median')
-    res.axhline(0, color='#2C3E50', ls='--', lw=1.1)
-    res.set_ylabel('CLE−CRE\n(fF)')
-    res.set_xlabel('Time (hours)')
-    res.grid(alpha=0.2)
-    v = r['d_destep'][np.isfinite(r['d_destep'])]
-    m1 = np.median(v); s1 = 1.4826 * np.median(np.abs(v - m1))
-    half = max(6 * s1, np.nanstd(r['sm_destep']) * 4, 1e-3)
-    res.set_ylim(m1 - half, m1 + half)
-
-    # CH on its own axis: same regression, same causal smoothing, but its
-    # excursions are an order of magnitude larger so a shared axis hides both
-    ax2 = res.twinx()
-    ax2.plot(t, _smooth(r['ch_destep']), lw=3.0, color='#1F618D', alpha=0.9, label='CH')
-    ax2.set_ylabel('CH (fF)', color='#1F618D')
-    ax2.tick_params(axis='y', labelcolor='#1F618D')
-    ax2.spines['top'].set_visible(False)
-    w = _smooth(r['ch_destep']); w = w[np.isfinite(w)]
-    if w.size:
-        m2 = np.median(w); s2 = 1.4826 * np.median(np.abs(w - m2))
-        ax2.set_ylim(m2 - max(5 * s2, 1e-3), m2 + max(5 * s2, 1e-3))
-    h1, l1 = res.get_legend_handles_labels()
-    h2, l2 = ax2.get_legend_handles_labels()
-    res.legend(h1 + h2, l1 + l2, loc='upper right', fontsize=12, ncol=2)
-
-    lad.set_xlim(t[0], t[-1])
+    _trace(tr, r, legend=True)
+    tr.set_ylabel('CLE−CRE\n(fF)')
+    tr.set_xlabel('Time (hours)')
     fig.tight_layout()
-    out = out_dir / f"fig_diff_regressed_{r['label']}.png"
+    out = out_dir / f"fig_destep_{r['label']}.png"
     fig.savefig(out, bbox_inches='tight')
     plt.close(fig)
     return out
+
+
+def draw_all(sessions, out_dir):
+    """All twelve on one sheet, six rows by two columns."""
+    ncol, nrow = 2, 6
+    fig = plt.figure(figsize=(21.0, 3.1 * nrow))
+    gs = fig.add_gridspec(nrow * 2, ncol, height_ratios=[0.26, 1.0] * nrow,
+                          hspace=0.30, wspace=0.26)
+    for k, r in enumerate(sessions):
+        c, rw = k % ncol, k // ncol
+        lad = fig.add_subplot(gs[rw * 2, c])
+        tr = fig.add_subplot(gs[rw * 2 + 1, c])
+        _ladder(lad, r['t'], r['codes'], fontsize=10)
+        lad.set_title(f"{r['label']}   ({100*r['pct_moving']:.0f}% moving)",
+                      loc='left', fontsize=16)
+        _trace(tr, r, legend=(k == 0), fontsize=11)
+        tr.set_ylabel('CLE−CRE (fF)', fontsize=12)
+        if rw == nrow - 1:
+            tr.set_xlabel('Time (hours)', fontsize=13)
+        else:
+            # otherwise these tick labels land on the next row's ladder title
+            tr.tick_params(labelbottom=False)
+    p = out_dir / 'fig_destep_allsessions.png'
+    fig.savefig(p, bbox_inches='tight')
+    plt.close(fig)
+    return p
 
 
 def main():
@@ -472,7 +493,8 @@ def main():
               f"separate {r['r2_sep']:.2f}")
     pd.DataFrame(rows).to_csv(TAB / 'diff_motion_regressed.csv', index=False)
     for r in out:
-        print('  wrote', draw_one(r, FIG).name)
+        draw_one(r, FIG)
+    print('  wrote 12 per-night figures and', draw_all(out, FIG).name)
     print('\nfraction of each slow signal explained by head orientation:')
     for key, lbl in (('r2_cle', 'CLE'), ('r2_cre', 'CRE'), ('r2_ch', 'CH'),
                      ('r2', 'CLE-CRE, difference fitted directly'),
