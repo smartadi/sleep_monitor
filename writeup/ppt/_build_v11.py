@@ -51,6 +51,19 @@ DST = FINAL / 'CAP_sleep_mask_manuscript_V11.docx'
 KFIG = ROOT / 'writeup' / 'figures' / 'delta_onset' / \
     'fig_kcomplex_cap_response.png'
 
+# Terminology, on instruction: the quantity is the mean-centred differential,
+# d(t) = (CLE - CRE)(t) - mu, so it is called that rather than "imbalance".
+# What the text reports is its low-passed magnitude and the integral of that
+# magnitude, so those are named as such rather than all collapsed into one word.
+RENAMES = [
+    ('The time-averaged magnitude of imbalance',
+     'The time-averaged magnitude of the mean-centred differential'),
+    ('indicating that the imbalance burden was primarily',
+     'indicating that the integrated magnitude was primarily'),
+    ('If the imbalance of CLE−CRE reflected',
+     'If the mean-centred differential of CLE−CRE reflected'),
+]
+
 # the Methods sentence is appended to V10's section 2.8
 METHODS_HEAD = '2.8 Cortical events and event-triggered analysis'
 METHODS_ADD = (' In addition to the detector-defined delta-burst onsets, the '
@@ -181,6 +194,18 @@ def main():
     assert '3.9 ' not in doc.full, 'V10 already has a section 3.9'
     assert 'Figure 12.' not in doc.full, 'V10 already has a Figure 12'
 
+    # ── 0. terminology ───────────────────────────────────────────────────────
+    for old, new in RENAMES:
+        hits = [p for p in doc.paras if old in doc.text(p)]
+        assert len(hits) == 1, f'rename {old[:40]!r}: found {len(hits)} paragraphs'
+        p = hits[0]
+        ts = list(p.iter(q('t')))
+        joined = ''.join(t.text or '' for t in ts)
+        ts[0].text = joined.replace(old, new, 1)
+        for t in ts[1:]:
+            t.text = ''
+        doc.n_edits += 1
+
     # ── 1. the Methods sentence, appended to V10's 2.8 ───────────────────────
     head = doc.only(lambda t: t.strip().startswith(METHODS_HEAD), 'methods 2.8')
     body = doc.paras[doc.paras.index(head) + 1]
@@ -234,6 +259,7 @@ def main():
     before, after = Doc(SRC), Doc(DST)
     assert '3.9 SEC response at technologist-scored K-complexes' in after.full
     assert 'Figure 12. SEC response' in after.full
+    assert 'imbalance' not in after.full.lower(), 'imbalance survived the rename'
     for untouched in (
             'These findings demonstrate calibrated agreement with PSG.',
             'Representative recordings from four male participants aged 54 years.',

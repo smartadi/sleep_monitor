@@ -88,6 +88,29 @@ CUT = [(13, 18), (35, 41),
 CUT_TABLE_STARTING = 'Resp k'
 
 
+# Terminology, on instruction: the quantity is the mean-centred differential,
+# d(t) = (CLE - CRE)(t) - mu. The text reports its low-passed magnitude and the
+# integral of that magnitude, so those are named rather than all collapsed into
+# "imbalance". "burden" goes too -- it named the same integral.
+RENAMES = [
+    ('Imbalance quantifies the magnitude of the difference between CLE and CRE',
+     'The magnitude of the mean-centred differential quantifies the size of the '
+     'difference between CLE and CRE'),
+    ('S3. Integrated capacitance imbalance',
+     'S3. Integrated magnitude of the mean-centred differential'),
+    ("Integrated capacitance imbalance per recording. (A) Imbalance burden, the "
+     "integral of the marker's magnitude",
+     "Integrated magnitude of the mean-centred differential per recording. "
+     "(A) The integrated magnitude, the integral of the marker's magnitude"),
+    ('The burden is dominated by S6',
+     'The integrated magnitude is dominated by S6'),
+    ('Excluding that subject, the burden still spans',
+     'Excluding that subject, it still spans'),
+    ('the direction of the imbalance is dynamic',
+     'the direction of the mean-centred differential is dynamic'),
+]
+
+
 def q(t):
     return '{%s}%s' % (W, t)
 
@@ -410,6 +433,18 @@ def main():
         if CUT_TABLE_STARTING in txt and 'Resp night err' in txt:
             tbl.getparent().remove(tbl)
             break
+    # terminology, before anything is renumbered
+    for old, new in RENAMES:
+        hits = [p for p in doc.paras if old in doc.text(p)]
+        assert len(hits) == 1, f'rename {old[:44]!r}: found {len(hits)}'
+        tgt = hits[0]
+        ts = list(tgt.iter(q('t')))
+        joined = ''.join(t.text or '' for t in ts)
+        ts[0].text = joined.replace(old, new, 1)
+        for t in ts[1:]:
+            t.text = ''
+    print(f'  renamed {len(RENAMES)} terminology spans')
+
     dropped, patched = repair_tables(doc)
     print(f'  removed {len(doomed)} paragraphs + Table S2; '
           f'dropped {dropped} emptied tables, repaired {patched} cells')
@@ -467,6 +502,8 @@ def main():
     caps = [chk.text(p) for p in chk.paras
             if re.match(r'^\s*Figure S\d+\.', chk.text(p))]
     assert 'CAPTION_PLACEHOLDER' not in '\n'.join(chk.text(p) for p in chk.paras)
+    body = '\n'.join(chk.text(p) for p in chk.paras)
+    assert 'imbalance' not in body.lower(), 'imbalance survived the rename'
     assert 'Bland' not in '\n'.join(chk.text(p) for p in chk.paras), \
         'Bland-Altman survived'
     # the check that matters for Word: every cell must still hold a paragraph
