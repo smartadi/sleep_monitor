@@ -4,6 +4,13 @@ Records all code changes to library modules, scripts, and notebooks.
 
 ---
 
+## 2026-10-04
+
+- **Changed** `analysis/mean_value/destep_velocity.py`: the velocity is now the **slow-trend** velocity, the trailing 30-min least-squares slope of the de-stepped (motion-removed) CLE-CRE and CH, in fF/h. Movement blocks are left out of each fit. It replaces the 2-min backward difference of the 5-min causal median, which tracked every wobble and hid the drift. It stays causal and lags by ~15 min. CSV columns renamed `*_fF_per_min` -> `*_fF_per_h`.
+- **Changed** `writeup/review/_build_review_deck_v5.py` now writes **`CAP_sleep_mask_review_deck V6.pptx`**. V5 is left as delivered, since it may be open or carry hand edits that a rebuild would overwrite. Velocity notes updated.
+
+---
+
 ## 2026-10-03
 
 - **Added** `paper/`: the paper's code isolated and reproducible top to bottom. `python paper/run_all.py` goes from raw recordings to every figure, table and quoted number of manuscript V11 / supplement V3 in ~12 min (clean, from raw). Two runs are byte-identical: all 408 numbers and all 69 tables.

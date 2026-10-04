@@ -1,20 +1,31 @@
 """
-Velocity of the de-stepped, causally smoothed CLE-CRE and CH.
+Slow-trend velocity of the de-stepped CLE-CRE and CH.
 
 diff_motion_regressed.py removes the motion jumps from CLE-CRE and CH (by
-zeroing the derivative inside head movements and integrating back) and smooths
-the result with a 5-minute causal median. This adds the rate of change of that
-smoothed trace, in fF/min, as a fourth panel under the same night:
+zeroing the derivative inside head movements and integrating back). This adds
+the speed of the slow trend of that motion-removed trace, in fF per hour, as a
+fourth panel under the same night.
 
-    v(t) = ( sm(t) - sm(t - VEL_MIN) ) / VEL_MIN
+The velocity is the slope of a straight line fitted to the de-stepped trace over
+the trailing TREND_MIN minutes, recomputed at every 10-s block:
 
-A backward difference keeps it causal, like the smoothing it is taken from.
-The span is 2 minutes rather than one block because the causal median moves in
-small steps, and a one-block difference turns every step into a spike.
+    v(t) = OLS slope of y over [t - TREND_MIN, t]          (fF/h)
+
+Why a fitted slope and not a difference. The first version took a 2-minute
+backward difference of the 5-minute causal median. That is a derivative of a
+short smoother, so it followed every small wobble and the slow drift -- the thing
+the marker is for -- was buried under it. A least-squares slope over a long
+window is itself the smoother: every block in the window contributes, so noise
+averages out and only the trend survives. It is trailing, so it cannot
+anticipate an event; it lags it by about half the window.
+
+Blocks inside a head movement are left out of each fit. The de-stepping holds
+the trace flat across a movement, and fitting through those flat stretches
+would pull every slope that spans one towards zero.
 
 The old velocity marker (imbalance_marker.py) differentiated the RAW
 differential, so every re-seat of the mask was a spike that dominated it. Here
-the jumps are removed first, so what is left is the slow drift's own speed.
+the jumps are removed first.
 
 Writes  writeup/figures/imbalance/fig_destep_velocity_{S}.png
         writeup/figures/imbalance/fig_destep_velocity_allsessions.png
@@ -42,16 +53,24 @@ sys.path.insert(0, str(HERE.parents[1]))
 import diff_motion_regressed as dmr   # noqa: E402  (also sets the rcParams)
 from sleep_monitor.sessions import SESSION_META   # noqa: E402
 
-VEL_MIN = 2.0
+TREND_MIN = 30.0         # trailing window of the fitted slope
 DIFF_COLOR, CH_COLOR = dmr.SM_COLOR, '#1F618D'
 
 
-def velocity(x):
-    """Causal backward difference over VEL_MIN, in fF/min."""
-    lag = int(round(VEL_MIN * 60 / dmr.BLOCK_S))
-    v = np.full(len(x), np.nan)
-    v[lag:] = (x[lag:] - x[:-lag]) / VEL_MIN
-    return v
+def trend_velocity(y, moving):
+    """Trailing least-squares slope of y over TREND_MIN, in fF/h.
+
+    slope = cov(t, y) / var(t) over the window, from pandas rolling moments;
+    movement blocks are NaN so they drop out of every fit. A window needs at
+    least half its blocks to give a value.
+    """
+    n = int(round(TREND_MIN * 60 / dmr.BLOCK_S))
+    t_h = pd.Series(np.arange(len(y)) * dmr.BLOCK_S / 3600.0)
+    yy = pd.Series(np.where(moving, np.nan, y))
+    tt = t_h.where(yy.notna())
+    cov = tt.rolling(n, min_periods=n // 2).cov(yy)
+    var = tt.rolling(n, min_periods=n // 2).var()
+    return (cov / var).to_numpy()
 
 
 def _robust_lim(v, k=6.0):
@@ -67,17 +86,17 @@ def _vel_panel(ax, r, fontsize=13, legend=False):
     t = r['t']
     for a, b in dmr._spans(r['moving']):
         ax.axvspan(t[a], t[min(b, len(t) - 1)], color='#F2C9C0', lw=0, zorder=0)
-    ax.plot(t, r['v_diff'], lw=1.6, color=DIFF_COLOR, label='d/dt CLE−CRE')
+    ax.plot(t, r['v_diff'], lw=1.6, color=DIFF_COLOR, label='trend velocity CLE−CRE')
     ax.axhline(0, color='#2C3E50', ls='--', lw=1.0)
     lim = _robust_lim(r['v_diff'])
     ax.set_ylim(-lim, lim)
     ax.set_xlim(t[0], t[-1])
     ax.grid(alpha=0.2)
     ax2 = ax.twinx()
-    ax2.plot(t, r['v_ch'], lw=1.6, color=CH_COLOR, alpha=0.85, label='d/dt CH')
+    ax2.plot(t, r['v_ch'], lw=1.6, color=CH_COLOR, alpha=0.85, label='trend velocity CH')
     lim2 = _robust_lim(r['v_ch'])
     ax2.set_ylim(-lim2, lim2)
-    ax2.set_ylabel('CH (fF/min)', color=CH_COLOR, fontsize=fontsize)
+    ax2.set_ylabel('CH (fF/h)', color=CH_COLOR, fontsize=fontsize)
     ax2.tick_params(axis='y', labelcolor=CH_COLOR, labelsize=fontsize - 2)
     ax2.spines['top'].set_visible(False)
     if legend:
@@ -103,7 +122,7 @@ def draw_one(r):
     dmr._trace(tr, r, legend=True)
     tr.set_ylabel('CLE−CRE\n(fF)')
     _vel_panel(vl, r, legend=True)
-    vl.set_ylabel(f'velocity\n(fF/min)')
+    vl.set_ylabel(f'{TREND_MIN:.0f}-min trend\nvelocity (fF/h)')
     vl.set_xlabel('Time (hours)')
     fig.tight_layout()
     out = dmr.FIG / f"fig_destep_velocity_{r['label']}.png"
@@ -125,7 +144,7 @@ def draw_all(rs):
         lad.set_title(f"{r['label']}   ({100 * r['pct_moving']:.0f}% moving)",
                       loc='left', fontsize=16)
         _vel_panel(ax, r, fontsize=11, legend=(k == 0))
-        ax.set_ylabel('CLE−CRE\n(fF/min)', fontsize=12)
+        ax.set_ylabel('CLE−CRE\n(fF/h)', fontsize=12)
         if rw == nrow - 1:
             ax.set_xlabel('Time (hours)', fontsize=13)
         else:
@@ -141,20 +160,20 @@ def main():
     for meta in SESSION_META:
         r = dmr.one_session(meta)
         r['ch_sm'] = dmr._smooth(r['ch_destep'])
-        r['v_diff'] = velocity(r['sm_destep'])
-        r['v_ch'] = velocity(r['ch_sm'])
+        r['v_diff'] = trend_velocity(r['d_destep'], r['moving'])
+        r['v_ch'] = trend_velocity(r['ch_destep'], r['moving'])
         rs.append(r)
         still = ~r['moving']
         row = dict(session=r['label'], pct_moving=100 * r['pct_moving'])
         for key, nm in (('v_diff', 'diff'), ('v_ch', 'CH')):
             v = r[key][still & np.isfinite(r[key])]
-            row[f'{nm}_median_abs_fF_per_min'] = float(np.median(np.abs(v)))
-            row[f'{nm}_p95_abs_fF_per_min'] = float(np.percentile(np.abs(v), 95))
+            row[f'{nm}_median_abs_fF_per_h'] = float(np.median(np.abs(v)))
+            row[f'{nm}_p95_abs_fF_per_h'] = float(np.percentile(np.abs(v), 95))
         ok = np.isfinite(r['v_diff']) & np.isfinite(r['v_ch']) & still
         row['corr_vdiff_vch'] = float(np.corrcoef(r['v_diff'][ok], r['v_ch'][ok])[0, 1])
         rows.append(row)
-        print(f"  {r['label']}: |v| median CLE−CRE {row['diff_median_abs_fF_per_min']:.3f}, "
-              f"CH {row['CH_median_abs_fF_per_min']:.3f} fF/min; "
+        print(f"  {r['label']}: |v| median CLE−CRE {row['diff_median_abs_fF_per_h']:.3f}, "
+              f"CH {row['CH_median_abs_fF_per_h']:.3f} fF/h; "
               f"r(v_diff, v_CH) {row['corr_vdiff_vch']:+.2f} -> {draw_one(r).name}")
     pd.DataFrame(rows).to_csv(dmr.TAB / 'destep_velocity.csv', index=False)
     print('  sheet ->', draw_all(rs).name)

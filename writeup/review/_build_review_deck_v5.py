@@ -2,7 +2,7 @@
 Review deck V5: the reviewer's jedit deck with four sections repaired.
 
 Built from  writeup/review/CAP_sleep_mask_review_deck jedit(1).pptx
-Writes      writeup/review/CAP_sleep_mask_review_deck V5.pptx
+Writes      writeup/review/CAP_sleep_mask_review_deck V6.pptx  (V5 was the first build)
 
 What changes, against the jedit deck's slide numbers
 ----------------------------------------------------
@@ -47,7 +47,10 @@ from pptx.util import Emu
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 SRC = HERE / 'CAP_sleep_mask_review_deck jedit(1).pptx'
-DST = HERE / 'CAP_sleep_mask_review_deck V5.pptx'
+DST = HERE / 'CAP_sleep_mask_review_deck V6.pptx'
+# V5 (2026-10-03) is left as delivered: it may be open, and may carry hand edits
+# that a rebuild from the jedit deck would overwrite. V6 = V5 + the 30-min
+# trend velocity.
 SUPP = HERE / 'final' / 'CAP_sleep_mask_manuscript supplementary V3.docx'
 FIG = ROOT / 'writeup' / 'figures'
 REP = ROOT / 'reports'
@@ -183,23 +186,27 @@ def destep_text():
         'accelerometer does) and integrating back; no step size is estimated, and '
         'the level between movements is untouched. The result was smoothed with a '
         '5-min causal (trailing) median, so the trace cannot anticipate an event and '
-        'lags it by about half the window. Velocity is the 2-min backward difference '
-        f'of that trace. Across the twelve nights {v.pct_moving.min():.0f}–'
+        'lags it by about half the window. The slow-trend velocity is the slope of a '
+        'least-squares line fitted to the de-stepped trace over the trailing 30 min, '
+        'recomputed every 10 s, with blocks inside a head movement left out of each '
+        'fit; it is reported in fF/h and lags by about 15 min. '
+        f'Across the twelve nights {v.pct_moving.min():.0f}–'
         f'{v.pct_moving.max():.0f}% of blocks fell inside a head movement. During '
-        'still periods the median absolute velocity of CLE−CRE was '
-        f'{v.diff_median_abs_fF_per_min.min():.2f}–{v.diff_median_abs_fF_per_min.max():.2f} '
-        'fF/min and that of CH '
-        f'{v.CH_median_abs_fF_per_min.min():.2f}–{v.CH_median_abs_fF_per_min.max():.2f} '
-        'fF/min. The correlation between the two velocities was positive on every '
-        'night but ranged from negligible to strong '
-        f'(r = {v.corr_vdiff_vch.min():.2f}–{v.corr_vdiff_vch.max():.2f}, '
+        'still periods the median absolute trend velocity of CLE−CRE was '
+        f'{v.diff_median_abs_fF_per_h.min():.1f}–{v.diff_median_abs_fF_per_h.max():.1f} '
+        'fF/h and that of CH '
+        f'{v.CH_median_abs_fF_per_h.min():.1f}–{v.CH_median_abs_fF_per_h.max():.1f} '
+        'fF/h. The two trends moved together on most nights: the correlation between '
+        f'them was positive on {int((v.corr_vdiff_vch > 0).sum())} of 12 nights '
+        f'(r = {v.corr_vdiff_vch.min():.2f} to {v.corr_vdiff_vch.max():.2f}, '
         f'median {v.corr_vdiff_vch.median():.2f}).')
     per = {}
     for s, r in v.iterrows():
         per[s] = (f'{s} ({AGE_SEX[s[:2]]}): {r.pct_moving:.0f}% of blocks inside a head '
-                  f'movement (shaded). Still-period |velocity|, median: CLE−CRE '
-                  f'{r.diff_median_abs_fF_per_min:.2f}, CH {r.CH_median_abs_fF_per_min:.2f} '
-                  f'fF/min; r(velocity CLE−CRE, velocity CH) = {r.corr_vdiff_vch:+.2f}.')
+                  f'movement (shaded). Bottom panel: 30-min trailing trend velocity. '
+                  f'Still-period |trend velocity|, median: CLE−CRE '
+                  f'{r.diff_median_abs_fF_per_h:.1f}, CH {r.CH_median_abs_fF_per_h:.1f} '
+                  f'fF/h; r(trend CLE−CRE, trend CH) = {r.corr_vdiff_vch:+.2f}.')
     return per, sheet
 
 
@@ -342,7 +349,7 @@ def main():
     for s in SESSIONS:
         mean_new.append(content(
             prs, T_CONTENT, f'CLE−CRE and CH — {s}  ({AGE_SEX[s[:2]]})',
-            'Head turn, the de-stepped differential with CH, and their velocity.',
+            'Head turn, the de-stepped differential with CH, and their 30-min trend velocity.',
             FIG / 'imbalance' / f'fig_destep_velocity_{s}.png',
             f'imbalance/fig_destep_velocity_{s}.png', dper[s]))
     mean_new.append(content(
@@ -352,7 +359,7 @@ def main():
         'imbalance/fig_destep_allsessions.png', dsheet))
     mean_new.append(content(
         prs, T_CONTENT, 'Velocity — all twelve',
-        'Rate of change of the smoothed CLE−CRE and CH, fF/min.',
+        'Slow-trend velocity of the motion-removed CLE−CRE and CH: 30-min trailing slope, fF/h.',
         FIG / 'imbalance' / 'fig_destep_velocity_allsessions.png',
         'imbalance/fig_destep_velocity_allsessions.png', dsheet))
 

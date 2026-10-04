@@ -3070,3 +3070,13 @@ Every figure, table and number in V11 + supplement V3 traced to code, ported int
 - **Band fractions** (29–48% / 8–48%) were 3 nights, CLE−CRE, 0.05–10 Hz; all 12 nights,
   each channel, <5 Hz: resp 9–59%, cardiac 3–60%.
 - ~12 wrong figure/table cross-references (listed in PROVENANCE.md).
+
+## 2026-10-04 — Slow-trend velocity of de-stepped CLE−CRE and CH
+
+`analysis/mean_value/destep_velocity.py`. Velocity redefined as the trailing 30-min OLS
+slope of the motion-removed (de-stepped) trace, movement blocks excluded from each fit,
+fF/h (was a 2-min difference of the 5-min causal median: too noisy to show drift).
+Still-period median |trend velocity|: CLE−CRE 3.7–37.7 fF/h, CH 5.8–157 fF/h (S6 largest).
+The two trends co-move on 10/12 nights (r −0.04 to +0.85, median 0.52; S1N2 and S5N1
+≈0). Shared slow excursions are visible, e.g. S4N2 3.6–3.9 h both fall ~20 fF/h (CLE−CRE)
+and ~50 fF/h (CH) entering REM — observational, single night, not tested.
