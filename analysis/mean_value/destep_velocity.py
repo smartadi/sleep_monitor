@@ -27,8 +27,11 @@ The old velocity marker (imbalance_marker.py) differentiated the RAW
 differential, so every re-seat of the mask was a spike that dominated it. Here
 the jumps are removed first.
 
+Layout: each signal (CLE-CRE, then CH) on its own panel with its velocity on a
+separate panel directly below it, so the two never share an axis.
+
 Writes  writeup/figures/imbalance/fig_destep_velocity_{S}.png
-        writeup/figures/imbalance/fig_destep_velocity_allsessions.png
+        writeup/figures/imbalance/fig_destep_velocity_allsessions_{CLE-CRE,CH}.png
         reports/mean_value/destep_velocity.csv   (per-night summary)
 
 Usage
@@ -82,48 +85,82 @@ def _robust_lim(v, k=6.0):
     return max(k * s, np.percentile(np.abs(w), 99), 1e-3)
 
 
-def _vel_panel(ax, r, fontsize=13, legend=False):
+SIGNALS = {
+    # key: (label, de-stepped trace, causal median, velocity, colour)
+    'CLE-CRE': ('CLE−CRE', 'd_destep', 'sm_destep', 'v_diff', DIFF_COLOR),
+    'CH': ('CH', 'ch_destep', 'ch_sm', 'v_ch', CH_COLOR),
+}
+
+
+def _movement(ax, r):
     t = r['t']
     for a, b in dmr._spans(r['moving']):
         ax.axvspan(t[a], t[min(b, len(t) - 1)], color='#F2C9C0', lw=0, zorder=0)
-    ax.plot(t, r['v_diff'], lw=1.6, color=DIFF_COLOR, label='trend velocity CLE−CRE')
+
+
+def _signal_panel(ax, r, key, fontsize=13, legend=False):
+    """The motion-removed trace and its causal median (raw CLE−CRE behind it)."""
+    name, y_key, sm_key, _, color = SIGNALS[key]
+    t = r['t']
+    _movement(ax, r)
+    if key == 'CLE-CRE':
+        ax.plot(t, r['d'], lw=0.8, color='#C2C8D0', label='raw')
+    ax.plot(t, r[y_key], lw=1.1, color='#5B6B7F', alpha=0.85, label='jumps removed')
+    ax.plot(t, r[sm_key], lw=2.6, color=color, label='5-min causal median')
     ax.axhline(0, color='#2C3E50', ls='--', lw=1.0)
-    lim = _robust_lim(r['v_diff'])
+    v = r[y_key][np.isfinite(r[y_key])]
+    m = np.median(v)
+    half = max(6 * 1.4826 * np.median(np.abs(v - m)),
+               4 * np.nanstd(r[sm_key]), 1e-3)
+    ax.set_ylim(m - half, m + half)
+    ax.set_xlim(t[0], t[-1])
+    ax.set_ylabel(f'{name}\n(fF)', fontsize=fontsize)
+    ax.grid(alpha=0.2)
+    if legend:
+        ax.legend(loc='upper right', fontsize=fontsize - 2, ncol=3)
+
+
+def _velocity_panel(ax, r, key, fontsize=13):
+    """That trace's slow-trend velocity, on its own axis directly below it."""
+    name, _, _, v_key, color = SIGNALS[key]
+    t = r['t']
+    _movement(ax, r)
+    v = r[v_key]
+    ax.fill_between(t, 0, v, where=np.isfinite(v) & (v > 0), color=color,
+                    alpha=0.18, lw=0)
+    ax.fill_between(t, 0, v, where=np.isfinite(v) & (v < 0), color=color,
+                    alpha=0.08, lw=0)
+    ax.plot(t, v, lw=1.8, color=color)
+    ax.axhline(0, color='#2C3E50', ls='--', lw=1.0)
+    lim = _robust_lim(v)
     ax.set_ylim(-lim, lim)
     ax.set_xlim(t[0], t[-1])
+    ax.set_ylabel(f'{name} velocity\n(fF/h)', fontsize=fontsize)
     ax.grid(alpha=0.2)
-    ax2 = ax.twinx()
-    ax2.plot(t, r['v_ch'], lw=1.6, color=CH_COLOR, alpha=0.85, label='trend velocity CH')
-    lim2 = _robust_lim(r['v_ch'])
-    ax2.set_ylim(-lim2, lim2)
-    ax2.set_ylabel('CH (fF/h)', color=CH_COLOR, fontsize=fontsize)
-    ax2.tick_params(axis='y', labelcolor=CH_COLOR, labelsize=fontsize - 2)
-    ax2.spines['top'].set_visible(False)
-    if legend:
-        h1, l1 = ax.get_legend_handles_labels()
-        h2, l2 = ax2.get_legend_handles_labels()
-        ax.legend(h1 + h2, l1 + l2, loc='upper right', fontsize=fontsize - 1, ncol=2)
 
 
 def draw_one(r):
-    fig, axes = plt.subplots(4, 1, figsize=(15.5, 10.6), sharex=True,
-                             gridspec_kw={'height_ratios': [0.38, 0.6, 1.15, 0.9]})
-    lad, hd, tr, vl = axes
+    """One night: stages, head turn, then each signal with its velocity below it."""
+    fig, axes = plt.subplots(
+        6, 1, figsize=(15.5, 14.5), sharex=True,
+        gridspec_kw={'height_ratios': [0.38, 0.55, 1.0, 0.62, 1.0, 0.62]})
+    lad, hd, s1, v1, s2, v2 = axes
     t = r['t']
     dmr._ladder(lad, t, r['codes'], fontsize=13)
-    lad.set_title(f"{r['label']}   —   {100 * r['pct_moving']:.0f}% of blocks "
-                  f"inside a head movement", loc='left', fontsize=19)
+    lad.set_title(f"{r['label']}   —   {100 * r['pct_moving']:.0f}% of blocks inside a "
+                  f"head movement (shaded);  velocity = {TREND_MIN:.0f}-min trailing slope",
+                  loc='left', fontsize=17)
     hd.plot(t, r['turn'], lw=2.4, color='#1B7A43')
     hd.axhline(0, color='#2C3E50', ls=':', lw=1.2)
     hd.set_ylabel('head turn\n(deg)')
     hd.annotate('+ left   − right', (0.995, 0.06), xycoords='axes fraction',
                 ha='right', fontsize=13, color='#1B7A43')
     hd.grid(alpha=0.2)
-    dmr._trace(tr, r, legend=True)
-    tr.set_ylabel('CLE−CRE\n(fF)')
-    _vel_panel(vl, r, legend=True)
-    vl.set_ylabel(f'{TREND_MIN:.0f}-min trend\nvelocity (fF/h)')
-    vl.set_xlabel('Time (hours)')
+    _signal_panel(s1, r, 'CLE-CRE', legend=True)
+    _velocity_panel(v1, r, 'CLE-CRE')
+    _signal_panel(s2, r, 'CH', legend=True)
+    _velocity_panel(v2, r, 'CH')
+    v2.set_xlabel('Time (hours)')
     fig.tight_layout()
     out = dmr.FIG / f"fig_destep_velocity_{r['label']}.png"
     fig.savefig(out, bbox_inches='tight')
@@ -131,25 +168,29 @@ def draw_one(r):
     return out
 
 
-def draw_all(rs):
+def draw_all(rs, key):
+    """All twelve nights for one signal: stages, trace, velocity below it."""
     nrow, ncol = 6, 2
-    fig = plt.figure(figsize=(21.0, 3.1 * nrow))
-    gs = fig.add_gridspec(nrow * 2, ncol, height_ratios=[0.26, 1.0] * nrow,
-                          hspace=0.30, wspace=0.26)
+    fig = plt.figure(figsize=(21.0, 4.8 * nrow))
+    # a thin empty row after each night keeps its title off the panel above
+    gs = fig.add_gridspec(nrow * 4, ncol, height_ratios=[0.24, 0.8, 0.6, 0.32] * nrow,
+                          hspace=0.12, wspace=0.22)
     for k, r in enumerate(rs):
         c, rw = k % ncol, k // ncol
-        lad = fig.add_subplot(gs[rw * 2, c])
-        ax = fig.add_subplot(gs[rw * 2 + 1, c])
-        dmr._ladder(lad, r['t'], r['codes'], fontsize=10)
+        lad = fig.add_subplot(gs[rw * 4, c])
+        sig = fig.add_subplot(gs[rw * 4 + 1, c], sharex=lad)
+        vel = fig.add_subplot(gs[rw * 4 + 2, c], sharex=lad)
+        dmr._ladder(lad, r['t'], r['codes'], fontsize=9)
         lad.set_title(f"{r['label']}   ({100 * r['pct_moving']:.0f}% moving)",
-                      loc='left', fontsize=16)
-        _vel_panel(ax, r, fontsize=11, legend=(k == 0))
-        ax.set_ylabel('CLE−CRE\n(fF/h)', fontsize=12)
+                      loc='left', fontsize=15)
+        _signal_panel(sig, r, key, fontsize=11, legend=(k == 0))
+        sig.tick_params(labelbottom=False)
+        _velocity_panel(vel, r, key, fontsize=11)
         if rw == nrow - 1:
-            ax.set_xlabel('Time (hours)', fontsize=13)
+            vel.set_xlabel('Time (hours)', fontsize=13)
         else:
-            ax.tick_params(labelbottom=False)
-    out = dmr.FIG / 'fig_destep_velocity_allsessions.png'
+            vel.tick_params(labelbottom=False)
+    out = dmr.FIG / f'fig_destep_velocity_allsessions_{key}.png'
     fig.savefig(out, bbox_inches='tight')
     plt.close(fig)
     return out
@@ -176,7 +217,8 @@ def main():
               f"CH {row['CH_median_abs_fF_per_h']:.3f} fF/h; "
               f"r(v_diff, v_CH) {row['corr_vdiff_vch']:+.2f} -> {draw_one(r).name}")
     pd.DataFrame(rows).to_csv(dmr.TAB / 'destep_velocity.csv', index=False)
-    print('  sheet ->', draw_all(rs).name)
+    for key in SIGNALS:
+        print('  sheet ->', draw_all(rs, key).name)
 
 
 if __name__ == '__main__':

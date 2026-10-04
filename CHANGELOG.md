@@ -8,6 +8,7 @@ Records all code changes to library modules, scripts, and notebooks.
 
 - **Changed** `analysis/mean_value/destep_velocity.py`: the velocity is now the **slow-trend** velocity, the trailing 30-min least-squares slope of the de-stepped (motion-removed) CLE-CRE and CH, in fF/h. Movement blocks are left out of each fit. It replaces the 2-min backward difference of the 5-min causal median, which tracked every wobble and hid the drift. It stays causal and lags by ~15 min. CSV columns renamed `*_fF_per_min` -> `*_fF_per_h`.
 - **Changed** `writeup/review/_build_review_deck_v5.py` now writes **`CAP_sleep_mask_review_deck V6.pptx`**. V5 is left as delivered, since it may be open or carry hand edits that a rebuild would overwrite. Velocity notes updated.
+- **Changed** (later the same day, on request) `destep_velocity.py` layout: each signal gets its own panel with **its velocity on a separate panel directly below it** (CLE-CRE, then CH), with no shared twin axes. Sheets are now two files, `fig_destep_velocity_allsessions_{CLE-CRE,CH}.png`, and the old combined sheet was deleted. The deck builder writes **V5** again (the user confirmed V5 was unedited), with V6 deleted and 73 slides: the velocity sheet became one slide per signal. Notes now flag the steps the de-stepping misses (S3N1 ~2.2 h, S2N1 ~4.1 h, S6N1 ~3.3 h), which show up as velocity excursions.
 
 ---
 

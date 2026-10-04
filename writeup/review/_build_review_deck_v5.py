@@ -2,7 +2,7 @@
 Review deck V5: the reviewer's jedit deck with four sections repaired.
 
 Built from  writeup/review/CAP_sleep_mask_review_deck jedit(1).pptx
-Writes      writeup/review/CAP_sleep_mask_review_deck V6.pptx  (V5 was the first build)
+Writes      writeup/review/CAP_sleep_mask_review_deck V5.pptx
 
 What changes, against the jedit deck's slide numbers
 ----------------------------------------------------
@@ -47,10 +47,9 @@ from pptx.util import Emu
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 SRC = HERE / 'CAP_sleep_mask_review_deck jedit(1).pptx'
-DST = HERE / 'CAP_sleep_mask_review_deck V6.pptx'
-# V5 (2026-10-03) is left as delivered: it may be open, and may carry hand edits
-# that a rebuild from the jedit deck would overwrite. V6 = V5 + the 30-min
-# trend velocity.
+DST = HERE / 'CAP_sleep_mask_review_deck V5.pptx'
+# Rebuilding overwrites V5 entirely from the jedit deck: check it carries no hand
+# edits (and is not open in PowerPoint) before running.
 SUPP = HERE / 'final' / 'CAP_sleep_mask_manuscript supplementary V3.docx'
 FIG = ROOT / 'writeup' / 'figures'
 REP = ROOT / 'reports'
@@ -173,6 +172,12 @@ def lowband_text():
             + f"; threshold {r.gate_db:.1f} dB from the block-shuffled map. Top and "
             "middle panels are unchanged from the previous figure.")
     return per, check, sheet
+
+
+STEP_CAVEAT = (
+    '\n\nCAVEAT: a few large steps were not removed because the accelerometer did not '
+    'flag a head movement at the time (S3N1 ~2.2 h, S2N1 ~4.1 h, S6N1 ~3.3 h). Each '
+    'appears as a deep velocity excursion that is a step, not a slow trend.')
 
 
 def destep_text():
@@ -357,11 +362,13 @@ def main():
         'Jumps during head movement removed; 5-min causal median.',
         FIG / 'imbalance' / 'fig_destep_allsessions.png',
         'imbalance/fig_destep_allsessions.png', dsheet))
-    mean_new.append(content(
-        prs, T_CONTENT, 'Velocity — all twelve',
-        'Slow-trend velocity of the motion-removed CLE−CRE and CH: 30-min trailing slope, fF/h.',
-        FIG / 'imbalance' / 'fig_destep_velocity_allsessions.png',
-        'imbalance/fig_destep_velocity_allsessions.png', dsheet))
+    for key, name in (('CLE-CRE', 'CLE−CRE'), ('CH', 'CH')):
+        mean_new.append(content(
+            prs, T_CONTENT, f'{name} and its trend velocity — all twelve',
+            f'Motion-removed {name} with its 30-min trailing-slope velocity (fF/h) directly below.',
+            FIG / 'imbalance' / f'fig_destep_velocity_allsessions_{key}.png',
+            f'imbalance/fig_destep_velocity_allsessions_{key}.png',
+            dsheet + STEP_CAVEAT))
 
     # variance
     vtr, vnote = variance_text()
