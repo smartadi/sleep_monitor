@@ -1,0 +1,95 @@
+imbalance_epochs: new 9312 rows, legacy 9312, only-new 0, only-legacy 0; legacy columns not ported: none
+   subject                    mismatches     0
+   night                      mismatches     0   max |diff| 0
+   t_hr                       mismatches     0   max |diff| 1.33e-15
+   stage_code                 mismatches     0   max |diff| 0
+   motion                     mismatches     0
+   in_sleep                   mismatches     0
+   session_mean_fF            mismatches     0   max |diff| 8.53e-14
+   d_fF                       mismatches     0   max |diff| 1.14e-13
+   v_fF_per_min               mismatches     0   max |diff| 2.28e-13
+   imb_mag_fF                 mismatches     0   max |diff| 1.14e-13
+   imb_dir                    mismatches     0   max |diff| 5e-14
+   imb_lp_fF                  mismatches     0   max |diff| 8.53e-14
+   imb_mag_tau5               mismatches     0   max |diff| 1.14e-13
+   imb_dir_tau5               mismatches     0   max |diff| 4.12e-13
+   imb_mag_tau15              mismatches     0   max |diff| 1.71e-13
+   imb_dir_tau15              mismatches     0   max |diff| 9.05e-14
+   imb_mag_tau30              mismatches     0   max |diff| 1.14e-13
+   imb_dir_tau30              mismatches     0   max |diff| 5e-14
+   imb_mag_tau60              mismatches     0   max |diff| 8.53e-14
+   imb_dir_tau60              mismatches     0   max |diff| 2.19e-14
+   turn_deg                   mismatches     0   max |diff| 1.93e-11
+   psg_pos                    mismatches     0
+   head_pos                   mismatches     0
+
+session_levels vs mean_centred_session_means.csv: new 12 rows, legacy 12, only-new 0, only-legacy 0; legacy columns not ported: none
+   subject                    mismatches     0
+   night                      mismatches     0   max |diff| 0
+   n_epochs_sleep             mismatches     0   max |diff| 0
+   mean_CLE                   mismatches     0   max |diff| 0
+   sd_CLE                     mismatches     0   max |diff| 1.42e-14
+   p5_CLE                     mismatches     0   max |diff| 2.34e-13
+   p95_CLE                    mismatches     0   max |diff| 3.27e-13
+   range_CLE                  mismatches     0   max |diff| 6.82e-13
+   mean_CRE                   mismatches     0   max |diff| 9.09e-13
+   sd_CRE                     mismatches     0   max |diff| 1.07e-14
+   p5_CRE                     mismatches     0   max |diff| 7.78e-13
+   p95_CRE                    mismatches     0   max |diff| 7.74e-13
+   range_CRE                  mismatches     0   max |diff| 4.55e-13
+   mean_CH                    mismatches     0   max |diff| 4.55e-13
+   sd_CH                      mismatches     0   max |diff| 3.55e-15
+   p5_CH                      mismatches     0   max |diff| 2.27e-13
+   p95_CH                     mismatches     0   max |diff| 2.27e-13
+   range_CH                   mismatches     0   max |diff| 2.27e-13
+   mean_CLE-CRE               mismatches     0   max |diff| 8.53e-14
+   sd_CLE-CRE                 mismatches     0   max |diff| 3.55e-15
+   p5_CLE-CRE                 mismatches     0   max |diff| 6.93e-14
+   p95_CLE-CRE                mismatches     0   max |diff| 5.68e-14
+   range_CLE-CRE              mismatches     0   max |diff| 9.95e-14
+
+imbalance_session vs imbalance_session.csv: new 12 rows, legacy 12, only-new 0, only-legacy 0; legacy columns not ported: ['velocity_median_abs', 'velocity_p99_abs', 'velocity_mean', 'velocity_lag1_acf', 'imb_dir_lag1_acf', 'velocity_persist_acf', 'imb_dir_persist_acf', 'd_persist_acf']
+   subject                    mismatches     0
+   night                      mismatches     0   max |diff| 0
+   session_mean_fF            mismatches     0   max |diff| 8.53e-14
+   n_epochs                   mismatches     0   max |diff| 0
+   imb_mag_median_fF          mismatches     0   max |diff| 5.68e-14
+   imb_mag_p90_fF             mismatches     0   max |diff| 6.04e-14
+   imb_dir_median             mismatches     0   max |diff| 2.05e-14
+   imb_dir_first_third        mismatches     0   max |diff| 3.66e-15
+   imb_dir_last_third         mismatches     0   max |diff| 3.33e-15
+   imb_dir_reversals          mismatches     0   max |diff| 0
+   frac_left_dominant         mismatches     0   max |diff| 0
+   frac_right_dominant        mismatches     0   max |diff| 0
+   rho_dir_vs_sin_turn        mismatches     2   max |diff| 1.76e-06
+   p_dir_vs_sin_turn          mismatches     1   max |diff| 2.92e-05
+   n_supine_epochs            mismatches     0   max |diff| 0
+   imb_dir_median_supine      mismatches     0   max |diff| 1.45e-14
+   imb_mag_median_supine_fF   mismatches     0   max |diff| 2.66e-14
+   imb_dir_reversals_supine   mismatches     0   max |diff| 0
+
+imbalance_burden vs imbalance_burden.csv: new 12 rows, legacy 12, only-new 0, only-legacy 0; legacy columns not ported: none
+   subject                    mismatches     0
+   n_epochs                   mismatches     0   max |diff| 0
+   hours                      mismatches     0   max |diff| 0
+   mean_abs_fF                mismatches     0   max |diff| 2.84e-14
+   integral_abs_fFh           mismatches     0   max |diff| 2.27e-13
+   integral_pos_fFh           mismatches     0   max |diff| 2.59e-13
+   integral_neg_fFh           mismatches     0   max |diff| 1.44e-13
+   asymmetry                  mismatches     0   max |diff| 1.33e-14
+   frac_left_dominant         mismatches     0   max |diff| 0
+
+ch_vs_clecre_sessions vs ch_vs_clecre_sessions.csv: new 12 rows, legacy 12, only-new 0, only-legacy 0; legacy columns not ported: ['coh_slow', 'coh_resp', 'coh_card', 'r_resp', 'r_card']
+   subject                    mismatches     0
+   night                      mismatches     0   max |diff| 0
+   n_epochs                   mismatches     0   max |diff| 0
+   mean_CH_fF                 mismatches     0   max |diff| 4.55e-13
+   mean_DIFF_fF               mismatches     0   max |diff| 8.53e-14
+   offset_fF                  mismatches     0   max |diff| 2.27e-13
+   sd_CH_fF                   mismatches     0   max |diff| 3.55e-15
+   sd_DIFF_fF                 mismatches     0   max |diff| 3.55e-15
+   sd_ratio_CH_over_DIFF      mismatches     0   max |diff| 1.78e-15
+   slope_CH_on_DIFF           mismatches     0   max |diff| 8.88e-16
+   r_level_30s                mismatches     0   max |diff| 2.22e-16
+   r_change_1min              mismatches     0   max |diff| 6.66e-16
+

@@ -143,8 +143,9 @@ def lowband_text():
         'band). We therefore do not find a persistent low-frequency oscillation at a '
         'common frequency. The energy near 0.05–0.08 Hz in the earlier figure came '
         'from the 0.05-Hz corner of the motion-canceller filter (next slide).\n\n'
-        'NOTE: the "67 ridges, median 6 per night" in V11 §3.3 came from a co-author '
-        'script we do not hold; this does not reproduce it. The ridge-by-stage slide '
+        'NOTE: the "67 ridges, median 6 per night" in V11 §3.3 came from our own '
+        'ridge_overlay_tune.py slow-band detector run on the motion-cancelled signal, so '
+        'it inherits the filter artifact. The ridge-by-stage slide '
         'that follows still uses the old detector.')
     check = (
         'DRAFT for §2.7 (methods). The low-frequency band was analysed on the '

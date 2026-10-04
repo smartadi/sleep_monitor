@@ -1,0 +1,19 @@
+  S1N1:  1047 N2 spindles, 898 controls, 9 K-complexes in N2
+  S1N2:   684 N2 spindles, 670 controls, 1 K-complexes in N2
+  S2N1:  1674 N2 spindles, 1587 controls, 3 K-complexes in N2
+  S2N2:  1371 N2 spindles, 1301 controls, 8 K-complexes in N2
+  S3N1:  1785 N2 spindles, 712 controls, 6 K-complexes in N2
+  S3N2:  2134 N2 spindles, 829 controls, 4 K-complexes in N2
+  S4N1:   632 N2 spindles, 966 controls, 2 K-complexes in N2
+  S4N2:   351 N2 spindles, 874 controls, 0 K-complexes in N2
+  S5N1:   518 N2 spindles, 347 controls, 0 K-complexes in N2
+  S5N2:   807 N2 spindles, 557 controls, 2 K-complexes in N2
+  S6N1:  1447 N2 spindles, 765 controls, 2 K-complexes in N2
+  S6N2:  1855 N2 spindles, 914 controls, 3 K-complexes in N2
+spindle_lowband_detection.csv      MATCH 87 columns x 13 rows, max |diff| 1.78e-15; skipped 20 lowc columns
+spindle_lowband_detection.npz      MATCH 16 arrays, max |diff| 0.00e+00
+spindle_per_session.csv (counts)   MATCH 1 columns x 12 rows, max |diff| 0.00e+00
+spindle_ersp.csv                   MATCH 3 columns x 60 rows, max |diff| 4.44e-16
+spindle_ersp_control.csv           MATCH 2 columns x 10 rows, max |diff| 0.00e+00
+
+ALL MATCH

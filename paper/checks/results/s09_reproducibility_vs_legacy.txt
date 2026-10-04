@@ -1,0 +1,126 @@
+high_variance_epochs (legacy grid): new 9227 rows, legacy 9227, only-new 0, only-legacy 0; legacy columns not ported: none
+   subject                        mismatches     0
+   t_hr                           mismatches     0   max |diff| 0
+   stage                          mismatches     0
+   acc_sd                         mismatches     0   max |diff| 0
+   var_CH                         mismatches     0   max |diff| 0
+   var_CLE                        mismatches     0   max |diff| 0
+   var_CRE                        mismatches     0   max |diff| 0
+   var_CLE-CRE                    mismatches     0   max |diff| 0
+   motion                         mismatches     0
+   hi_CH                          mismatches     0
+   hi_CLE                         mismatches     0
+   hi_CRE                         mismatches     0
+   hi_CLE-CRE                     mismatches     0
+
+prof_metrics_per_night (legacy grid): new 12 rows, legacy 12, only-new 0, only-legacy 0; legacy columns not ported: none
+   hours                          mismatches     0   max |diff| 0
+   area_fF_h                      mismatches     0   max |diff| 8.53e-14
+   area_per_hour_fF               mismatches     0   max |diff| 9.77e-15
+   dur_above_min                  mismatches     0   max |diff| 0
+   dur_above_pct                  mismatches     0   max |diff| 0
+   n_impulses                     mismatches     0   max |diff| 0
+   impulses_per_hour              mismatches     0   max |diff| 0
+   median_impulse_min             mismatches     0   max |diff| 0
+   dur_above_pct_motionfree       mismatches     0   max |diff| 0
+   impulses_per_hour_motionfree   mismatches     0   max |diff| 0
+   age                            mismatches     0   max |diff| 0
+   psqi                           mismatches     0   max |diff| 0
+
+prof_metrics_threshold_policy (legacy grid): new 36 rows, legacy 36, only-new 0, only-legacy 0; legacy columns not ported: none
+   subject                        mismatches     0
+   night                          mismatches     0   max |diff| 0
+   threshold_fF2                  mismatches     0   max |diff| 0
+   dur_above_pct                  mismatches     0   max |diff| 0
+   impulses_per_hour              mismatches     0   max |diff| 0
+   night_median_fF2               mismatches     0   max |diff| 0
+
+arousal_counts: new 12 rows, legacy 12, only-new 0, only-legacy 0; legacy columns not ported: ['cap_detected', 'cap_kept', 'cap_kept_index', 'cap_detected_index']
+   subject                        mismatches     0
+   recording_hr                   mismatches     0   max |diff| 0
+   tst_hr                         mismatches     0   max |diff| 0
+   sleep_efficiency_pct           mismatches     0   max |diff| 0
+   n_arousals                     mismatches     0   max |diff| 0
+   n_arousals_all                 mismatches     0   max |diff| 0
+   arousal_index                  mismatches     0   max |diff| 0
+   per_recording_hour             mismatches     0   max |diff| 0
+   median_duration_s              mismatches     0   max |diff| 0
+   n_spontaneous                  mismatches     0   max |diff| 0
+   idx_spontaneous                mismatches     0   max |diff| 0
+   n_respiratory                  mismatches     0   max |diff| 0
+   idx_respiratory                mismatches     0   max |diff| 0
+   n_limb                         mismatches     0   max |diff| 0
+   idx_limb                       mismatches     0   max |diff| 0
+   n_cardiac                      mismatches     0   max |diff| 0
+   idx_cardiac                    mismatches     0   max |diff| 0
+   n_other                        mismatches     0   max |diff| 0
+   idx_other                      mismatches     0   max |diff| 0
+   raw_Arousal                    mismatches     0   max |diff| 0
+   raw_Respiratory_Arousal        mismatches     0   max |diff| 0
+   raw_SpO2_Arousal               mismatches     0   max |diff| 0
+   raw_LM_Arousal                 mismatches     0   max |diff| 0
+   raw_PLM_Arousal                mismatches     0   max |diff| 0
+   raw_Cardiac_Arousal            mismatches     0   max |diff| 0
+   n_in_N1                        mismatches     0   max |diff| 0
+   n_in_N2                        mismatches     0   max |diff| 0
+   n_in_N3                        mismatches     0   max |diff| 0
+   n_in_REM                       mismatches     0   max |diff| 0
+   n_autonomic                    mismatches     0   max |diff| 0
+   autonomic_index                mismatches     0   max |diff| 0
+   age                            mismatches     0   max |diff| 0
+   psqi                           mismatches     0   max |diff| 0
+
+legacy rate grid -> shared s01 grid
+   dur_above_pct                max |change| 0.136  (nights changed: 7)
+   n_impulses                   max |change| 2.000  (nights changed: 2)
+   impulses_per_hour            max |change| 0.324  (nights changed: 7)
+   dur_above_pct_motionfree     max |change| 0.167  (nights changed: 8)
+   night_median_fF2             max |change| 0.0036
+   R² dur_above_pct             legacy grid 0.6484  shared grid 0.6371
+   R² pct_above_10x_median      legacy grid 0.7173  shared grid 0.7099
+   R² night_median_fF2          legacy grid 0.8586  shared grid 0.8553
+   R  imp_total                 legacy grid -0.0760  shared grid -0.0700  n=12
+   R  imp_resp                  legacy grid +0.5018  shared grid +0.5142  n=12
+   R  imp_spont                 legacy grid -0.4808  shared grid -0.4840  n=12
+   R  imp_limb                  legacy grid -0.2916  shared grid -0.2875  n=12
+   R  imp_cardiac               legacy grid -0.3738  shared grid -0.3707  n=12
+   R  imp_autonomic             legacy grid -0.0294  shared grid -0.0230  n=12
+   R  imp_psqi                  legacy grid -0.5681  shared grid -0.5664  n=12
+   R  osc_area                  legacy grid +0.4824  shared grid +0.4824  n=12
+   R  osc_area_mispaired        legacy grid +0.6769  shared grid +0.6769  n=12
+   R  osc2_psqi                 legacy grid -0.6788  shared grid -0.6788  n=6
+   R  d10_psqi                  legacy grid -0.5731  shared grid -0.5727  n=12
+   R  medvar_psqi               legacy grid -0.5544  shared grid -0.5552  n=12
+   R  area_age                  legacy grid -0.6329  shared grid -0.6329  n=12
+   R  area_sws                  legacy grid -0.1699  shared grid -0.1699  n=12
+   R  area_sws_rec              legacy grid -0.1548  shared grid -0.1548  n=12
+   R  area2_sws2                legacy grid -0.4392  shared grid -0.4392  n=6
+   R  osc_sws                   legacy grid -0.1110  shared grid -0.1110  n=12
+   R  sws2_psqi                 legacy grid -0.5291  shared grid -0.5291  n=6
+
+workbook "reproducibility" (values "Estimated from graph") -> R² night 1 vs 2
+   Absolute 10 fF² (% night)      workbook R² 0.6306   exact R² 0.6484   max |workbook - exact| 0.176
+   10x night median (% night)     workbook R² 0.7097   exact R² 0.7173   max |workbook - exact| 0.213
+   Median variance                workbook R² 0.6805   exact R² 0.8586   max |workbook - exact| 0.216
+
+workbook "Cortical and SWS": column I ("SWS time/TST") vs J ("area/hour")
+   SWS % calculation!Z (session order): [0.0, 30.47, 49.48, 50.02, 39.03, 25.07, 56.96, 45.51, 18.66, 70.87, 37.45, 78.52]
+   Cortical and SWS!I (as listed)      : [0.0, 49.48, 39.03, 56.96, 18.66, 37.45, 30.47, 50.02, 25.07, 45.51, 70.87, 78.52]
+   Cortical and SWS!H PSQI (as listed) : [9, 4, 9, 8, 6, 6, 9, 4, 9, 8, 6, 6]
+   Cortical and SWS!J area (as listed) : [5.3, 17.0, 28.9, 14.7, 4.3, 15.3, 7.9, 12.8, 20.2, 4.4, 65.9, 177.1]
+   R(I, J) as listed = +0.6770   (paper 0.68; workbook G34 = sqrt(0.4608) = 0.6788)
+   R(Z, J) correctly paired by session = +0.4825
+   -> column I is night 1 of S1..S6 then night 2 of S1..S6; J is session order.
+   SWS %!B24:B29 two-night mean vs PSQI: R = -0.6788  (n = 6; paper -0.68)
+
+workbook "EEG arousal": the §3.8 R values from its own cells (session order)
+   impulses vs total index                R = -0.0763  R² = 0.0058  (n = 12)
+   impulses vs resp                       R = +0.5019  R² = 0.2519  (n = 12)
+   impulses vs spont                      R = -0.4815  R² = 0.2319  (n = 12)
+   impulses vs limb                       R = -0.2999  R² = 0.0899  (n = 12)
+   impulses vs PSQI                       R = -0.5681  R² = 0.3228  (n = 12)
+   abs10 % vs PSQI                        R = -0.5718  R² = 0.3270  (n = 12)
+   median var vs PSQI                     R = -0.4841  R² = 0.2344  (n = 12)
+   area/hour vs age                       R = -0.6330  R² = 0.4007  (n = 12)
+   "SWS time/TST" (col S) vs area/hour    R = +0.6770  R² = 0.4584  (n = 12)
+   EEG arousal!S equals Cortical and SWS!I (mis-paired): True

@@ -1,0 +1,26 @@
+epoch grid vs mean_value_epochs.csv: new 9312 rows, legacy 9312 rows, only-new 0, only-legacy 0
+   t_hr                         mismatches     0   max |diff| 8.88e-16
+   stage_code                   mismatches     0   max |diff| 0
+   acc_std                      mismatches     0   max |diff| 1e-16
+   motion                       mismatches 0
+
+Table 1 epochs: rate grid (new) | legacy n resp, card, max | head-angle grid rows
+   S1N1    954 |   954   954   954 |   954   profile grid 953
+   S1N2    916 |   916   916   916 |   916   profile grid 915
+   S2N1    928 |   928   928   928 |   928   profile grid 927
+   S2N2    812 |   812   812   812 |   812   profile grid 812
+   S3N1    832 |   831   832   832 |   832   profile grid 832
+   S3N2   1039 |  1027  1039  1039 |  1039   profile grid 1039
+   S4N1    741 |   741   740   741 |   741   profile grid 740
+   S4N2    722 |   722   722   722 |   722   profile grid 722
+   S5N1    493 |   493   493   493 |   493   profile grid 492
+   S5N2    569 |   569   569   569 |   569   profile grid 569
+   S6N1    619 |   585   619   619 |   619   profile grid 618
+   S6N2    694 |   682   694   694 |   694   profile grid 693
+   totals: new 9319, legacy Table 1 9319, head-angle grid 9319, profile grid 9312
+
+canceller (CLE-CRE) vs motion_cancel_validation.csv: new 24 rows, legacy 24 rows, only-new 0, only-legacy 0
+   frac_var_removed             mismatches     0   max |diff| 0
+   corr_removed_vs_motion       mismatches     0   max |diff| 0
+   coh_ref_before               mismatches     0   max |diff| 0
+   coh_ref_after                mismatches     0   max |diff| 0

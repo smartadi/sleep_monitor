@@ -1,0 +1,170 @@
+s04_rates vs legacy
+
+1. operational choice: legacy selection rule applied to the legacy estimator table
+  [MATCH] resp: legacy picks peaks_loose on CRE; stage fixes ('peaks_loose', 'CRE')
+  [MATCH] card: legacy picks peaks_loose on CRE; stage fixes ('peaks_loose', 'CRE')
+  operational_choice.csv: [{'band': 'resp', 'estimator': 'peaks_loose', 'channel': 'CRE'}, {'band': 'card', 'estimator': 'peaks_loose', 'channel': 'CRE'}]
+
+2. stage downstream code on the LEGACY parquet (isolates it from the references)
+  [MATCH] legacy-parquet per_session.csv: 24 rows | k: max|d|=2.22e-16; k_cross: max|d|=2.22e-16; k_pop: max|d|=2.22e-16; ref_mean: max|d|=1.78e-15; ref_sd: max|d|=1.78e-15; night_self: max|d|=4.44e-16; night_cross: max|d|=4.44e-16; night_pop: max|d|=4.44e-16; night_nosensor: max|d|=1.78e-15; epoch_self: max|d|=0; epoch_cross: max|d|=7.11e-15; epoch_pop: max|d|=1.78e-15; epoch_nosensor: max|d|=2.22e-16; r_within: max|d|=2.22e-16; raw_sd: max|d|=1.78e-15; n: max|d|=0
+  [MATCH] legacy-parquet heldout_table.csv: string-identical = True
+  [MATCH] legacy-parquet estimator_table.csv (peaks_loose, spectral x CH/CLE/CRE): 12 rows | epoch_self: max|d|=4.44e-16; night_self: max|d|=4.44e-16; epoch_pop: max|d|=3.55e-15; night_cross: max|d|=4.44e-16; r_within: max|d|=9.89e-17; raw_sd: max|d|=1.78e-15; ref_sd: max|d|=0
+  [MATCH] legacy-parquet k_by_channel.csv: 144 rows | k: max|d|=4.44e-16; n_epochs: max|d|=0
+  [MATCH] legacy-parquet k_per_epoch_spread.csv: 72 rows | k_median: max|d|=4.44e-16; k_q1: max|d|=4.44e-16; k_q3: max|d|=4.44e-16; iqr: max|d|=9.71e-17; n_epochs: max|d|=0
+  [MATCH] legacy-parquet allsessions_error.csv: 72 rows | k: max|d|=4.44e-16; median_abs_err: max|d|=1.78e-15
+
+3. pass A, legacy emulation: per-epoch recomputation vs the legacy parquet
+  S1N1: 954 epochs
+  S1N2: 916 epochs
+  S2N1: 928 epochs
+  S2N2: 812 epochs
+  S3N1: 832 epochs
+  S3N2: 1039 epochs
+  S4N1: 741 epochs
+  S4N2: 722 epochs
+  S5N1: 493 epochs
+  S5N2: 569 epochs
+  S6N1: 619 epochs
+  S6N2: 694 epochs
+  [DIFF ] per-epoch (gt_hz, spectral, peaks_loose): 55914 rows | t_hr: max|d|=0; gt_hz: max|d|=0; spectral: max|d|=0.25; peaks_loose: max|d|=0.156
+  [DIFF ] pass A per_session.csv: 24 rows | k: max|d|=0.000212; k_cross: max|d|=0.000212; k_pop: max|d|=2.22e-16; ref_mean: max|d|=1.78e-15; ref_sd: max|d|=1.78e-15; night_self: max|d|=0.0112; night_cross: max|d|=0.011; night_pop: max|d|=0.0109; night_nosensor: max|d|=1.78e-15; epoch_self: max|d|=0.00169; epoch_cross: max|d|=0.00633; epoch_pop: max|d|=1.78e-15; epoch_nosensor: max|d|=2.22e-16; r_within: max|d|=0.0103; raw_sd: max|d|=0.0854; n: max|d|=0
+  [DIFF ] pass A heldout_table.csv: string-identical = False
+          night_cross: port ['0.57 [0.40–0.70]', '3.77 [2.51–6.49]']  legacy ['0.57 [0.40–0.70]', '3.77 [2.50–6.49]']
+          epoch_cross: port ['1.90 [1.66–2.01]', '4.64 [4.06–10.77]']  legacy ['1.90 [1.66–2.01]', '4.64 [4.05–10.77]']
+  [DIFF ] pass A estimator_table.csv (peaks_loose, spectral x CH/CLE/CRE): 12 rows | epoch_self: max|d|=0.0131; night_self: max|d|=0.00293; epoch_pop: max|d|=3.55e-15; night_cross: max|d|=0.0199; r_within: max|d|=0.000218; raw_sd: max|d|=0.00952; ref_sd: max|d|=0
+  [DIFF ] pass A k_by_channel.csv: 144 rows | k: max|d|=0.00075; n_epochs: max|d|=0
+  [DIFF ] pass A k_per_epoch_spread.csv: 72 rows | k_median: max|d|=0.000361; k_q1: max|d|=0.000414; k_q3: max|d|=0.00174; iqr: max|d|=0.00133; n_epochs: max|d|=0
+  [DIFF ] pass A allsessions_error.csv: 72 rows | k: max|d|=0.000361; median_abs_err: max|d|=0.0116
+  pass A differs from the stored parquet only in a few peak counts. Is that the port?
+Loading S4N1 (OS004-CJH 12-25-2025)... 6.18 hr  (2,224,400 samples)
+  [MATCH] S4N1, legacy code today vs port: 8892/8892 values identical; legacy code today vs stored parquet: 8814/8892
+  -> pass A == stored legacy outputs: False; port == legacy code: True
+
+4. ECG side (independent of the references)
+  [MATCH] ref_sanity_check.csv ecg_bpm, reference: 12 rows | ecg_bpm: max|d|=7.11e-15; parquet_ref_bpm: max|d|=7.11e-15
+    legacy ratio column vs port (port flags unusable ECG as the script says):
+    session  ratio_port  ratio_leg    note_port
+       S1N1        1.01       1.01             
+       S1N2        1.02       1.02             
+       S2N1        1.36       1.36             
+       S2N2        1.07       1.07             
+       S3N1        1.01       1.01             
+       S3N2        1.00       1.00             
+       S4N1        1.00       1.00             
+       S4N2        0.99       0.99             
+       S5N1         NaN     262.06 ECG unusable
+       S5N2        1.00       1.00             
+       S6N1        1.29       1.29             
+       S6N2         NaN     879.27 ECG unusable
+  [MATCH] peaks_per_beat.csv (CRE): 10 rows | cap_peaks: max|d|=0; ecg_beats: max|d|=0; peaks_per_beat: max|d|=4.44e-16
+    legacy CRE median, all 10 rows: 1.904; without S4N1 (detector failure): 2.018  <- the quoted 2.02
+    worked example (Fig. S7): 20 peaks, 19.6/min, ÷1.18 = 16.6  (legacy figure: 20, 19.6, 16.6)
+
+5. what the corrected references change (headline values, medians of 12 nights)
+  S1N1: 954 epochs
+  S1N2: 916 epochs
+  S2N1: 928 epochs
+  S2N2: 812 epochs
+  S3N1: 832 epochs
+  S3N2: 1039 epochs
+  S4N1: 741 epochs
+  S4N2: 722 epochs
+  S5N1: 493 epochs
+  S5N2: 569 epochs
+  S6N1: 619 epochs
+  S6N2: 694 epochs
+  S1N1: 954 epochs
+  S1N2: 916 epochs
+  S2N1: 928 epochs
+  S2N2: 812 epochs
+  S3N1: 832 epochs
+  S3N2: 1039 epochs
+  S4N1: 741 epochs
+  S4N2: 722 epochs
+  S5N1: 493 epochs
+  S5N2: 569 epochs
+  S6N1: 619 epochs
+  S6N2: 694 epochs
+                       legacy files   A legacy refs B + ECG cardiac ref C stage (+ s03 resp ref)
+resp night self                0.24            0.24                0.24                     0.24
+card night self                1.56            1.56                1.19                     1.19
+resp epoch self                1.79            1.79                1.79                     1.79
+card epoch self                3.41            3.41                3.09                     3.09
+resp k                         1.18            1.18                1.18                     1.18
+card k                         1.96            1.96                2.00                     2.00
+card k IQR                1.77-2.01       1.77-2.01           1.95-2.07                1.95-2.07
+resp cross/pop/none  0.57/0.94/1.20  0.57/0.94/1.20      0.57/0.94/1.20           0.57/0.94/1.20
+card cross/pop/none  3.77/3.19/2.76  3.77/3.19/2.76      3.89/2.44/4.04           3.89/2.44/4.04
+resp ref range          14.21-16.98     14.21-16.98         14.21-16.98              14.21-16.98
+
+  cardiac reference per night (median BPM, CRE rows): ECG-first vs Pleth fallback
+           card_ref_ecg  card_ref_pleth
+  session                              
+  S1N1             57.3            57.4
+  S1N2             51.8            52.5
+  S2N1             52.0            71.0
+  S2N2             55.7            59.3
+  S3N1             60.7            61.7
+  S3N2             60.2            60.6
+  S4N1             59.9            59.8
+  S4N2             64.1            64.0
+  S5N1             61.2            61.2
+  S5N2             61.2            61.3
+  S6N1             65.7            85.3
+  S6N2            128.9           128.9
+
+6. every registered number: legacy references (pass A) vs the stage (pass C)
+                    id                                    paper_value                                     computed_legacy_refs status_legacy_refs                                           computed_stage status_stage
+   night_err_resp_disc                               0.24 breaths/min                                                    0.242              MATCH                                                    0.242        MATCH
+   night_err_card_disc                                 1.56 beats/min                                                    1.556              MATCH                                                    1.194         DIFF
+   night_err_resp_conc                               0.24 breaths/min                                                    0.242              MATCH                                                    0.242        MATCH
+   night_err_card_conc                                 1.56 beats/min                                                    1.556              MATCH                                                    1.194         DIFF
+        epoch_err_resp                               1.79 breaths/min                                                    1.786              MATCH                                                    1.786        MATCH
+        epoch_err_card                                 3.41 beats/min                                                    3.406              MATCH                                                    3.094         DIFF
+                k_card           1.96; interquartile range, 1.77–2.01                                         1.96 (1.77–2.01)              MATCH                                         2.00 (1.95–2.07)         DIFF
+                k_resp                                           1.18                                                    1.179              MATCH                                                    1.179        MATCH
+        peaks_per_beat                   2.02 peaks per cardiac cycle                                                    2.018              MATCH                                                    2.018        MATCH
+        resp_ref_range                          14.4–16.8 breaths/min                                              14.21–16.98               DIFF                                              14.21–16.98         DIFF
+         nosensor_resp                               1.20 breaths/min                                                    1.200              MATCH                                                    1.200        MATCH
+            prominence                                          0.05σ                                                    0.050              MATCH                                                    0.050        MATCH
+           min_spacing                                          0.4 s                               1.8 s (resp), 0.3 s (card)               DIFF                               1.8 s (resp), 0.3 s (card)         DIFF
+              s7_peaks                                       20 peaks                                                       20              MATCH                                                       20        MATCH
+           s7_raw_rate                                19.6 per minute                                                   19.554              MATCH                                                   19.554        MATCH
+           s7_k_cohort                                       k = 1.18                                                    1.180              MATCH                                                    1.180        MATCH
+        s7_rate_cohort                        16.6 breaths per minute                                                   16.571              MATCH                                                   16.571        MATCH
+              s7_k_own                                                                                                   1.028                NEW                                                    1.028          NEW
+           s7_rate_own                                                                                                  19.023                NEW                                                   19.023          NEW
+        s7_operational                                                                                                  18.140                NEW                                                   18.140          NEW
+                s7_ref                                                                                                  20.464                NEW                                                   20.464          NEW
+       s8_k_resp_peaks        1.04 on CH, 1.14 on CLE and 1.18 on CRE                                         1.04, 1.14, 1.18              MATCH                                         1.04, 1.14, 1.18        MATCH
+       s8_k_card_peaks                            1.93, 1.95 and 1.96                                         1.93, 1.95, 1.96              MATCH                                         1.97, 1.99, 2.00         DIFF
+    s8_k_resp_spectral                                           0.96                                                     0.96              MATCH                                                     0.96        MATCH
+s8_spectral_resp_const                                                                                                  99.939                NEW                                                   99.939          NEW
+    s8_k_card_spectral                                                                                        0.94, 1.07, 1.29                NEW                                         0.96, 1.10, 1.33          NEW
+       s8_spread_ratio                             two to three times                                            0.9, 2.2, 2.0               DIFF                                            2.3, 1.5, 1.8         DIFF
+        ref_verified_n                            eight of the twelve                                                        8              MATCH                                                        8        MATCH
+         ref_high_S2N1                                            36%                                                   36.000              MATCH                                                   36.000        MATCH
+         ref_high_S6N1                                            29%                                                   29.000              MATCH                                                   29.000        MATCH
+          ref_unusable                                   S5N1 or S6N2                                               S5N1, S6N2              MATCH                                               S5N1, S6N2        MATCH
+              ref_S6N2                                  129 beats/min                                                  129.614               DIFF                                                  129.614         DIFF
+       k_card_verified                          1.98, range 1.81–2.28                                    1.98, range 1.81–2.28              MATCH                                    2.02, range 1.89–2.32         DIFF
+           k_card_low3                                                                                        S2N1, S6N1, S6N2                NEW                                         S4N2, S6N1, S6N2          NEW
+              s9_night                                                                                                    S3N2                NEW                                                     S3N2          NEW
+         s9_card_count                            near 120 per minute                                                  120.163              MATCH                                                  120.163        MATCH
+           s9_card_ref                        between about 55 and 80                                                56.7–66.1               DIFF                                                56.3–65.6         DIFF
+        s9_k_channel_r                                                                                                   0.607                NEW                                                    0.607          NEW
+         r_within_resp                                                                                                  -0.026                NEW                                                   -0.026          NEW
+         r_within_card                                                                                                  -0.084                NEW                                                   -0.258          NEW
+         s11_resp_self                                           0.24                                                    0.242              MATCH                                                    0.242        MATCH
+        s11_resp_cross                                           0.57                                                    0.570              MATCH                                                    0.570        MATCH
+          s11_resp_pop                                           0.94                                                    0.943              MATCH                                                    0.943        MATCH
+     s11_resp_nosensor                                           1.20                                                    1.200              MATCH                                                    1.200        MATCH
+        s11_card_cross                                           3.77                                                    3.772              MATCH                                                    3.892         DIFF
+          s11_card_pop                                           3.19                                                    3.191              MATCH                                                    2.438         DIFF
+     s11_card_nosensor                                           2.76                                                    2.764              MATCH                                                    4.041         DIFF
+    s11_epoch_baseline Epoch by epoch neither band beats the baseline resp 1.79/1.90/2.08 vs 1.29; card 3.41/4.64/5.65 vs 4.42               DIFF resp 1.79/1.90/2.08 vs 1.29; card 3.09/4.91/4.20 vs 4.56         DIFF
+          s12_iqr_resp                                      0.18–0.20                                                0.18–0.20              MATCH                                                0.18–0.20        MATCH
+          s12_iqr_card                                      0.19–0.24                                                0.19–0.24              MATCH                                                0.16–0.21         DIFF
+             s_age_far                                                                                S6N2 (25 y), S6N1 (25 y)                NEW                                 S6N2 (25 y), S1N2 (61 y)          NEW
+
+OVERALL (faithfulness): MATCH -- downstream code exact on the legacy parquet; per-epoch values identical to the legacy code run today; ECG side exact. The stored parquet itself differs from its own code in 0.16% of peak counts.

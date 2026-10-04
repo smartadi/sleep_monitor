@@ -6,6 +6,13 @@ Records all code changes to library modules, scripts, and notebooks.
 
 ## 2026-10-03
 
+- **Added** `paper/`: the paper's code isolated and reproducible top to bottom. `python paper/run_all.py` goes from raw recordings to every figure, table and quoted number of manuscript V11 / supplement V3 in ~12 min (clean, from raw). Two runs are byte-identical: all 408 numbers and all 69 tables.
+  - `paper/seclib/`: frozen copy of the 9 `sleep_monitor` modules the paper uses, plus `data` (cached session loading, verified byte-identical to `load_session`), `numbers` (registry of every quoted number: MATCH/DIFF/NEW/EXTERNAL) and `figures`. Data root from `SLEEPMASK_DATA` instead of a hard-coded path. Nothing in `paper/` imports the rest of the repo.
+  - `paper/stages/s01`–`s09`, `s99`: one stage per manuscript section, each **first verified against the legacy outputs** (`paper/checks/*_vs_legacy.py`, records in `checks/results/`), then corrected with every change marked `# CORRECTION:`.
+  - `paper/PROVENANCE.md`: which legacy script produced each manuscript item, and every conflict found. `paper/outputs/PAPER_NUMBERS.md`: the manuscript-vs-code report (214 MATCH, 102 DIFF, 69 NEW, 23 EXTERNAL).
+  - **Fixed in the vendored library**: `ground_truth` fallbacks (ECG→Pleth, Flow→Thorax) were a bare `except: pass`. They now warn. The consensus-reference path pointed at a nonexistent folder.
+  - `paper/requirements.txt` pins the versions the outputs were made with (root `requirements.txt` is unpinned and incomplete).
+
 - **Added** `analysis/slow_wave/ridge_lowband_smooth.py` -> `writeup/figures/harmonics/ridges_lowband/ridge_lowband_{S}_CRE.png`, `ridge_lowband_allsessions_CRE.png`; `reports/slow_wave/low_band/ridge_lowband_smooth{,_episodes}.csv`. Replaces the low-band (0-0.3 Hz) panel of the ridge_tune figures: 10-min Welch columns (4-min segments, ~7 averages) every 30 s on a 2 Hz copy of the channel, 1/f detrended, light blur; a Viterbi ridge over 0.02-0.20 Hz gated per night.
   - **Input is the channel band-passed 0.005-0.5 Hz, not the rate pipeline's motion-cancelled signal.** That signal's 0.05 Hz corner produced the constant 0.05-0.08 Hz band, and its accelerometer regression adds ~6 dB plus a 0.1447 Hz accelerometer line (see ANALYSIS_LOG).
   - **Gate from a block-shuffled null** (`shuffle_gate`): the night's own map permuted in 10-min blocks; the gate is the lowest dB at which the shuffles show <=5% of the night as ridge, runs >=15 min. Two nulls tried and rejected, both documented in the docstring: phase randomisation (periodogram spikes become all-night tones) and smoothed-spectrum coloured noise (stationary; motion bursts become permanent features).

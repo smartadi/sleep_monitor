@@ -3013,8 +3013,11 @@ Rebuilt on the channel itself (0.005–0.5 Hz, no regression), with a Viterbi ri
 against a 10-min block-shuffled null (≤5% of the night as ridge in the shuffles, runs
 ≥15 min): **CRE ridge on 5–20% of each night (median 12%) against 5% null; night medians
 0.021–0.199 Hz, no common frequency, several at the 0.02 Hz search edge.** No persistent
-low-frequency oscillation at a common frequency. V11's "67 ridges, median 6" came from a
-co-author script we do not hold and is not reproduced. Two nulls rejected on the way:
+low-frequency oscillation at a common frequency. V11's "67 ridges, median 6" came from
+our own `ridge_overlay_tune.py` slow-band detector (counts printed in figure titles before
+ed34139, 2026-08-06 renders), run on the motion-cancelled signal — so it inherits the
+artifact. (Corrected 2026-10-03 after the provenance audit; an earlier line here called it
+a co-author script.) Two nulls rejected on the way:
 phase randomisation (fixed periodogram amplitudes → every chance spike is an all-night
 tone → gate 11 dB, nothing passes) and smoothed-spectrum coloured noise (stationary, so a
 few motion bursts become permanent features, +6 dB at 0.14 Hz).
@@ -3036,3 +3039,34 @@ Motion-free, per-night enrichment (observed/expected), 14 dead S4N1 epochs remov
   enriched on CH (2.7×) and CRE (2.1×) but at chance on CLE (1.06).
 - So low variance tracks N3 and high variance tracks wake on the single-ended channels as
   well as CH — not a CH-configuration effect. One value per night; no pooled test.
+
+## 2026-10-03 — Paper reproducibility audit: what the code says vs manuscript V11
+
+Every figure, table and number in V11 + supplement V3 traced to code, ported into `paper/`
+(faithful port verified against legacy outputs first), then corrected. Full table:
+`paper/outputs/PAPER_NUMBERS.md` (214 MATCH, 102 DIFF, 69 NEW, 23 EXTERNAL); provenance:
+`paper/PROVENANCE.md`. The findings that change the paper:
+
+- **Cardiac reference was Pleth, not ECG, in every legacy run.** `gt_heart_rate` swallowed
+  the ECG exception and fell back silently on all 12 nights; today ECG works on 10 (S5N1,
+  S6N2 dead). With ECG: cardiac night error 1.56 → 1.19 BPM, k 1.96 → 2.00, no-sensor
+  baseline 2.76 → 4.04 BPM. Respiratory numbers unchanged.
+- **Fig 10/11 and §3.8 were made in a co-author workbook from values read off a figure.**
+  Exact: Fig 10 R² 0.637 / 0.710 / **0.855** (paper 0.63 / 0.71 / 0.68). "SWS %" in the
+  workbook is hand-measured oscillation duration, not PSG N3, and its column was mis-paired
+  (R 0.68 → 0.48 correctly paired). Against real PSG N3, mean SEC area gives R = −0.17 —
+  the Discussion/Conclusion "association with PSG-measured SWS" is not supported. Several §3.8
+  signs are wrong (0.48 → −0.48, 0.63 → −0.63, 0.56 → −0.57); R² = 0.10 untraced (0.005).
+- **Spindle dB** came from averaging the POOLED row into the 12 sessions; K-complex marks
+  were counted as spindles (40 in N2). Effects are small (≤0.002 dB) but the stated values
+  shift (CH 0.55 → 0.544 per recording / 0.587 pooled).
+- **Ridges**: "CRE dominant in 9/12" does not hold on the current detector (CH 11/12 by
+  prominence). The N3 respiratory-ridge-power reduction **survives count matching** (CH 6/6,
+  CLE 5/6, CRE 5/6 by median). Low band as in the 2026-10-03 entry above.
+- **Comb events**: N2 occupancy at onset 0.68 (0.91 is reached 2.5–4 min later).
+- **Delta/K-complex**: AUC/xcorr were zero-phase although attributed to causal filtering;
+  causal AUC 0.37–0.51. Only 9/344 onsets fall on a scored K-complex. Four (not three)
+  recordings have <10 onsets.
+- **Band fractions** (29–48% / 8–48%) were 3 nights, CLE−CRE, 0.05–10 Hz; all 12 nights,
+  each channel, <5 Hz: resp 9–59%, cardiac 3–60%.
+- ~12 wrong figure/table cross-references (listed in PROVENANCE.md).

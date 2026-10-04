@@ -1,0 +1,28 @@
+[data ] band_ridge_epochs.parquet (55914 rows): n_groups_active: 422 of 55914 differ; min_ridge_freq: 32 of 55914 differ; mean_ridge_freq: 89 of 55914 differ; freq_spread: 71 of 55914 differ; max_prominence: 104 of 55914 differ
+        n_ridges: 0 epochs differ in 0 band/channel/night cells
+        total_ridge_power: 0 epochs differ in 0 band/channel/night cells
+        min_ridge_freq: 32 epochs differ in 15 band/channel/night cells
+        ridge_present: 0 epochs differ in 0 band/channel/night cells
+        motion_masked: 0 epochs differ in 0 band/channel/night cells
+        stage_code: 0 epochs differ in 0 band/channel/night cells
+        differing cells: 26 of 72: resp/CH/S1N1, resp/CH/S1N2, resp/CH/S2N2, resp/CH/S3N1, resp/CH/S4N1, resp/CH/S4N2, resp/CH/S5N2, resp/CH/S6N2, resp/CLE/S1N1, resp/CLE/S1N2, resp/CLE/S2N1, resp/CLE/S2N2, resp/CLE/S3N1, resp/CLE/S3N2, resp/CLE/S4N1, resp/CLE/S4N2, resp/CLE/S5N2, resp/CLE/S6N1, resp/CLE/S6N2, resp/CRE/S2N1, resp/CRE/S2N2, resp/CRE/S3N2, resp/CRE/S4N1, resp/CRE/S4N2, resp/CRE/S5N1, resp/CRE/S5N2
+        cause test: the vendored detector merges ridge fragments iteratively and matches them on a 3-sample boundary median (sleep_monitor commit 52cc5f3, 2026-08-17); the legacy parquet was written 2026-07-16 with ONE merge pass on single endpoint samples. Re-running the differing cells with the July merge:
+        26 of 26 cells now identical to the legacy parquet
+[logic] band_ridge_stage_summary.csv: identical
+[data ] band_ridge_stage_summary.csv: kw_p: 3 of 12 differ; mwu_p: 3 of 12 differ; n_subj_N3_dn_by_mean: 1 of 12 differ; directions_by_mean: 1 of 12 differ
+        resp freq_spread: kw_p 3.49e-05 (legacy 3.37e-05), N3 lower by mean 4 (legacy 4)
+        resp n_groups_active: kw_p 0.00503 (legacy 0.00632), N3 lower by mean 5 (legacy 4)
+[logic] ridge_stage_all_channels.csv: identical
+[data ] ridge_stage_all_channels.csv: n3_lower: 2 of 72 differ; n3_higher: 2 of 72 differ; directions: 2 of 72 differ
+        resp CH n_groups_active mean: OS001:>,OS002:<,OS003:>,OS004:<,OS005:>,OS006:< (legacy OS001:<,OS002:<,OS003:>,OS004:<,OS005:>,OS006:<)
+        resp CRE n_groups_active mean: OS001:<,OS002:>,OS003:<,OS004:<,OS005:<,OS006:< (legacy OS001:<,OS002:>,OS003:<,OS004:<,OS005:>,OS006:<)
+        resp power CH  mean   N3 lower 5/6 (legacy 5/6)
+        resp power CLE mean   N3 lower 4/6 (legacy 4/6)
+        resp power CRE mean   N3 lower 5/6 (legacy 5/6)
+        resp power CH  median N3 lower 6/6 (legacy 6/6)
+        resp power CLE median N3 lower 5/6 (legacy 5/6)
+        resp power CRE median N3 lower 4/6 (legacy 4/6)
+[logic] ridge_robustness.csv: identical
+[data ] ridge_robustness.csv: identical
+[data ] ridge_lowband_smooth.csv: identical
+[data ] ridge_lowband_smooth_episodes.csv: identical

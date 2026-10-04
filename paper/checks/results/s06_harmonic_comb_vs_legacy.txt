@@ -1,0 +1,6 @@
+[data ] ladder_events.csv (22 rows): identical
+[data ] ladder_stage_summary.csv (9 rows): identical
+[data ] harmonic_ladders_long.csv (20 rows): f0_hz: 6 of 20 differ; median_rungs: 18 of 20 differ
+        episode spans (active_min, longest_min, dominant_stage) identical: True. The rung columns differ because the legacy file was written 2026-08-17 02:16, before commit 8908b4c (2026-08-17 11:54) replaced episode-averaged peak picking (PEAK_DB 2.0, 0.08 Hz spacing) with the horizontal-band tracker that the manuscript describes and this stage uses.
+        events 22 / sessions 9 / subjects 6; stages {'N2': 19, 'N1': 1, 'N3': 1, 'Wake': 1}
+        REM pre 0.0591 post 0.0068; null pre 0.0174 post 0.0308; median min before 29.9 after 51.4

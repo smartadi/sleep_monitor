@@ -1,0 +1,14 @@
+[OK] delta_onsets_summary (q30)  (12 rows, tol 0)  max|diff|: quiet_pre_s=0, n_onsets=0, dur_hr=0, nrem_hr=0, onsets_per_nrem_hr=0, pct_in_nrem=0, n_N3=0, n_N2=0, median_iei_s=0
+[OK] onset samples, 12 recordings, exact  (344 onsets identical)
+[OK] response_consistency.csv  (9 rows, tol 0.001)  max|diff|: n_subj_response=0, n_subj=0, mean_peak_z=0, mean_null_peak_z=0, grand_peak_latency_s=0
+[OK] lowband_precursor_check.csv  (18 rows, tol 0.001)  max|diff|: near[-3,0]_realMinusNull_z=0, near_n_subj_pos=0, mid[-8,-3]_realMinusNull_z=0, mid_n_subj_pos=0, rise_onset_t_s=0
+[OK] precursor_summary, legacy draw order  (9 rows, tol 0)  max|diff|: post_peak_z=0, post_peak_t_s=0, null_peak_z=0, lead_amp_z=0, peak_pre_t_s=0, xcorr_peak_lag_s=0, xcorr_peak_r=0, auc_pooled=0, auc_subj_min=0, auc_subj_max=0
+  (info) stage zero-phase table vs legacy, stage draw order (no q15 pass):
+[OK] precursor_summary, stage draw order  (9 rows, tol inf)  max|diff|: post_peak_z=0, post_peak_t_s=0, null_peak_z=0.25, lead_amp_z=0, peak_pre_t_s=0, xcorr_peak_lag_s=0, xcorr_peak_r=0, auc_pooled=0.085, auc_subj_min=0.19, auc_subj_max=0.25
+[OK] arousal_control  (164 rows, tol 0.0001)  max|diff|: n_onsets=0, peak_z=4e-07, peak_lat_s=0, null_peak_z=9.6e-08
+[OK] kcomplex_marks  (12 rows, tol 0)  max|diff|: n_kcomplex=0, n_spindle=0, k_dur_ms_median=0
+[OK] kcomplex_criteria  (50 rows, tol 1e-09)  max|diff|: stage=0, burst_s=0, quiet_ok=0
+[OK] kcomplex_cap_response (zero-phase)  (10 rows, tol 1e-09)  max|diff|: n_kcomplex=0, CLE_peak_z=0, CLE_peak_lat_s=0, CRE_peak_z=0, CRE_peak_lat_s=0, CH_peak_z=0, CH_peak_lat_s=0
+[OK] Fig. 12b medians CLE/CRE/CH [3.6, 3.7, 4.3] vs legacy figure [3.6, 3.7, 4.3]
+
+10/10 checks pass
