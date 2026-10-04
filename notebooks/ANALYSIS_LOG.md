@@ -2990,3 +2990,49 @@ is the residual of a one-parameter fit to the quantity reported; comb detector h
 surrogate null; the 0.07 Hz ridge has no documented detection method; the abstract contains
 no results at all. §2.2's BMI/health exclusions *caused* the 14.4–16.8 br/min range that lets
 the constant predictor win — a design limitation, not a sampling accident.
+
+## 2026-10-03 — Low-band ridges were the filter; low variance marks N3 on every channel
+
+Deck work for the jedit review deck (`writeup/review/_build_review_deck_v5.py`); three
+analyses behind it.
+
+**1. The 0-0.3 Hz panel showed the motion canceller, not the subject.**
+`analysis/slow_wave/ridge_lowband_smooth.py`, `lowband_filter_check.py`. The ridge_tune
+low-band panel was computed from `remove_acc_artifact(sig, acc, 0.05, 4.0)`. Two measured
+problems (S1N1 CRE, whole-night Welch):
+- its **0.05 Hz band-pass corner**, after per-column 1/f detrending, is a constant hump just
+  above 0.05 Hz in every column of every night — this is the "energy concentrated near
+  0.05–0.08 Hz" in V11 §3.3 and the Fig. 5 caption;
+- below 0.5 Hz, **acc_mag is head orientation plus an instrumental line at 0.1447 Hz**
+  (harmonic 0.289 Hz), 5–15 dB above its background on **all 12 nights** and absent from the
+  capacitive channels. The OLS regression **raises** CRE's low-band power by ~6 dB
+  (5.9 → 11.6 dB at 0.13 Hz) and writes the line in (+19 dB at 0.1447 Hz). The regressed
+  spectrum follows the accelerometer's peak for peak.
+
+Rebuilt on the channel itself (0.005–0.5 Hz, no regression), with a Viterbi ridge gated
+against a 10-min block-shuffled null (≤5% of the night as ridge in the shuffles, runs
+≥15 min): **CRE ridge on 5–20% of each night (median 12%) against 5% null; night medians
+0.021–0.199 Hz, no common frequency, several at the 0.02 Hz search edge.** No persistent
+low-frequency oscillation at a common frequency. V11's "67 ridges, median 6" came from a
+co-author script we do not hold and is not reproduced. Two nulls rejected on the way:
+phase randomisation (fixed periodogram amplitudes → every chance spike is an all-night
+tone → gate 11 dB, nothing passes) and smoothed-spectrum coloured noise (stationary, so a
+few motion bursts become permanent features, +6 dB at 0.14 Hz).
+
+**Open:** the same regression runs ahead of the 0.05–4 Hz rate band. Whether it injects
+accelerometer content there has not been checked.
+
+**2. De-stepped CLE−CRE and CH, with velocity.** `analysis/mean_value/destep_velocity.py`.
+12–32% of 10-s blocks fall inside a head movement. Still-period median |velocity|:
+CLE−CRE 0.06–0.92 fF/min, CH 0.14–1.77 fF/min. r(velocity CLE−CRE, velocity CH) positive
+on every night but 0.04–0.82 (S1N2 0.04, S2N1 0.82). Descriptive only.
+
+**3. Both tails of the variance, CH/CLE/CRE.** `analysis/mean_value/variance_low_high.py`.
+Motion-free, per-night enrichment (observed/expected), 14 dead S4N1 epochs removed.
+- **Bottom decile is enriched for N3 on every channel**: median CH 2.2× (10/12 nights),
+  CLE 1.6× (9/12), CRE 2.3× (11/12; the exception is S6N1, 0.66). Wake, N1 and REM are
+  under-represented.
+- Top decile: Wake 1.6–2.0× (8–9/10 nights), N3 0.00–0.08 (2/12 on each channel), REM
+  enriched on CH (2.7×) and CRE (2.1×) but at chance on CLE (1.06).
+- So low variance tracks N3 and high variance tracks wake on the single-ended channels as
+  well as CH — not a CH-configuration effect. One value per night; no pooled test.
