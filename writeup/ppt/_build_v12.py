@@ -47,6 +47,11 @@ FINAL = ROOT / 'writeup' / 'review' / 'final'
 SRC = FINAL / 'CAP_sleep_mask_manuscript_V11.docx'
 OUT = FINAL / 'CAP_sleep_mask_manuscript_V12.docx'
 LOG = ROOT / 'writeup' / 'edits' / 'V12_CHANGES.md'
+FIGDIR = ROOT / 'paper' / 'outputs' / 'figures' / 's06_harmonic_comb'
+# caption start -> new picture (the picture is the nearest earlier paragraph with one).
+# Not a tracked change: Word does not track picture content.
+NEW_FIGS = {'Fig. 8 Representative harmonic-comb': FIGDIR / 'fig8_S6N1_CH.png',
+            'Fig. 9 Sleep-stage distribution': FIGDIR / 'fig9_stage_occupancy.png'}
 
 W_NS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
 W = '{%s}' % W_NS
@@ -107,7 +112,7 @@ EDITS = [
     ('B', '§3.6', '', 'Supporting information Fig. S11', ').',
      'Supporting information, Figs. S16–S18',
      'Old S11 no longer exists; the harmonic-comb events are now supplementary section S6 '
-     '(S16 all 22 events over the stages, S17 four events up close, S18 event properties).',
+     '(S16 all 45 events over the stages, S17 four events up close, S18 event properties).',
      'supplementary V4 section S6; analysis/slow_wave/supp_comb_figures.py'),
     ('C', '§3.4', ' channel (Fig. ', '7', '). This average', '6',
      'Spindle figure is captioned "Fig. 6. Mechanical SEC responses associated with sleep spindles".',
@@ -118,11 +123,6 @@ EDITS = [
     ('C', '§3.6', 'and 0.95 Hz (Fig. ', '9', ', Supporting information', '8',
      'Comb example is captioned "Fig. 8 Representative harmonic-comb events".',
      'V11 caption P216; PROVENANCE.md'),
-    ('C', '§3.6', 'at onset (Fig. ', '10a', '), indicating', '9a',
-     'Stage-occupancy figure is captioned "Fig. 9 Sleep-stage distribution of 22 harmonic-comb events".',
-     'V11 caption P221; PROVENANCE.md'),
-    ('C', '§3.6', 'little REM thereafter (Fig. ', '10b', '). The nearest', '9b',
-     'As above (panel B of Fig. 9).', 'V11 caption P221; PROVENANCE.md'),
     ('C', '§3.7', 'two separate nights (Fig. ', '11', '). Significant', '10',
      'Reproducibility figure is captioned "Fig. 10. Night-to-night reproducibility".',
      'V11 caption P227; ' + PN + ' fig_ref_230'),
@@ -206,25 +206,43 @@ EDITS = [
      ', although only 9 of the 344 onsets fell within 5 s of a scored K-complex',
      'As above: the computed fact replaces the unsupported "most onsets" claim.',
      PN + ' onsets_on_kcomplex, kc_with_onset'),
-    ('D', 'Fig. 8 caption', 'quasi-harmonic bands above the hypnogram. ', 'Two', ' events occurred', 'Three',
-     'S6N1 has 3 CH episodes (and 3 merged events), all in N2.', PN + ' fig8_events, fig8_stage'),
-    ('D', '§3.6', 'N2 probability of ', 'approximately 0.9', ' at onset', '0.68',
-     'P(N2) is 0.68 at onset; ~0.9 holds 2.5–4 min after onset.',
-     PN + ' n2_onset; ladder_onset_occupancy.csv'),
-    ('D', '§3.6', 'approximately 0.9 at onset', '', ' (Fig. 10a)',
-     ', peaking at 0.91 at 2.5 min after onset', 'Timing of the 0.91 peak per the note.', PN + ' n2_onset'),
-    ('D', '§3.6', 'the 30 min before event onset, approximately ', '3.5', ' times', '3.4',
-     'Unrounded ratio 5.914 / 1.745 = 3.39 (3.5 came from the rounded 5.9/1.7).', PN + ' rem_ratio'),
-    ('D', '§3.6', 'elevated REM occupancy approximately ', '30–8',
-     ' min before onset and little REM thereafter (Fig', '28–5',
-     'Span before onset with any REM occupancy: 28–5.0 min.', PN + ' rem_window'),
-    ('D', 'Fig. 9 caption', 'elevated occupancy approximately ', '30–8',
-     ' min before onset and little REM thereafter.', '28–5',
-     'Same quantity as §3.6.', PN + ' rem_window'),
-    ('D', '§3.6', 'consolidated N2 sleep ', 'approximately 10–30 min', ' after REM',
-     '14–72 min (interquartile range)',
-     'IQR of minutes from the preceding REM epoch to onset is 14–72 min (14 of 22 events '
-     'have a preceding REM epoch).', PN + ' rem_10_30'),
+    # ── F. Harmonic combs: adaptive detector (paper/stages/s06_harmonic_comb.py) ─
+    ('F', '§2.7 Methods', 'independently in each raw SEC channel ', 'using a background-subtracted 0-3 Hz spectrogram. An episode required at least three consecutive integer-related harmonic peaks, each at least 5 dB above the local spectral floor.', ' Horizontal',
+     'using a background-subtracted 0–5 Hz spectrogram. Each 30-s window was scored by the mean height above the local spectral floor of the first four multiples of the best-fitting fundamental (0.15–0.55 Hz), with heights below the floor counted as zero. The score was smoothed over 1.5 min and expressed as a robust z-score within each recording and channel. An episode began where z reached 2.5, extended while z stayed above 1.0, bridged gaps of up to 7 min, and had to last at least 3 min; these settings were chosen by visual inspection of all recordings.',
+     'Detector replaced: the fixed "three peaks each 5 dB" rule missed visible combs and split '
+     'single combs in two. The adaptive score was tuned by eye on all 12 nights x 3 channels '
+     '(analysis/slow_wave/comb_tune.py). Spectrogram now 0–5 Hz.',
+     'paper/stages/s06_harmonic_comb.py: comb_score, _hysteresis, detect_channel'),
+    ('F', 'Fig. 8 caption', 'background-enhanced spectrogram (', '0–3', ' Hz)', '0–5',
+     'Figure redrawn to 5 Hz with the adaptive detector; CH still has two events, both in N2.',
+     PN + ' fig8_events, fig8_stage; paper/outputs/figures/s06_harmonic_comb/fig8_S6N1_CH.png'),
+    ('F', '§3.6', '', 'Twenty-two events were identified across nine sessions',
+     ' from all six', 'Forty-five events were identified across all 12 sessions',
+     '45 merged events, 12 of 12 nights.', PN + ' n_events, n_sessions'),
+    ('F', '§3.6', 'One representative event contained bands at ', '0.15, 0.28, 0.42, 0.68, and 0.95',
+     ' Hz (Fig. ', '0.23, 0.50, and 1.10',
+     'The old example had no source. Replaced by the sustained bands of the first event in '
+     'Fig. 8 (S6N1, CH, 2.27–2.73 h).', 'ladder_bands.csv (S6N1 CH); ' + PN + ' example_bands'),
+    ('F', '§3.6', 'consolidated NREM sleep: ',
+     '19 of 22 (86%) occurred in N2, while one occurred in each of N1, N3, and wakefulness',
+     '.', '35 of 45 (78%) occurred in N2, four in N3, three in wakefulness, two in N1, and one in REM',
+     'Dominant stage of each event.', PN + ' n_n2, pct_n2, n_other; ladder_events.csv'),
+    ('F', '§3.6', '', 'Event-aligned stage occupancy showed an N2 probability of approximately 0.9 at onset (Fig. 10a), indicating that these events were associated with N2 rather than N3 slow wave activity. The events also showed a consistent temporal relationship with preceding REM sleep. REM occupied an average of 5.9% of the 30 min before event onset, approximately 3.5 times the matched random-NREM value of 1.7%. In contrast, REM occupied only 0.7% of the 30 min after event offset, compared with 3.1% in the control. Event-aligned analysis showed elevated REM occupancy approximately 30–8 min before onset and little REM thereafter (Fig. 10b). The nearest REM epoch occurred a median of 30 min before an event and 51 min afterward; REM was closer before than after the event in five of six participants. N1 occupancy also increased during the 10 min preceding onset, consistent with a REM-to-N1-to-N2 transition.', '', 'Event-aligned stage occupancy showed an N2 probability of 0.76 at onset, peaking at 0.82 about 4 min later (Fig. 9a), indicating that these events were associated with N2 rather than N3 slow wave activity. The relationship with REM sleep was weak and inconsistent. REM occupied an average of 3.5% of the 30 min before event onset, approximately twice the matched random-NREM value of 1.8%, and 1.3% of the 30 min after event offset, compared with 3.3% in the control (Fig. 9b). However, the nearest REM epoch occurred a median of 85 min before an event and 44 min afterward, and REM was closer before than after the event in only two of six participants. N1 occupancy was similar in the 10 min before onset and in the 20 min before that (0.15 in both).',
+     'Rewritten from the new results. With 45 events the pooled pre-onset REM excess is smaller '
+     '(x2.0, was x3.4) and REM is nearer AFTER the event in 4 of 6 participants, so the claimed '
+     '"consistent temporal relationship with preceding REM" no longer holds. Figure refs 10a/10b '
+     '-> 9a/9b. N1 pre-onset 0.154 vs 0.151: no increase.',
+     PN + ' n2_onset, rem_pre, rem_pre_null, rem_ratio, rem_post, rem_post_null, rem_med_before, '
+     'rem_med_after, rem_side, n1_pre; ladder_onset_occupancy.csv, ladder_rem_side_by_subject.csv'),
+    ('F', 'Fig. 9 caption', 'distribution of ', '22', ' harmonic-comb events', '45',
+     'Event count.', PN + ' n_events'),
+    ('F', 'Fig. 9 caption', 'REM occupancy surrounding event onset',
+     ', showing elevated occupancy approximately 30–8 min before onset and little REM thereafter', '.',
+     '; REM was slightly more frequent before onset than after, but not consistently across participants',
+     'As §3.6.', PN + ' rem_pre, rem_post, rem_side'),
+    ('F', '§3.6', '', 'Thus, harmonic-comb events generally emerged during consolidated N2 sleep approximately 10–30 min after REM and were not typically followed by REM. Given the small sample of 22 events from six participants, this pattern was considered exploratory rather than confirmatory. The events may represent nonsinusoidal, quasi-periodic mechanical or hemodynamic activity associated with stable post-REM NREM sleep rather than cortical slow-wave activity.', '', 'Thus, harmonic-comb events occurred mainly during consolidated N2 sleep. The pooled REM occupancy suggested a link with preceding REM, but this was not consistent across participants. Given 45 events from six participants, these patterns were considered exploratory rather than confirmatory. The events may represent nonsinusoidal, quasi-periodic mechanical or hemodynamic activity associated with stable NREM sleep rather than cortical slow-wave activity.',
+     'Conclusion of §3.6 follows the new results: N2 stands, post-REM timing does not.',
+     PN + ' rem_side, rem_10_30'),
 
     # ── E. Fig. 2 caption ages ───────────────────────────────────────────────
     ('E', 'Fig. 2 caption', 'four male participants aged ', '', '54 years', '25, 37, ',
@@ -252,7 +270,6 @@ Supplementary figures cited in V11 that no longer exist in supplement V4 (senten
 - P175: "(Supporting information, Fig. S4)" for the head-position result (V4 S4 is the rate pipeline).
 - P176: "Fig. S5a", "Fig. S5b", "Fig. S5c" (integrated magnitude; V4 S5 is k by channel; "S5c" is also UNTRACED).
 - P189 and P193: "Fig. S10" for ridges (V4 S10 is the movement-corrected S4N2 night) — also inside out-of-scope §3.3.
-- P218: "Supporting information Fig. S11" for harmonic combs (V4 S11 is CLE−CRE for all nights; there is no comb figure in V4).
 
 ## In scope but not applied (logged instead)
 
@@ -263,7 +280,6 @@ Supplementary figures cited in V11 that no longer exist in supplement V4 (senten
 - **Methods P162 (¶163) spindle method.** "low-frequency (0-3 Hz)": code drops the f = 0 bin (bins 0.78/1.56/2.34 Hz used), computed "0.1–3"; changing it would also need §3.4 and the Fig. 6 caption, and the band edges are not stated precisely. "count-matched baseline windows … spindle-free N2 windows": the detection control is all N2 points ≥ 3 s from a spindle (not count-matched) and the ERSP control is count-matched but not spindle-free, so no one-phrase replacement. "Subject-level averages … before the group average": the spindle numbers are recording/pooled means (identical to participant means here because each participant has two recordings); the same sentence also covers delta bursts, where it is true.
 - **§3.5 onset count entering Fig. 7 and the arousal control**: 339, not 344 (S4N2 and S5N1 skipped, < 5 onsets). Not in the listed §3.5 items; Fig. 7 caption "For the complete onset set" is affected.
 - **§3.5 P205, "Most were isolated N2 slow waves or K-complexes"**: 340 of 344 onsets are scored N2, but "K-complexes" has the same 9/344 problem as P208. Not a DIFF row; left.
-- **§3.6 P218 example bands** "0.15, 0.28, 0.42, 0.68, 0.95 Hz" (DIFF: nearest detected episode 0.17, 0.27, 0.40, 0.70, 0.93 Hz). Not in the listed §3.6 items.
 - **§3.7 P229 R² values** (0.63/0.71/0.68 → 0.637/0.710/0.855) and "Significant" (p = 0.057/0.035/0.008, n = 6). §3.7 was in scope only for the figure cross-reference.
 - **§3.9 K-complex latencies** (causal 3.5/5.2/5.5 s vs text 3.6/3.7/4.3 s) and "count-matched" null (it is 20 × marks, min 200). Not in scope.
 """
@@ -513,11 +529,13 @@ def main():
     n_ins = len(root.findall('.//' + q('ins')))
     n_del = len(root.findall('.//' + q('del')))
 
+    media = swap_figures(root, zin.read('word/_rels/document.xml.rels'))
     xml = etree.tostring(root, xml_declaration=True, encoding='UTF-8', standalone=True)
     tmp = OUT.with_suffix('.tmp')
     with zipfile.ZipFile(tmp, 'w') as zout:
         for info in zin.infolist():
-            data = xml if info.filename == 'word/document.xml' else zin.read(info.filename)
+            data = (xml if info.filename == 'word/document.xml'
+                    else media.get(info.filename) or zin.read(info.filename))
             zout.writestr(info, data, compress_type=info.compress_type)
     zin.close()
     tmp.replace(OUT)
@@ -540,6 +558,30 @@ def main():
     print(f'highlighted text deleted: {hl_deleted}')
     write_log(applied, hl_before, hl_after, hl_deleted, n_ins, n_del)
     print(f'wrote {OUT.relative_to(ROOT)}\nwrote {LOG.relative_to(ROOT)}')
+
+
+def swap_figures(root, rels_xml):
+    """Point each NEW_FIGS caption's picture at a new PNG; keep width, fix height."""
+    from PIL import Image
+    A = '{http://schemas.openxmlformats.org/drawingml/2006/main}'
+    R = '{http://schemas.openxmlformats.org/officeDocument/2006/relationships}'
+    WP = '{http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing}'
+    rels = {r.get('Id'): r.get('Target') for r in etree.fromstring(rels_xml)}
+    ps = body_ps(root)
+    out = {}
+    for cap, png in NEW_FIGS.items():
+        i = next(k for k, p in enumerate(ps) if ptext(p).strip().startswith(cap))
+        j = next(k for k in range(i - 1, -1, -1) if ps[k].find('.//' + A + 'blip') is not None)
+        blip = ps[j].find('.//' + A + 'blip')
+        target = 'word/' + rels[blip.get(R + 'embed')]
+        assert target.endswith('.png'), target
+        w, h = Image.open(png).size
+        for ext in [ps[j].find('.//' + WP + 'extent')] + ps[j].findall('.//' + A + 'ext'):
+            if ext is not None and ext.get('cx'):
+                ext.set('cy', str(int(int(ext.get('cx')) * h / w)))
+        out[target] = png.read_bytes()
+        print(f'  [fig] P{j} {target} <- {png.relative_to(ROOT)}')
+    return out
 
 
 def _find_all(s, sub):
@@ -569,7 +611,8 @@ def write_log(applied, hb, ha, hdel, n_ins, n_del):
     L += ['', '## Edits', '']
     names = {'A': 'A. Rate numbers', 'B': 'B. Supplementary cross-references',
              'C': 'C. Main-figure cross-references', 'D': 'D. Factual corrections',
-             'E': 'E. Fig. 2 caption'}
+             'E': 'E. Fig. 2 caption',
+             'F': 'F. Harmonic combs (adaptive detector; Figs. 8-9 pictures replaced, untracked)'}
     last = None
     for n, (grp, sec, i, pre, old, post, new, why, src) in enumerate(applied, 1):
         if grp != last:

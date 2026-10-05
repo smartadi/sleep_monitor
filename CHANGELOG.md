@@ -6,6 +6,23 @@ Records all code changes to library modules, scripts, and notebooks.
 
 ## 2026-10-05
 
+- **Changed** `paper/stages/s06_harmonic_comb.py`: the harmonic-comb detector is replaced by the adaptive one tuned by eye with the author (`analysis/slow_wave/comb_tune.py`, all 12 nights x CH/CLE/CRE).
+  - Score: the mean height above background of the first 4 harmonics of the best f0 (0.15–0.55 Hz), smoothed over 1.5 min and expressed as a robust z within each night and channel.
+  - Episodes by hysteresis: start at z ≥ 2.5, extend while z ≥ 1.0, bridge gaps ≤ 7 min, keep episodes ≥ 3 min.
+  - The spectrogram now runs to 5 Hz.
+  - The old detector is kept as `detect_channel_legacy`, which `paper/checks/s06_harmonic_comb_vs_legacy.py` uses.
+  - Figs. 8–9 have no titles; Fig. 8 boxes the episodes and draws only sustained bands (≥ half the episode).
+  - Result: 45 events on 12/12 nights, versus 22 on 9.
+- **Changed** `analysis/slow_wave/comb_tune.py` now calls the paper's `detect_channel`, so there is a single source of truth.
+- **Changed** `analysis/slow_wave/supp_comb_figures.py`: new example events (S6N1, S3N2, S2N1, S5N2), 0–5 Hz, sustained bands only, wider duration bins.
+- **Changed** `writeup/ppt/_build_supp_v4.py`: the S6 method describes the adaptive detector in plain words, and the result is computed from the new tables.
+- **Changed** `writeup/ppt/_build_v12.py`:
+  - New group F covers the Methods ¶160 detector, Fig. 8 (0–5 Hz), §3.6 counts and stages, the example bands (0.23/0.50/1.10 Hz from the Fig. 8 event), the REM paragraph (rewritten whole) and the §3.6 conclusion.
+  - Fig. 9 caption updated.
+  - The old §3.6 number patches and the 10a/10b ref edits are dropped (superseded).
+  - `swap_figures()` replaces the Fig. 8/9 pictures with the pipeline PNGs. This is untracked, because Word does not track picture content.
+  - Still 47 edits; the build verified, and Word opens it (37 pages).
+
 - **Added** `analysis/slow_wave/supp_comb_figures.py` -> `writeup/figures/supp_s6/`. The supplement's harmonic-comb figures, drawn from the paper pipeline's detector (the same 22 events as §3.6): all events over the stages, four close-ups, and event properties. Only bands that last at least half the event count as sustained; counting every fragment gave misleading totals of 25–47 bands per event.
 - **Changed** `writeup/ppt/_build_supp_v4.py`: new last section **S6. Harmonic-comb events** (Figs. S16–S18), with a plain-language method and results read from the tables.
 - **Changed** `writeup/ppt/_build_v12.py` (still 47 tracked edits):

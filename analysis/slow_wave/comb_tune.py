@@ -131,18 +131,14 @@ def episodes_from(z):
 
 
 def detect(session, ch):
-    f, t, enh = enhanced(C._sig(session, ch), session.fs)
-    sc, f0 = comb_score(f, enh)
-    sm = uniform_filter1d(sc, max(1, int(round(P['SMOOTH_MIN'] * 60 / P['STEP_SEC']))))
-    med = np.median(sm)
-    mad = 1.4826 * np.median(np.abs(sm - med)) + 1e-9
-    z = (sm - med) / mad
-    eps = []
-    for lo, hi in episodes_from(z):
-        eps.append(dict(lo=lo, hi=hi, f0=float(np.median(f0[lo:hi])),
-                        zmax=float(z[lo:hi].max()),
-                        bands=C.track_bands(enh, f, lo, hi)))
-    return f, t, enh, z, eps
+    """The paper's detector (paper/stages/s06_harmonic_comb.py), with any
+    overrides from P applied to it first."""
+    for k_, v_ in (('Z_ON', 'Z_ON'), ('Z_OFF', 'Z_OFF'), ('GAP_MIN', 'GAP_MIN'),
+                   ('KMAX', 'KMAX_SCORE'), ('SMOOTH_MIN', 'SMOOTH_MIN')):
+        setattr(C, v_, P[k_])
+    C.MIN_RUN_SEC = P['MIN_MIN'] * 60
+    f, t, enh, _, eps = C.detect_channel(session, ch)
+    return f, t, enh, None, eps
 
 
 def draw_night(label):

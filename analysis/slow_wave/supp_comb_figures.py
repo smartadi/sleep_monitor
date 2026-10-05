@@ -2,13 +2,13 @@
 Supplement section S6 (harmonic-comb events): figures at print size.
 
 Built on the paper pipeline's comb detector (paper/stages/s06_harmonic_comb.py),
-so the events here are exactly the 22 that the manuscript (§3.6, Figs. 8-9)
+so the events here are exactly the events that the manuscript (§3.6, Figs. 8-9)
 reports. Same print style as the other supplementary figures
 (analysis/rates/_supp_style.py: 9 in wide for a 6 in text width, no titles,
 panel letters).
 
-    S6 fig 1  all 22 events on the twelve nights, over the scored stages
-    S6 fig 2  four events up close: spectrogram 0-3 Hz with the detected bands
+    S6 fig 1  all events on the twelve nights, over the scored stages
+    S6 fig 2  four events up close: spectrogram 0-5 Hz with the detected bands
     S6 fig 3  per-event properties: duration, number of bands, band spacing
 
 Reads   paper/outputs/tables/s06_harmonic_comb/ladder_events.csv, ladder_bands.csv
@@ -48,7 +48,7 @@ SCOL = {STAGE_LABELS[c]: STAGE_COLORS[c] for c in STAGE_ORDER}
 EVENT_C = '#111111'
 # four events chosen to span participants and durations
 PERSIST = 0.5    # a band counts as a rung if it lasts >= this share of the event
-EXAMPLES = [('S6N1', 2.267), ('S3N2', 4.192), ('S6N2', 1.862), ('S2N1', 0.338)]
+EXAMPLES = [('S6N1', 2.271), ('S3N2', 4.079), ('S2N1', 0.346), ('S5N2', 0.496)]
 
 
 def save(fig, name):
@@ -116,11 +116,12 @@ def fig_examples(bands):
         for fr, s0, s1 in ep['bands']:
             keep = (s1 - s0 + 1) >= PERSIST * span
             n_rung += keep
-            ax.plot([(t_hr[s0] - a) * 60, (t_hr[s1] - a) * 60], [fr, fr],
-                    color='#00E5FF', lw=2.0 if keep else 0.8, alpha=1.0 if keep else 0.45)
+            if keep:     # brief fragments are not drawn
+                ax.plot([(t_hr[s0] - a) * 60, (t_hr[s1] - a) * 60], [fr, fr],
+                        color='#00E5FF', lw=2.0)
         ax.axvline(0, color='w', ls=':', lw=0.8)
         ax.axvline((z - a) * 60, color='w', ls=':', lw=0.8)
-        ax.set_ylim(0, 2.0)
+        ax.set_ylim(0, C.FMAX)
         ax.set_xlim(tm[0], tm[-1])
         ax.set_xlabel('minutes from event onset')
         ax.set_ylabel('frequency (Hz)')
@@ -149,7 +150,7 @@ def fig_properties(ev, bands):
     per = np.array(per, float)
     fig, axes = plt.subplots(1, 3, figsize=(st.WIDTH_IN, 3.0))
     for ax, (vals, xl, bins), l in zip(axes, (
-            (per[:, 0], 'event duration (min)', np.arange(0, 31, 3)),
+            (per[:, 0], 'event duration (min)', np.arange(0, 67, 6)),
             (per[:, 1], 'sustained bands per event', np.arange(-0.5, np.nanmax(per[:, 1]) + 1.5, 1)),
             (per[:, 2], 'median band spacing (Hz)', np.arange(0.0, 0.65, 0.05))), 'abc'):
         v = vals[np.isfinite(vals)]

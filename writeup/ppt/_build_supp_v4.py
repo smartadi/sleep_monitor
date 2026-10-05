@@ -528,39 +528,46 @@ def s5_section():
 
 
 def comb_section():
-    """S6: the 22 harmonic-comb events (paper/stages/s06_harmonic_comb.py)."""
+    """S6: harmonic-comb events (paper/stages/s06_harmonic_comb.py, adaptive detector)."""
     tab = ROOT / 'paper' / 'outputs' / 'tables' / 's06_harmonic_comb'
     ev = pd.read_csv(tab / 'ladder_events.csv')
     pr = pd.read_csv(tab / 'ladder_event_properties.csv')
     figs = ROOT / 'writeup' / 'figures' / 'supp_s6'
     st_ = ev.dom_stage.value_counts()
+    n_ = lambda k: int(st_.get(k, 0))
     return [
         ('h1', 'S6. Harmonic-comb events'),
-        ('t', 'Method. Each SEC channel was converted to a spectrogram from 0 to 3 Hz, '
+        ('t', 'Method. Each SEC channel was converted to a spectrogram from 0 to 5 Hz, '
               'with 30-second windows every 15 seconds, and each time column was '
               'expressed relative to its own smooth background so that narrow peaks '
-              'stand out. A moment was marked as a comb when a fundamental frequency '
-              'between 0.15 and 0.55 Hz had at least three consecutive multiples (the '
-              'fundamental and the next two harmonics), each at least 5 dB above the '
-              'background. A comb event required this to persist for at least 3 '
-              'minutes. Within each event, the individual bands were then followed '
-              'over time at their own measured frequencies, keeping bands that lasted '
-              'at least 1.5 minutes. Events found on more than one channel at the same '
-              'time were counted once.'),
+              'stand out. For every window, each candidate fundamental between 0.15 and '
+              '0.55 Hz was scored by the average height above background of its first '
+              'four multiples (heights below the background counted as zero), and the '
+              'window took the best of these scores. No single harmonic had to pass a '
+              'fixed level. The score was smoothed over 1.5 minutes and compared with the '
+              'rest of the same night on the same channel (a robust z-score, using the '
+              'median and the median absolute deviation), so that the threshold adapts to '
+              'each recording. An event started where the score was well above that '
+              "night's typical level (z of 2.5 or more) and was extended in both "
+              'directions while it stayed above a lower level (z of 1.0); gaps of up to 7 '
+              'minutes were bridged, and events shorter than 3 minutes were dropped. '
+              'These settings were chosen by inspecting the spectrograms of all twelve '
+              'nights on all three channels. Within each event, the individual bands were '
+              'followed over time at their own measured frequencies. Events found on more '
+              'than one channel at the same time were counted once.'),
         ('t', f'Result. {len(ev)} events were found, in {ev.session.nunique()} of the 12 '
               f'nights and in all {ev.subject.nunique()} participants '
               '({fig:combs}). They lasted a median of '
               f'{pr.dur_min.median():.1f} minutes (range {pr.dur_min.min():.0f}–'
-              f'{pr.dur_min.max():.0f}). {int(st_.get("N2", 0))} occurred in N2, and one '
-              'each in N1, N3 and wakefulness. Most bands within an event are brief; '
-              'counting only bands that last at least half of the event, an event had '
-              f'a median of {int(pr.n_bands.median())} such sustained bands (range '
+              f'{pr.dur_min.max():.0f}). {n_("N2")} occurred in N2, {n_("N3")} in N3, '
+              f'{n_("N1")} in N1, {n_("Wake")} in wakefulness and {n_("REM")} in REM. '
+              'Counting only bands that last at least half of the event, an event had '
+              f'a median of {int(pr.n_bands.median())} sustained bands (range '
               f'{int(pr.n_bands.min())}–{int(pr.n_bands.max())}; {{fig:combprop}}). In the '
-              'examples ({fig:combex}), the lowest sustained band lies at the breathing '
-              'frequency (0.20–0.27 Hz) in three of the four (a–c), with the others near '
-              'its multiples, consistent with a breathing-related signal whose waveform '
-              'is not a pure sinusoid; in the fourth (d), a short event, it lies near '
-              '0.07 Hz. '
+              'examples ({fig:combex}), a sustained band lies at the breathing frequency '
+              '(0.20–0.30 Hz) in all four, with the others near its multiples (a, b) or '
+              'below it near 0.07–0.08 Hz (c, d), consistent with a breathing-related '
+              'signal whose waveform is not a pure sinusoid. '
               'The timing of the events relative to REM sleep is shown in Fig. 9 of the '
               'main text.'),
         ('fig', 'combs', figs / 'figS6_1_events_overview.png',
@@ -569,12 +576,11 @@ def comb_section():
          'per night is given next to its label.'),
         ('fig', 'combex', figs / 'figS6_2_examples.png',
          'Four comb events up close, on the channel with the most bands: (a) S6N1, CH; '
-         '(b) S3N2, CH; (c) S6N2, CRE; (d) S2N1, CLE. Background-corrected spectrogram '
-         'from 15 minutes before to 15 minutes after the event (dotted lines mark its '
-         'start and end). Thick cyan lines are bands lasting at least half of the event; '
-         'thin lines are briefer bands.'),
+         '(b) S3N2, CH; (c) S2N1, CLE; (d) S5N2, CH. Background-corrected spectrogram, '
+         '0–5 Hz, from 15 minutes before to 15 minutes after the event (dotted lines mark '
+         'its start and end). Cyan lines are the bands lasting at least half of the event.'),
         ('fig', 'combprop', figs / 'figS6_3_properties.png',
-         'Properties of the 22 events: (a) duration, (b) number of sustained bands '
+         f'Properties of the {len(ev)} events: (a) duration, (b) number of sustained bands '
          '(bands lasting at least half of the event), (c) median spacing between '
          'neighbouring sustained bands. Dashed lines mark the medians.'),
     ]

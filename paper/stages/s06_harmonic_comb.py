@@ -37,6 +37,16 @@ Changes from the legacy code
        registered; that example had no traceable source.
     5. The 3-minute minimum episode length (MIN_RUN_SEC) and the 1.5-min core /
        4-min gap bridge are not in Methods; registered as notes.
+    6. DETECTOR REPLACED (2026-10-05, tuned by eye on all 12 nights with the author,
+       analysis/slow_wave/comb_tune.py). The V11 detector required >= 3 consecutive
+       rungs each >= 5 dB above the floor, a fixed rule that missed visible combs
+       and split single combs in two. The paper now uses an adaptive score: per
+       30-s window, the mean height (clipped at 0) of the first KMAX_SCORE
+       harmonics of the best fundamental; smoothed; converted to a robust z within
+       each night and channel; episodes by hysteresis (start z >= Z_ON, extend
+       while z >= Z_OFF), gaps <= GAP_MIN bridged, >= MIN_RUN_SEC kept. The
+       spectrogram now runs to 5 Hz. The V11 detector is kept as
+       detect_channel_legacy for the legacy check.
 """
 
 from __future__ import annotations
@@ -51,7 +61,7 @@ if __package__ in (None, ''):
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from scipy.ndimage import median_filter
+from scipy.ndimage import maximum_filter1d, median_filter, uniform_filter1d
 from scipy.signal import find_peaks, spectrogram
 
 from seclib import STAGE_COLORS, STAGE_LABELS, STAGE_ORDER, TAB_DIR, iter_sessions
@@ -65,7 +75,7 @@ REQUIRES = []
 
 CHANNELS = ['CH', 'CLE', 'CRE']
 FIG8_SESSION = 'S6N1'
-FMAX = 3.0
+FMAX = 5.0                # spectrogram / band range (V11 detector: 3.0)
 WIN_SEC = 30.0
 STEP_SEC = 15.0
 
@@ -83,6 +93,15 @@ EXTEND_RUNGS = 2         # hysteresis: grow the episode while >= this many rungs
 MIN_CORE = 6             # candidate runs shorter than 6 windows (1.5 min) are noise
 GAP_BRIDGE = 16          # bridge dropouts up to ~4 min between cores
 MIN_RUN_SEC = 180.0      # an episode is a sustained block >= 3 min
+
+# ── Adaptive comb score (the paper's detector since 2026-10-05) ──────────────
+KMAX_SCORE = 4           # harmonics averaged into the comb score
+TOL_HZ = 0.05            # search radius around each harmonic (Hz)
+SMOOTH_MIN = 1.5         # smoothing of the score (minutes)
+Z_ON = 2.5               # an episode starts where the night's robust z >= this
+Z_OFF = 1.0              # ... and extends while z >= this
+GAP_MIN = 7.0            # gaps up to this long are bridged (minutes)
+SUSTAINED = 0.5          # a band is "sustained" if it lasts >= this share of its episode
 
 # ── Rungs: horizontal-band tracker inside each episode ───────────────────────
 # Low-threshold peaks per window, linked across time; only bands that persist
@@ -206,7 +225,17 @@ def track_bands(enh, freqs, lo, hi):
     return out
 
 
-def detect_channel(session, ch):
+def detect_channel_legacy(session, ch):
+    """V11 detector (fixed rung rule, 0-3 Hz). Kept for the legacy check."""
+    global FMAX
+    keep, FMAX = FMAX, 3.0
+    try:
+        return _detect_channel_legacy(session, ch)
+    finally:
+        FMAX = keep
+
+
+def _detect_channel_legacy(session, ch):
     """Comb episodes on one channel: (f, t_hr, enh, active[n_win], episodes)."""
     f, t_hr, enh = _enhance_spec(_sig(session, ch), session.fs)
     n_win = enh.shape[1]
@@ -267,6 +296,74 @@ def detect_channel(session, ch):
                 i = j
         else:
             i += 1
+    return f, t_hr, enh, active, episodes
+
+
+def comb_score(f, enh):
+    """Per window: best mean height of the first KMAX_SCORE harmonics over f0."""
+    df = f[1] - f[0]
+    near = maximum_filter1d(enh, size=2 * int(round(TOL_HZ / df)) + 1, axis=0)
+    best = np.full(enh.shape[1], -np.inf)
+    arg = np.zeros(enh.shape[1])
+    for f0 in np.arange(F0_LO, F0_HI + 1e-9, F0_STEP):
+        ks = np.arange(1, min(KMAX_SCORE, int(FMAX / f0)) + 1)
+        idx = np.clip(np.round(ks * f0 / df).astype(int), 0, len(f) - 1)
+        h = np.clip(near[idx], 0, None).mean(axis=0)
+        better = h > best
+        best[better], arg[better] = h[better], f0
+    return best, arg
+
+
+def _hysteresis(z):
+    """Start where z >= Z_ON, grow while z >= Z_OFF, bridge short gaps, keep long runs."""
+    n = len(z)
+    keep = np.zeros(n, bool)
+    i = 0
+    while i < n:
+        if z[i] >= Z_ON and not keep[i]:
+            a = i
+            while a > 0 and z[a - 1] >= Z_OFF:
+                a -= 1
+            b = i
+            while b + 1 < n and z[b + 1] >= Z_OFF:
+                b += 1
+            keep[a:b + 1] = True
+            i = b + 1
+        else:
+            i += 1
+    step_min = STEP_SEC / 60
+    idx = np.flatnonzero(keep)
+    for a, b in zip(idx[:-1], idx[1:]):
+        if 1 < b - a <= GAP_MIN / step_min:
+            keep[a:b] = True
+    out, i = [], 0
+    while i < n:
+        if keep[i]:
+            j = i
+            while j + 1 < n and keep[j + 1]:
+                j += 1
+            if (j - i + 1) * STEP_SEC >= MIN_RUN_SEC:
+                out.append((i, j + 1))
+            i = j + 1
+        else:
+            i += 1
+    return out
+
+
+def detect_channel(session, ch):
+    """Comb episodes on one channel, adaptive: (f, t_hr, enh, active, episodes)."""
+    f, t_hr, enh = _enhance_spec(_sig(session, ch), session.fs)
+    sc, f0 = comb_score(f, enh)
+    sm = uniform_filter1d(sc, max(1, int(round(SMOOTH_MIN * 60 / STEP_SEC))))
+    med = np.median(sm)
+    z = (sm - med) / (1.4826 * np.median(np.abs(sm - med)) + 1e-9)
+    active = np.zeros(enh.shape[1], bool)
+    episodes = []
+    for lo, hi in _hysteresis(z):
+        active[lo:hi] = True
+        episodes.append({'lo': lo, 'hi': hi, 'f0': float(np.median(f0[lo:hi])),
+                         'zmax': float(z[lo:hi].max()),
+                         'bands': track_bands(enh, f, lo, hi)})
     return f, t_hr, enh, active, episodes
 
 
@@ -482,20 +579,22 @@ def fig8(fig8_data, channels, name):
         ax.pcolormesh(t_hr, f, enh, shading='gouraud', cmap='magma',
                       vmin=0, vmax=np.percentile(enh, 99.5), rasterized=True)
         for ep in episodes:
+            a, b = t_hr[ep['lo']], t_hr[min(ep['hi'], len(t_hr) - 1)]
+            ax.add_patch(plt.Rectangle((a, 0.03), b - a, FMAX - 0.06, fill=False,
+                                       ec='white', lw=1.2, ls='--'))
+            # only sustained bands (>= SUSTAINED of the episode); brief fragments clutter
+            span = ep['hi'] - ep['lo']
             for fr, s0, s1 in ep['bands']:
-                ax.plot([t_hr[s0], t_hr[s1]], [fr, fr], color='#00E5FF', lw=2.0, alpha=0.95)
+                if (s1 - s0 + 1) >= SUSTAINED * span:
+                    ax.plot([t_hr[s0], t_hr[s1]], [fr, fr], color='#00E5FF', lw=2.2)
         ax.set_ylim(0, FMAX)
         ax.set_ylabel(f'{ch}\nFrequency (Hz)')
     axes[-1].set_xlabel('Time (h)')
-    n_ep = {ch: len(per_ch[ch][4]) for ch in channels}
-    axes[0].set_title(f'{label}: harmonic-comb episodes (cyan: detected bands); episodes per '
-                      'channel ' + ', '.join(f'{c} {k}' for c, k in n_ep.items()))
     return save(fig, name, STAGE)
 
 
 def fig9(occupancy):
     """(a) stage occupancy around onset, (b) REM occupancy."""
-    n_ev = int(occupancy.n_events.iloc[0])
     fig, axes = plt.subplots(1, 2, figsize=(15, 5.5))
     ax = axes[0]
     for st in STAGE_ORDER:
@@ -504,7 +603,6 @@ def fig9(occupancy):
     ax.axvline(0, color='k', lw=1, ls='--')
     ax.set_xlabel('Minutes relative to event onset')
     ax.set_ylabel('P(stage)')
-    ax.set_title(f'Stage occupancy around onset ({n_ev} events)')
     ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.14), ncol=5, frameon=False)
     ax.grid(alpha=0.15)
     ax.text(-0.12, 1.03, '(a)', transform=ax.transAxes, fontsize=16, fontweight='bold')
@@ -514,7 +612,6 @@ def fig9(occupancy):
     ax.axvline(0, color='k', lw=1, ls='--')
     ax.set_xlabel('Minutes relative to event onset')
     ax.set_ylabel('P(REM)')
-    ax.set_title('REM occupancy around onset')
     ax.grid(alpha=0.15)
     ax.text(-0.12, 1.03, '(b)', transform=ax.transAxes, fontsize=16, fontweight='bold')
     fig.tight_layout()

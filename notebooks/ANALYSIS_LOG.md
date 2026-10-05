@@ -3132,3 +3132,32 @@ Written up as supp V4 §S5.5. §S5.4 adds the N3-transition result from
   - k is 1.84–2.32 on 11/12 nights; S6N2 (Pleth only, 129 bpm) is 0.97.
   - Night-average heart rate now beats the no-sensor baseline under the transferable
     calibrations (3.89 / 2.44 vs 4.04 beats/min).
+
+## 2026-10-05 — Adaptive comb detector adopted in the paper; the post-REM timing claim does not survive
+
+The detector tuned by eye with the author (no fixed dB rule, robust z per night and channel,
+hysteresis 2.5/1.0, 7-min gap bridge, 0–5 Hz) is now the paper's (`paper/stages/s06_harmonic_comb.py`).
+
+| | V11 detector | adaptive |
+|---|---|---|
+| events (merged across channels) | 22 | 45 |
+| nights / participants | 9 / 6 | 12 / 6 |
+| in N2 | 19 (86%) | 35 (78%); N3 4, Wake 3, N1 2, REM 1 |
+| P(N2) at onset | 0.68 (peak 0.91) | 0.76 (peak 0.82 at +4 min) |
+| REM in 30 min before onset, events vs null | 5.9% vs 1.7% | 3.5% vs 1.8% |
+| REM in 30 min after offset, events vs null | 0.7% vs 3.1% | 1.3% vs 3.3% |
+| median min to nearest REM, before / after | 30 / 51 | 85 / 44 |
+| participants with REM nearer before | 5 of 6 | **2 of 6** |
+| N1 rise in the 10 min before onset | claimed | none (0.154 vs 0.151) |
+
+- **N2 association holds.** The "emerges ~10–30 min after REM" timing does not: the pooled
+  pre-onset REM excess comes from a few events (S4N2, S5N1, S5N2), and per participant REM is
+  nearer *after* the event in 4 of 6.
+- V12 §3.6 is rewritten to say this. The professor should see that the REM sentence changed
+  direction, not just its numbers.
+- Supp S6 is regenerated: median duration 8.2 min (2.8–64); median 4 sustained bands per event;
+  median spacing 0.43 Hz.
+- Open from tuning: S1N1 is only partly caught (3.49–3.88 h). "s5n4 ~3.2 h" is unresolved
+  (S5N1 has an event at 3.61–3.68 h; nothing at 3.2 h). f0 often sits at the 0.15 Hz floor and
+  is not reported.
+
