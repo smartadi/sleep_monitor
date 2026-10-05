@@ -28,6 +28,7 @@ import sys
 from pathlib import Path
 
 import matplotlib
+import matplotlib.ticker
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt      # noqa: E402
 import numpy as np                    # noqa: E402
@@ -271,6 +272,113 @@ def fig_rem(rs):
     return save(fig, 'figS5_5_rem_onset')
 
 
+# ── fig 6: CH and CLE-CRE at N3 transitions (stage_event_locked.py) ─────────
+
+def fig_n3_transitions():
+    d = pd.read_csv(REP / 'stage_event_locked.csv')
+    d = d[(d.scale == 'transitions') & d.event.isin(['into N3', 'out of N3'])]
+    fig, axes = plt.subplots(1, 2, figsize=(st.WIDTH_IN, 3.8), sharey=False)
+    for ax, (ch, col), l in zip(axes, (('CH', CH_C), ('CLE-CRE', DIFF_C)), 'ab'):
+        for i, ev in enumerate(('into N3', 'out of N3')):
+            g = d[(d.event == ev) & (d.channel == ch)].dropna(subset=['response_fF'])
+            x = i + np.random.default_rng(i).uniform(-0.12, 0.12, len(g))
+            ax.scatter(x, g.response_fF, s=26, color=col, edgecolor='k', lw=0.4, zorder=3)
+            ax.hlines(g.response_fF.median(), i - 0.25, i + 0.25, color='k', lw=1.8)
+            dn, up = int((g.response_fF < 0).sum()), int((g.response_fF > 0).sum())
+            ax.text(i, 1.02, f'{dn} fall / {up} rise', transform=ax.get_xaxis_transform(),
+                    ha='center', fontsize=10)
+        ax.axhline(0, color='k', ls=':', lw=0.8)
+        ax.set_xticks([0, 1])
+        ax.set_xticklabels(['entering N3', 'leaving N3'])
+        ax.set_xlim(-0.6, 1.6)
+        ax.set_ylabel(f'{ch} change (fF)')
+        lim = np.nanpercentile(np.abs(d[d.channel == ch].response_fF), 95) * 1.3
+        ax.set_ylim(-lim, lim)
+        ax.grid(axis='y', alpha=0.2)
+        st.letter(ax, l, x=-0.2, y=1.07)
+    fig.tight_layout(w_pad=2.0)
+    return save(fig, 'figS5_6_n3_transitions')
+
+
+# ── fig 7: the 0.01-0.03 Hz patches (analysis/slow_wave/lowband_patches.py) ──
+
+def fig_lowband_patches():
+    sys.path.insert(0, str(ROOT / 'analysis' / 'slow_wave'))
+    import lowband_patches as L
+    meta = next(m for m in SESSION_META if m['label'] == 'S4N2')
+    S = L.signals(meta)
+    fig = plt.figure(figsize=(st.WIDTH_IN, 8.6))
+    gs = fig.add_gridspec(5, 2, height_ratios=[0.12, 1, 1, 0.25, 1.15], hspace=0.30,
+                          wspace=0.32)
+    band = fig.add_subplot(gs[0, :])
+    _band(band, S['t_ep'], np.asarray(S['codes']))
+    band.set_xlim(0, S['t_ep'][-1])
+    band.tick_params(labelbottom=False)
+    st.letter(band, 'a', x=-0.075, y=0.0)
+    for k, (ver, fs, lbl) in enumerate((('raw', 2.0, 'CLE, raw'),
+                                        ('cor', 0.1, 'CLE, steps removed'))):
+        ax = fig.add_subplot(gs[1 + k, :], sharex=band)
+        f, t, db = L.lowband_map(np.nan_to_num(S[ver]['CLE']), fs)
+        ax.pcolormesh(t, f, db, shading='auto', cmap='viridis', vmin=-6, vmax=10,
+                      rasterized=True)
+        ex, _ = L.band_excess(f, db)
+        for a, b in L.runs(ex >= L.PATCH_DB, int(round(L.MIN_MIN * 60 / L.STEP_S))):
+            ax.add_patch(plt.Rectangle((t[a], L.BAND[0]), t[b] - t[a],
+                                       L.BAND[1] - L.BAND[0], fill=False,
+                                       ec='#FF2D55', lw=1.4))
+        for a, b in dmr._spans(S['moving']):
+            ax.axvspan(S['t_blk'][a], S['t_blk'][min(b, len(S['t_blk']) - 1)],
+                       ymin=0.94, ymax=1.0, color='#E74C3C', lw=0)
+        ax.set_yscale('log')
+        # the 10-s block series reaches 0.05 Hz (its Nyquist); both panels stop there
+        ax.set_ylim(L.SHOW[0], 0.05)
+        ax.set_yticks([0.01, 0.02, 0.03, 0.05])
+        ax.set_yticklabels(['0.01', '0.02', '0.03', '0.05'])
+        ax.yaxis.set_minor_formatter(matplotlib.ticker.NullFormatter())
+        ax.set_ylabel(f'{lbl}\n(Hz)')
+        if k == 0:
+            ax.tick_params(labelbottom=False)
+        else:
+            ax.set_xlabel('time (h)')
+        st.letter(ax, 'bc'[k], x=-0.075)
+
+    lk = pd.read_csv(ROOT / 'reports' / 'slow_wave' / 'low_band' /
+                     'lowband_patches_event_locked.csv')
+    en = pd.read_csv(ROOT / 'reports' / 'slow_wave' / 'low_band' /
+                     'lowband_patches_stage_enrichment.csv')
+    ax = fig.add_subplot(gs[4, 0])
+    for i, (ver, ev) in enumerate((('raw', 'movement'), ('cor', 'movement'),
+                                   ('raw', 'stage change'), ('cor', 'stage change'))):
+        g = lk[(lk.version == ver) & (lk.event == ev)]
+        x = i + np.random.default_rng(i).uniform(-0.15, 0.15, len(g))
+        ax.scatter(x, g.peak_db, s=10, color=['#7F8C8D', '#2E86C1'][ver == 'cor'],
+                   zorder=3)
+        ax.hlines(g.null_p95.median(), i - 0.3, i + 0.3, color='k', ls='--', lw=1)
+    ax.axhline(0, color='k', lw=0.5, ls=':')
+    ax.set_xticks(range(4))
+    ax.set_xticklabels(['raw', 'corrected', 'raw', 'corrected'], fontsize=10)
+    for x0, txt in ((0.5, 'head movement'), (2.5, 'stage change')):
+        ax.text(x0, -0.22, txt, transform=ax.get_xaxis_transform(), ha='center',
+                fontsize=10.5)
+    ax.set_ylabel('power at event (dB)')
+    st.letter(ax, 'd', x=-0.2)
+    ax = fig.add_subplot(gs[4, 1])
+    stages = ['Wake', 'N1', 'N2', 'N3', 'REM']
+    for i, ver in enumerate(('raw', 'cor')):
+        m = en[en.version == ver].groupby('stage').enrichment.median()
+        ax.bar(np.arange(5) + (i - 0.5) * 0.38, [m.get(x_, np.nan) for x_ in stages],
+               0.38, color=['#7F8C8D', '#2E86C1'][i],
+               label=['raw', 'steps removed'][i])
+    ax.axhline(1, color='k', ls='--', lw=0.8)
+    ax.set_xticks(range(5))
+    ax.set_xticklabels(stages)
+    ax.set_ylabel('observed / expected')
+    ax.legend(frameon=False, fontsize=9.5)
+    st.letter(ax, 'e', x=-0.2)
+    _stage_legend(fig, 0.90)
+    return save(fig, 'figS5_7_lowband_patches')
+
+
 def main():
     fig_variance()
     with contextlib.redirect_stdout(io.StringIO()):
@@ -283,6 +391,8 @@ def main():
     fig_all_nights(rs, 'CLE-CRE')
     fig_all_nights(rs, 'CH')
     fig_rem(rs)
+    fig_n3_transitions()
+    fig_lowband_patches()
 
 
 if __name__ == '__main__':

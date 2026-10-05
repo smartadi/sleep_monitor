@@ -3099,3 +3099,21 @@ minus 15 min before; null = 500 random NREM-time sets per night ≥20 min from R
 Reported in supplementary V4 §S5 as an observation, not a finding. Same section adds the
 variance-tail enrichment (low variance → N3 on CH/CLE/CRE) and the de-stepped trend
 velocity figures.
+
+## 2026-10-05 — The 0.01–0.03 Hz patches are head movements; what is left tracks state
+
+`analysis/slow_wave/lowband_patches.py`. The visible bright patches below 0.03 Hz were
+detected on all 12 nights and 3 channels, both on the raw channel (decimated to 2 Hz) and
+after de-stepping (10-s blocks):
+- **Raw:** 224 patches, median 7 min. Band power rises about 9 dB at movement onsets,
+  above a same-size random-time null on 36/36 night×channel combinations. They are steps.
+- **Corrected:** 191 patches, median 8 min, around 0.02 Hz. The movement response is
+  gone (0/36). Patch time is enriched in REM (median 2.3×, 7/7 nights with REM) and
+  depleted in N3 (0.11×, 10/12 nights). There is a small rise at movement-free stage
+  changes (15/36).
+- Coincidence fractions were useless as a test. Movement and stage changes fall inside
+  about 85% of random 7-min windows in these fragmented hypnograms.
+- No persistent narrow-band low oscillation at a common frequency.
+
+Written up as supp V4 §S5.5. §S5.4 adds the N3-transition result from
+`stage_event_locked.py` (CH falls entering N3 10/12, rises leaving 9/11).

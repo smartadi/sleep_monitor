@@ -213,12 +213,51 @@ def s5_section():
     loose = sens[(sens.rem_free_gap_min == 5) & (sens.rem_hold_min == 2)
                  & (sens.signal == 'CLE-CRE')].iloc[0]
     n_ev = int((ev.signal == 'CLE-CRE').sum())
+    r2 = pd.read_csv(REP / 'diff_motion_regressed.csv')
+    floor = pd.read_csv(REP / 'baseline_variance_floor.csv')
+    fl = floor.groupby(['band', 'channel']).ratio.agg(['min', 'max'])
+    tr = pd.read_csv(REP / 'stage_event_locked.csv')
+    tr = tr[tr.scale == 'transitions'].dropna(subset=['response_fF'])
 
-    return [
+    def trans(ev_, ch):
+        g = tr[(tr.event == ev_) & (tr.channel == ch)]
+        return (f'{int((g.response_fF < 0).sum())} of {len(g)} nights fell and '
+                f'{int((g.response_fF > 0).sum())} rose (median '
+                f'{g.response_fF.median():+.1f} fF)')
+    lb = ROOT / 'reports' / 'slow_wave' / 'low_band'
+    pt = pd.read_csv(lb / 'lowband_patches.csv')
+    lk = pd.read_csv(lb / 'lowband_patches_event_locked.csv')
+    en = pd.read_csv(lb / 'lowband_patches_stage_enrichment.csv')
+
+    def lk_above(ver, evn):
+        g = lk[(lk.version == ver) & (lk.event == evn)]
+        return f'{int(g.above.sum())} of {len(g)}'
+
+    def enr(ver, st_):
+        g = en[(en.version == ver) & (en.stage == st_)].groupby('session').enrichment.median()
+        return g
+    rem_e, n3_e = enr('cor', 'REM'), enr('cor', 'N3')
+    praw, pcor = pt[pt.version == 'raw'], pt[pt.version == 'cor']
+    fill = dict(
+        npr=len(praw), dpr=_r(praw.dur_min.median(), 0), mvr=lk_above('raw', 'movement'),
+        npc=len(pcor), dpc=_r(pcor.dur_min.median(), 0),
+        fpc=_r(pcor.f_peak_hz.median(), 2), mvc=lk_above('cor', 'movement'),
+        remv=_r(rem_e.median()), remk=int((rem_e > 1).sum()), remn=len(rem_e),
+        n3v=_r(n3_e.median(), 2), n3k=int((n3_e < 1).sum()), n3n=len(n3_e),
+        chc=lk_above('cor', 'stage change'),
+        n3in=('CH fell on entering N3 (' + trans('into N3', 'CH')[:-1].replace(' (', '; ')
+              + ') and rose on leaving it (' + trans('out of N3', 'CH')[:-1].replace(' (', '; ')
+              + ')'),
+        dfin=trans('into N3', 'CLE-CRE'))
+
+    items = [
         ('h1', 'S5. Variance and slow trends of the SEC signal across sleep'),
-        ('t', 'This section collects three related observations on the slow behaviour '
-              'of the SEC signal during sleep. They are reported descriptively, one '
-              'value per night or per participant.'),
+        ('t', 'This section collects related observations on the slow behaviour of '
+              'the SEC signal during sleep: where its variance is high and low, how '
+              'its level drifts once head movements are removed, how that drift '
+              'behaves at REM onset and at N3 transitions, and what the lowest '
+              'frequencies (0.01–0.03 Hz) contain. They are reported descriptively, '
+              'one value per night or per participant.'),
 
         ('h2', 'S5.1 Where the high- and low-variance periods fall'),
         ('t', 'For every 30-second epoch we computed the variance of each SEC channel '
@@ -280,6 +319,26 @@ def s5_section():
               'the time (S3N1 at about 2.2 h, S2N1 at about 4.1 h, S6N1 at about '
               '3.3 h); each appears as a deep, brief excursion of the velocity and '
               'should not be read as a slow trend.'),
+        ('t', 'How much of the slow signal is head position, and how much is the '
+              'instrument. Regressing each night’s 10-second SEC level on the three '
+              'axes of head orientation from the accelerometer explained a median of '
+              f'{_r(100 * r2.r2_CH.median(), 0)}% of the variance of CH, '
+              f'{_r(100 * r2.r2_CLE.median(), 0)}% of CLE and '
+              f'{_r(100 * r2.r2_CRE.median(), 0)}% of CRE (range across nights '
+              f'{_r(100 * min(r2.r2_CH.min(), r2.r2_CLE.min(), r2.r2_CRE.min()), 0)}–'
+              f'{_r(100 * max(r2.r2_CH.max(), r2.r2_CLE.max(), r2.r2_CRE.max()), 0)}%): '
+              'head position is a large part of the slow signal but not most of it. '
+              'For the instrument, the same mask recorded unworn for 16 minutes gives '
+              'its own noise. During sleep the respiratory-band amplitude was '
+              f"{_r(fl.loc[('resp', 'CH'), 'min'])}–{_r(fl.loc[('resp', 'CH'), 'max'])} "
+              'times the unworn level on CH and '
+              f"{_r(min(fl.loc[('resp', 'CLE'), 'min'], fl.loc[('resp', 'CRE'), 'min']))}–"
+              f"{_r(max(fl.loc[('resp', 'CLE'), 'max'], fl.loc[('resp', 'CRE'), 'max']))} "
+              'times on CLE and CRE, lowest in N3 and highest in REM and wakefulness, '
+              'so the stage differences are carried by the participant, not by the '
+              'sensor. The cardiac band is weaker, '
+              f"{_r(fl.loc[('card', 'CLE'), 'min'])}–{_r(fl.loc[('card', 'CH'), 'max'])} "
+              'times the unworn level.'),
         ('fig', 'night', S5 / 'figS5_2_one_night_S4N2.png',
          'One night (S4N2) in full. (a) Scored sleep stage. (b) Head turn from the '
          'accelerometer. (c) CLE−CRE before (light grey) and after (grey) removal of '
@@ -331,7 +390,90 @@ def s5_section():
          'participant (number of onsets in brackets), the change in velocity from the '
          '15 minutes before onset to the 15 minutes after (dot), against the 5–95% '
          'range of the random-time reference (grey bar) and its median (tick).'),
+
+        ('h2', 'S5.4 CH at transitions into and out of N3'),
+        ('t', 'Rather than comparing whole stages, we looked at the few minutes around '
+              'each change into or out of N3, using the movement-corrected signal. '
+              'For each transition we took the change in level from the 5 minutes '
+              'before to the 5 minutes after, keeping only transitions where the '
+              'stage was held for at least a minute on each side and no head '
+              'movement occurred within 1.5 minutes. Transitions were averaged within '
+              'each night first. Because N3 bouts in these recordings are short '
+              '(a median of one minute), this describes brief excursions into N3, '
+              'not sustained deep sleep.'),
+        ('t', '{n3in}. CLE−CRE did not respond: on entering N3, {dfin}. Entering and '
+              'leaving N3 moved CH in opposite directions on 10 of the 11 nights that '
+              'had both; when every event of a night was shifted together to a random '
+              'time, which keeps the trace and the spacing of events but breaks their '
+              'link to the scored stages, this happened in 4.5 nights on average and '
+              'never in 10 or more across 400 shifts. The changes are small, about '
+              '1–2 fF, and on a single night they do not stand out from that night’s '
+              'own variability; what carries the result is that the direction repeats '
+              'across nights ({fig:n3}). It agrees with S5.1: CH is quieter, and here '
+              'lower, in deep sleep.'),
+        ('fig', 'n3', S5 / 'figS5_6_n3_transitions.png',
+         'Change in movement-corrected CH (a) and CLE−CRE (b) from the 5 minutes '
+         'before to the 5 minutes after entering and leaving N3. One point per night '
+         '(transitions averaged within the night); the bar is the median across '
+         'nights, and the counts above give the nights in which the level fell and '
+         'rose.'),
+
+        ('h2', 'S5.5 The lowest frequencies: 0.01–0.03 Hz'),
+        ('t', 'Why this band is handled differently from the main text. The '
+              'low-frequency panel of the ridge figure (Fig. 5) was computed from the '
+              'signal prepared for rate estimation. That signal is band-passed with a '
+              'lower edge at 0.05 Hz, and the accelerometer is subtracted from it. '
+              'Below 0.1 Hz both steps distort the spectrum: the filter edge appears '
+              'as a constant bright band just above 0.05 Hz in every night, and the '
+              'accelerometer, whose low-frequency content is head orientation plus an '
+              'instrumental tone at 0.145 Hz, adds power that is not in the sensor. '
+              'The analysis below therefore starts from the SEC channel itself, '
+              'without the accelerometer subtraction.'),
+        ('t', 'Method. For each night and channel we computed a spectrogram with '
+              '4-minute windows every 30 seconds (resolution 0.004 Hz), expressed each '
+              'frequency relative to its own median over the night, and marked a '
+              'patch wherever the 0.01–0.03 Hz band was at least 4 times (6 dB) its '
+              'usual power for at least 5 minutes. This was done twice: on the raw '
+              'channel, and on the channel with head-movement shifts removed '
+              '(S5.2), because a sudden shift in level has its largest spectral power '
+              'at the lowest frequencies.'),
+        ('t', 'Result. On the raw channel there were {npr} patches (median {dpr} '
+              'minutes), and they were head movements: band power rose by about 9 dB '
+              'at movement onsets, above chance on {mvr} night-channel combinations. '
+              'After the shifts were removed, {npc} patches remained (median {dpc} '
+              'minutes, around {fpc} Hz), the response to movement disappeared ({mvc} '
+              'above chance), and what remained followed sleep state: patch time was '
+              'over-represented in REM (median ratio {remv}; {remk} of {remn} nights '
+              'with REM) and almost absent from N3 (ratio {n3v}; below chance on {n3k} '
+              'of {n3n} nights). Around stage changes without movement there was a '
+              'small rise, above chance on {chc} night-channel combinations '
+              '({fig:lowband}). In this band, then, the bright patches seen in the '
+              'spectrogram are mostly head movements; once those are removed, slow '
+              'fluctuations remain that are more common in REM and wakefulness and '
+              'rare in N3, the same ordering as the variance in S5.1. No persistent '
+              'narrow-band oscillation at a common frequency was found.'),
+        ('fig', 'lowband', S5 / 'figS5_7_lowband_patches.png',
+         'Low-frequency patches. (a–c) One night (S4N2): (a) scored sleep stage; '
+         '(b, c) spectrogram of CLE from 0.008 to 0.05 Hz, each frequency relative to '
+         'its own night median, on the raw channel (b) and after removal of '
+         'head-movement shifts (c). Red ticks on top mark head movements; boxes mark '
+         'patches (0.01–0.03 Hz at least 6 dB above usual for at least 5 minutes). '
+         '(d) Band power within a minute of head-movement onsets and of stage changes '
+         'without movement, one point per night and channel, raw and corrected; the '
+         'dashed line is the chance level (95th percentile of random times). (e) '
+         'Share of patch time in each stage relative to the stage’s share of the '
+         'night (median over nights and channels).'),
     ]
+    # fill the {name} slots (not the {fig:...} references)
+    out = []
+    for it in items:
+        if it[0] == 't':
+            txt = re.sub(r'\{(\w+)\}', lambda m: str(fill[m.group(1)])
+                         if m.group(1) in fill else m.group(0), it[1])
+            out.append(('t', txt))
+        else:
+            out.append(it)
+    return out
 
 
 def content():

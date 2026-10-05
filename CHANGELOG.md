@@ -6,6 +6,10 @@ Records all code changes to library modules, scripts, and notebooks.
 
 ## 2026-10-05
 
+- **Added** `analysis/slow_wave/lowband_patches.py` -> `writeup/figures/harmonics/lowband_patches/`, `reports/slow_wave/low_band/lowband_patches*.csv`. Detects 0.01–0.03 Hz patches (6 dB above each frequency's night median for at least 5 min, using 4-min windows) on the raw and on the movement-corrected channel. Tested with stage enrichment and with event-locked power around movement onsets and around stage changes that have no movement, each against a same-size random-time null. The first attempts used a per-column 1/f fit, which absorbed the patches, and a coincidence test, which saturated at about 85% chance; both were replaced.
+- **Changed** `analysis/mean_value/supp_s5_figures.py`: added figS5_6 (CH and CLE−CRE at N3 transitions, from `stage_event_locked.csv`) and figS5_7 (low-band patches).
+- **Changed** `writeup/ppt/_build_supp_v4.py`: added a S5.2 paragraph on head-orientation R² and the unworn-mask floor, plus new sections S5.4 (N3 transitions, Fig. S14) and S5.5 (0.01–0.03 Hz, with the filter explanation, Fig. S15). V4 is now 21 pages with 15 figures.
+- **Added** `writeup/edits/V11_HIGHLIGHTS.md` (all 16 V11 yellow highlights, their history and proposed fixes) and `writeup/edits/PROF_EMAIL_NOTES_2026-10-05.md` (email points; §3.3, §3.8 and rate-paragraph proposals).
 - **Rebuilt** `writeup/ppt/_build_supp_v4.py` as a clean assembly from V3, writing `writeup/review/final/CAP_sleep_mask_manuscript supplementary V4.docx` (git-ignored; 18 pages, 13 figures). V3's blank pages came from dozens of empty paragraphs and stray page breaks left by earlier cuts. V4 has none of either.
   - Headings are Heading1 for sections S1–S5 and Heading2 for S5.1–S5.3.
   - Every figure is kept with its caption, and captions open with a bold "Figure Sn." label.
