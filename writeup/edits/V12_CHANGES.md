@@ -4,24 +4,24 @@ Built by `writeup/ppt/_build_v12.py` from `writeup/review/final/CAP_sleep_mask_m
 
 Paragraph index **P** counts every `w:p` in the body from 0 (as in V11_HIGHLIGHTS.md); paper_numbers.csv / the task use **¶ = P + 1**.
 
-**47 edits** (43 insertions, 64 deletion wrappers). Highlighted runs with visible text: 60 before, 65 after. Highlighted text deleted: 'a frequency-median-filtered spectrum was subtracted', 'by the prespecified detection criterion', 'S6'. Validation: "reject all" view equals V11 text and highlighting in every paragraph.
+**48 edits** (41 insertions, 67 deletion wrappers). Highlighted runs with visible text: 60 before, 65 after. Highlighted text deleted: 'a frequency-median-filtered spectrum was subtracted', 'by the prespecified detection criterion', 'S6'. Validation: "reject all" view equals V11 text and highlighting in every paragraph.
 
 | section | edits |
 |---|---|
-| Discussion | 8 |
+| Discussion | 9 |
 | Conclusion | 1 |
 | §3.2 | 6 |
 | §3.6 | 7 |
 | §3.4 | 5 |
-| §3.5 | 5 |
+| §3.5 | 6 |
 | §3.7 | 1 |
 | §3.1 | 1 |
 | §2.4 Methods | 2 |
 | §2.7 Methods | 2 |
 | Fig. 6 caption | 4 |
+| §2.8 Methods | 1 |
 | Fig. 8 caption | 1 |
 | Fig. 9 caption | 2 |
-| Fig. 2 caption | 2 |
 
 ## Edits
 
@@ -173,57 +173,61 @@ Paragraph index **P** counts every `w:p` in the body from 0 (as in V11_HIGHLIGHT
    - Reason: Only 9 of 344 onsets fall within ±5 s of a scored K-complex; the claim that K-complexes made up most onsets is not supported by the scoring.
    - Source: paper/outputs/paper_numbers.csv onsets_on_kcomplex
 
-36. **P208 (¶209), §3.5.** "…frequently accompanied by autonomic activation**(insert)**.…" → **", although only 9 of the 344 onsets fell within 5 s of a scored K-complex"**
+36. **P208 (¶209), §3.5.** "…frequently accompanied by autonomic activation**(insert)**.…" → **"; however, only 9 of the 344 onsets fell within 5 s of a scored K-complex, so K-complexes cannot account for most onsets"**
    - Reason: As above: the computed fact replaces the unsupported "most onsets" claim.
    - Source: paper/outputs/paper_numbers.csv onsets_on_kcomplex, kc_with_onset
 
+### G. Consistency
+
+37. **P205 (¶206), §3.5.** "…Most were isolated N2 slow waves** or K-complexes** because sustained…" → **"(deleted)"**
+   - Reason: Only 9 of 344 onsets are within 5 s of a scored K-complex (340 of 344 are N2); same fix as the §3.5 K-complex sentence.
+   - Source: paper/outputs/paper_numbers.csv onsets_on_kcomplex
+
+38. **P247 (¶248), Discussion.** "…onsets reflected N2 slow waves** or K-complexes** rather than…" → **"(deleted)"**
+   - Reason: As §3.5.
+   - Source: paper/outputs/paper_numbers.csv onsets_on_kcomplex
+
+39. **P163 (¶164), §2.8 Methods.** "…assessed from the causal pre-onset trajectory, **SEC-to-EEG cross-correlation, **and the area…" → **"(deleted)"**
+   - Reason: The cross-correlation result was dropped from §3.5 (it came from the zero-phase pipeline), so Methods no longer announces it.
+   - Source: paper/outputs/paper_numbers.csv xcorr_lag_zerophase
+
 ### F. Harmonic combs (adaptive detector; Figs. 8-9 pictures replaced, untracked)
 
-37. **P159 (¶160), §2.7 Methods.** "…independently in each raw SEC channel **using a background-subtracted 0-3 Hz spectrogram. An episode required at least three consecutive integer-related harmonic peaks, each at least 5 dB above the local spectral floor.** Horizontal…" → **"using a background-subtracted 0–5 Hz spectrogram. Each 30-s window was scored by the mean height above the local spectral floor of the first four multiples of the best-fitting fundamental (0.15–0.55 Hz), with heights below the floor counted as zero. The score was smoothed over 1.5 min and expressed as a robust z-score within each recording and channel. An episode began where z reached 2.5, extended while z stayed above 1.0, bridged gaps of up to 7 min, and had to last at least 3 min; these settings were chosen by visual inspection of all recordings."**
+40. **P159 (¶160), §2.7 Methods.** "…independently in each raw SEC channel **using a background-subtracted 0-3 Hz spectrogram. An episode required at least three consecutive integer-related harmonic peaks, each at least 5 dB above the local spectral floor.** Horizontal…" → **"using a background-subtracted 0–5 Hz spectrogram. Each 30-s window was scored by the mean height above the local spectral floor of the first four multiples of the best-fitting fundamental (0.15–0.55 Hz), with heights below the floor counted as zero. The score was smoothed over 1.5 min and expressed as a robust z-score within each recording and channel. An episode began where z reached 2.5, extended while z stayed above 1.0, bridged gaps of up to 7 min, and had to last at least 3 min; these settings were chosen by visual inspection of all recordings."**
    - Reason: Detector replaced: the fixed "three peaks each 5 dB" rule missed visible combs and split single combs in two. The adaptive score was tuned by eye on all 12 nights x 3 channels (analysis/slow_wave/comb_tune.py). Spectrogram now 0–5 Hz.
    - Source: paper/stages/s06_harmonic_comb.py: comb_score, _hysteresis, detect_channel
 
-38. **P216 (¶217), Fig. 8 caption.** "…background-enhanced spectrogram (**0–3** Hz)…" → **"0–5"**
+41. **P216 (¶217), Fig. 8 caption.** "…background-enhanced spectrogram (**0–3** Hz)…" → **"0–5"**
    - Reason: Figure redrawn to 5 Hz with the adaptive detector; CH still has two events, both in N2.
    - Source: paper/outputs/paper_numbers.csv fig8_events, fig8_stage; paper/outputs/figures/s06_harmonic_comb/fig8_S6N1_CH.png
 
-39. **P218 (¶219), §3.6.** "…**Twenty-two events were identified across nine sessions** from all six…" → **"Forty-five events were identified across all 12 sessions"**
+42. **P218 (¶219), §3.6.** "…**Twenty-two events were identified across nine sessions** from all six…" → **"Forty-five events were identified across all 12 sessions"**
    - Reason: 45 merged events, 12 of 12 nights.
    - Source: paper/outputs/paper_numbers.csv n_events, n_sessions
 
-40. **P218 (¶219), §3.6.** "…One representative event contained bands at **0.15, 0.28, 0.42, 0.68, and 0.95** Hz (Fig. …" → **"0.23, 0.50, and 1.10"**
+43. **P218 (¶219), §3.6.** "…One representative event contained bands at **0.15, 0.28, 0.42, 0.68, and 0.95** Hz (Fig. …" → **"0.23, 0.50, and 1.10"**
    - Reason: The old example had no source. Replaced by the sustained bands of the first event in Fig. 8 (S6N1, CH, 2.27–2.73 h).
    - Source: ladder_bands.csv (S6N1 CH); paper/outputs/paper_numbers.csv example_bands
 
-41. **P218 (¶219), §3.6.** "…consolidated NREM sleep: **19 of 22 (86%) occurred in N2, while one occurred in each of N1, N3, and wakefulness**.…" → **"35 of 45 (78%) occurred in N2, four in N3, three in wakefulness, two in N1, and one in REM"**
+44. **P218 (¶219), §3.6.** "…consolidated NREM sleep: **19 of 22 (86%) occurred in N2, while one occurred in each of N1, N3, and wakefulness**.…" → **"35 of 45 (78%) occurred in N2, four in N3, three in wakefulness, two in N1, and one in REM"**
    - Reason: Dominant stage of each event.
    - Source: paper/outputs/paper_numbers.csv n_n2, pct_n2, n_other; ladder_events.csv
 
-42. **P219 (¶220), §3.6.** "…**Event-aligned stage occupancy showed an N2 probability of approximately 0.9 at onset (Fig. 10a), indicating that these events were associated with N2 rather than N3 slow wave activity. The events also showed a consistent temporal relationship with preceding REM sleep. REM occupied an average of 5.9% of the 30 min before event onset, approximately 3.5 times the matched random-NREM value of 1.7%. In contrast, REM occupied only 0.7% of the 30 min after event offset, compared with 3.1% in the control. Event-aligned analysis showed elevated REM occupancy approximately 30–8 min before onset and little REM thereafter (Fig. 10b). The nearest REM epoch occurred a median of 30 min before an event and 51 min afterward; REM was closer before than after the event in five of six participants. N1 occupancy also increased during the 10 min preceding onset, consistent with a REM-to-N1-to-N2 transition.**…" → **"Event-aligned stage occupancy showed an N2 probability of 0.76 at onset, peaking at 0.82 about 4 min later (Fig. 9a), indicating that these events were associated with N2 rather than N3 slow wave activity. The relationship with REM sleep was weak and inconsistent. REM occupied an average of 3.5% of the 30 min before event onset, approximately twice the matched random-NREM value of 1.8%, and 1.3% of the 30 min after event offset, compared with 3.3% in the control (Fig. 9b). However, the nearest REM epoch occurred a median of 85 min before an event and 44 min afterward, and REM was closer before than after the event in only two of six participants. N1 occupancy was similar in the 10 min before onset and in the 20 min before that (0.15 in both)."**
+45. **P219 (¶220), §3.6.** "…**Event-aligned stage occupancy showed an N2 probability of approximately 0.9 at onset (Fig. 10a), indicating that these events were associated with N2 rather than N3 slow wave activity. The events also showed a consistent temporal relationship with preceding REM sleep. REM occupied an average of 5.9% of the 30 min before event onset, approximately 3.5 times the matched random-NREM value of 1.7%. In contrast, REM occupied only 0.7% of the 30 min after event offset, compared with 3.1% in the control. Event-aligned analysis showed elevated REM occupancy approximately 30–8 min before onset and little REM thereafter (Fig. 10b). The nearest REM epoch occurred a median of 30 min before an event and 51 min afterward; REM was closer before than after the event in five of six participants. N1 occupancy also increased during the 10 min preceding onset, consistent with a REM-to-N1-to-N2 transition.**…" → **"Event-aligned stage occupancy showed an N2 probability of 0.76 at onset, peaking at 0.82 about 4 min later (Fig. 9a), indicating that these events were associated with N2 rather than N3 slow wave activity. The relationship with REM sleep was weak and inconsistent. REM occupied an average of 3.5% of the 30 min before event onset, approximately twice the matched random-NREM value of 1.8%, and 1.3% of the 30 min after event offset, compared with 3.3% in the control (Fig. 9b). However, the nearest REM epoch occurred a median of 85 min before an event and 44 min afterward, and REM was closer before than after the event in only two of six participants. N1 occupancy was similar in the 10 min before onset and in the 20 min before that (0.15 in both)."**
    - Reason: Rewritten from the new results. With 45 events the pooled pre-onset REM excess is smaller (x2.0, was x3.4) and REM is nearer AFTER the event in 4 of 6 participants, so the claimed "consistent temporal relationship with preceding REM" no longer holds. Figure refs 10a/10b -> 9a/9b. N1 pre-onset 0.154 vs 0.151: no increase.
    - Source: paper/outputs/paper_numbers.csv n2_onset, rem_pre, rem_pre_null, rem_ratio, rem_post, rem_post_null, rem_med_before, rem_med_after, rem_side, n1_pre; ladder_onset_occupancy.csv, ladder_rem_side_by_subject.csv
 
-43. **P221 (¶222), Fig. 9 caption.** "…distribution of **22** harmonic-comb events…" → **"45"**
+46. **P221 (¶222), Fig. 9 caption.** "…distribution of **22** harmonic-comb events…" → **"45"**
    - Reason: Event count.
    - Source: paper/outputs/paper_numbers.csv n_events
 
-44. **P221 (¶222), Fig. 9 caption.** "…REM occupancy surrounding event onset**, showing elevated occupancy approximately 30–8 min before onset and little REM thereafter**.…" → **"; REM was slightly more frequent before onset than after, but not consistently across participants"**
+47. **P221 (¶222), Fig. 9 caption.** "…REM occupancy surrounding event onset**, showing elevated occupancy approximately 30–8 min before onset and little REM thereafter**.…" → **"; REM was slightly more frequent before onset than after, but not consistently across participants"**
    - Reason: As §3.6.
    - Source: paper/outputs/paper_numbers.csv rem_pre, rem_post, rem_side
 
-45. **P223 (¶224), §3.6.** "…**Thus, harmonic-comb events generally emerged during consolidated N2 sleep approximately 10–30 min after REM and were not typically followed by REM. Given the small sample of 22 events from six participants, this pattern was considered exploratory rather than confirmatory. The events may represent nonsinusoidal, quasi-periodic mechanical or hemodynamic activity associated with stable post-REM NREM sleep rather than cortical slow-wave activity.**…" → **"Thus, harmonic-comb events occurred mainly during consolidated N2 sleep. The pooled REM occupancy suggested a link with preceding REM, but this was not consistent across participants. Given 45 events from six participants, these patterns were considered exploratory rather than confirmatory. The events may represent nonsinusoidal, quasi-periodic mechanical or hemodynamic activity associated with stable NREM sleep rather than cortical slow-wave activity."**
+48. **P223 (¶224), §3.6.** "…**Thus, harmonic-comb events generally emerged during consolidated N2 sleep approximately 10–30 min after REM and were not typically followed by REM. Given the small sample of 22 events from six participants, this pattern was considered exploratory rather than confirmatory. The events may represent nonsinusoidal, quasi-periodic mechanical or hemodynamic activity associated with stable post-REM NREM sleep rather than cortical slow-wave activity.**…" → **"Thus, harmonic-comb events occurred mainly during consolidated N2 sleep. The pooled REM occupancy suggested a link with preceding REM, but this was not consistent across participants. Given 45 events from six participants, these patterns were considered exploratory rather than confirmatory. The events may represent nonsinusoidal, quasi-periodic mechanical or hemodynamic activity associated with stable NREM sleep rather than cortical slow-wave activity."**
    - Reason: Conclusion of §3.6 follows the new results: N2 stands, post-REM timing does not.
    - Source: paper/outputs/paper_numbers.csv rem_side, rem_10_30
-
-### E. Fig. 2 caption
-
-46. **P173 (¶174), Fig. 2 caption.** "…four male participants aged **(insert)**54 years…" → **"25, 37, "**
-   - Reason: Panels are (a) S6N2 25 y, (b) S3N2 37 y, (c) S4N2 54 y, (d) S2N2 66 y; Table 1 lists all four as M, so "male" stays.
-   - Source: paper/outputs/paper_numbers.csv fig2_caption; analysis/mean_value/fig2_overnight_panels.py PANELS; Table 1
-
-47. **P173 (¶174), Fig. 2 caption.** "…four male participants aged 54**(insert)** years. Each panel…" → **" and 66"**
-   - Reason: As above.
-   - Source: paper/outputs/paper_numbers.csv fig2_caption
 
 ## Left unchanged: for the professor
 
@@ -248,6 +252,5 @@ Supplementary figures cited in V11 that no longer exist in supplement V4 (senten
 - **Methods P153 (¶154), "sliding-window Welch"**: DIFF says one full-night Welch PSD per channel (30-s segments, 50% overlap). Not in the listed Methods paragraphs (¶153 Viterbi, ¶160, ¶163); candidate for the next pass.
 - **Methods P162 (¶163) spindle method.** "low-frequency (0-3 Hz)": code drops the f = 0 bin (bins 0.78/1.56/2.34 Hz used), computed "0.1–3"; changing it would also need §3.4 and the Fig. 6 caption, and the band edges are not stated precisely. "count-matched baseline windows … spindle-free N2 windows": the detection control is all N2 points ≥ 3 s from a spindle (not count-matched) and the ERSP control is count-matched but not spindle-free, so no one-phrase replacement. "Subject-level averages … before the group average": the spindle numbers are recording/pooled means (identical to participant means here because each participant has two recordings); the same sentence also covers delta bursts, where it is true.
 - **§3.5 onset count entering Fig. 7 and the arousal control**: 339, not 344 (S4N2 and S5N1 skipped, < 5 onsets). Not in the listed §3.5 items; Fig. 7 caption "For the complete onset set" is affected.
-- **§3.5 P205, "Most were isolated N2 slow waves or K-complexes"**: 340 of 344 onsets are scored N2, but "K-complexes" has the same 9/344 problem as P208. Not a DIFF row; left.
 - **§3.7 P229 R² values** (0.63/0.71/0.68 → 0.637/0.710/0.855) and "Significant" (p = 0.057/0.035/0.008, n = 6). §3.7 was in scope only for the figure cross-reference.
 - **§3.9 K-complex latencies** (causal 3.5/5.2/5.5 s vs text 3.6/3.7/4.3 s) and "count-matched" null (it is 20 × marks, min 200). Not in scope.

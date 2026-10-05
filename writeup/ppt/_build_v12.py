@@ -1,5 +1,7 @@
 """
-Build manuscript V12 from V11 as a Word tracked-changes revision.
+Build manuscript V12 from V11. The edits are made as tracked changes (so the build can
+verify them against V11) and then ACCEPTED: the written V12 is clean text, no red or
+strike-through (author request 2026-10-05). V12_CHANGES.md is the record of every edit.
 
 Every edit is a real tracked change (w:del / w:ins, author "Aditya Deole",
 2026-10-05) made INSIDE the existing runs: the run(s) holding the target text
@@ -51,7 +53,9 @@ FIGDIR = ROOT / 'paper' / 'outputs' / 'figures' / 's06_harmonic_comb'
 # caption start -> new picture (the picture is the nearest earlier paragraph with one).
 # Not a tracked change: Word does not track picture content.
 NEW_FIGS = {'Fig. 8 Representative harmonic-comb': FIGDIR / 'fig8_S6N1_CH.png',
-            'Fig. 9 Sleep-stage distribution': FIGDIR / 'fig9_stage_occupancy.png'}
+            'Fig. 9 Sleep-stage distribution': FIGDIR / 'fig9_stage_occupancy.png',
+            'Figure 12. SEC response at technologist-scored K-complexes':
+                ROOT / 'paper' / 'outputs' / 'figures' / 's08_delta_kcomplex' / 'fig12_kcomplex_response.png'}
 
 W_NS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
 W = '{%s}' % W_NS
@@ -203,9 +207,21 @@ EDITS = [
      'made up most onsets is not supported by the scoring.',
      PN + ' onsets_on_kcomplex'),
     ('D', '§3.5', 'frequently accompanied by autonomic activation', '', '.',
-     ', although only 9 of the 344 onsets fell within 5 s of a scored K-complex',
+     '; however, only 9 of the 344 onsets fell within 5 s of a scored K-complex, so '
+     'K-complexes cannot account for most onsets',
      'As above: the computed fact replaces the unsupported "most onsets" claim.',
      PN + ' onsets_on_kcomplex, kc_with_onset'),
+    # ── G. Consistency (review pass 2026-10-05) ─────────────────────────────
+    ('G', '§3.5', 'Most were isolated N2 slow waves', ' or K-complexes', ' because sustained', '',
+     'Only 9 of 344 onsets are within 5 s of a scored K-complex (340 of 344 are N2); '
+     'same fix as the §3.5 K-complex sentence.', PN + ' onsets_on_kcomplex'),
+    ('G', 'Discussion', 'onsets reflected N2 slow waves', ' or K-complexes', ' rather than', '',
+     'As §3.5.', PN + ' onsets_on_kcomplex'),
+    ('G', '§2.8 Methods', 'assessed from the causal pre-onset trajectory, ',
+     'SEC-to-EEG cross-correlation, ', 'and the area', '',
+     'The cross-correlation result was dropped from §3.5 (it came from the zero-phase '
+     'pipeline), so Methods no longer announces it.', PN + ' xcorr_lag_zerophase'),
+
     # ── F. Harmonic combs: adaptive detector (paper/stages/s06_harmonic_comb.py) ─
     ('F', '§2.7 Methods', 'independently in each raw SEC channel ', 'using a background-subtracted 0-3 Hz spectrogram. An episode required at least three consecutive integer-related harmonic peaks, each at least 5 dB above the local spectral floor.', ' Horizontal',
      'using a background-subtracted 0–5 Hz spectrogram. Each 30-s window was scored by the mean height above the local spectral floor of the first four multiples of the best-fitting fundamental (0.15–0.55 Hz), with heights below the floor counted as zero. The score was smoothed over 1.5 min and expressed as a robust z-score within each recording and channel. An episode began where z reached 2.5, extended while z stayed above 1.0, bridged gaps of up to 7 min, and had to last at least 3 min; these settings were chosen by visual inspection of all recordings.',
@@ -244,13 +260,6 @@ EDITS = [
      'Conclusion of §3.6 follows the new results: N2 stands, post-REM timing does not.',
      PN + ' rem_side, rem_10_30'),
 
-    # ── E. Fig. 2 caption ages ───────────────────────────────────────────────
-    ('E', 'Fig. 2 caption', 'four male participants aged ', '', '54 years', '25, 37, ',
-     'Panels are (a) S6N2 25 y, (b) S3N2 37 y, (c) S4N2 54 y, (d) S2N2 66 y; Table 1 lists all '
-     'four as M, so "male" stays.',
-     PN + ' fig2_caption; analysis/mean_value/fig2_overnight_panels.py PANELS; Table 1'),
-    ('E', 'Fig. 2 caption', 'four male participants aged 54', '', ' years. Each panel', ' and 66',
-     'As above.', PN + ' fig2_caption'),
 ]
 
 # Paragraph index (P, 0-based over every w:p in the body) is filled in at build time.
@@ -279,7 +288,6 @@ Supplementary figures cited in V11 that no longer exist in supplement V4 (senten
 - **Methods P153 (¶154), "sliding-window Welch"**: DIFF says one full-night Welch PSD per channel (30-s segments, 50% overlap). Not in the listed Methods paragraphs (¶153 Viterbi, ¶160, ¶163); candidate for the next pass.
 - **Methods P162 (¶163) spindle method.** "low-frequency (0-3 Hz)": code drops the f = 0 bin (bins 0.78/1.56/2.34 Hz used), computed "0.1–3"; changing it would also need §3.4 and the Fig. 6 caption, and the band edges are not stated precisely. "count-matched baseline windows … spindle-free N2 windows": the detection control is all N2 points ≥ 3 s from a spindle (not count-matched) and the ERSP control is count-matched but not spindle-free, so no one-phrase replacement. "Subject-level averages … before the group average": the spindle numbers are recording/pooled means (identical to participant means here because each participant has two recordings); the same sentence also covers delta bursts, where it is true.
 - **§3.5 onset count entering Fig. 7 and the arousal control**: 339, not 344 (S4N2 and S5N1 skipped, < 5 onsets). Not in the listed §3.5 items; Fig. 7 caption "For the complete onset set" is affected.
-- **§3.5 P205, "Most were isolated N2 slow waves or K-complexes"**: 340 of 344 onsets are scored N2, but "K-complexes" has the same 9/344 problem as P208. Not a DIFF row; left.
 - **§3.7 P229 R² values** (0.63/0.71/0.68 → 0.637/0.710/0.855) and "Significant" (p = 0.057/0.035/0.008, n = 6). §3.7 was in scope only for the figure cross-reference.
 - **§3.9 K-complex latencies** (causal 3.5/5.2/5.5 s vs text 3.6/3.7/4.3 s) and "count-matched" null (it is 20 × marks, min 200). Not in scope.
 """
@@ -529,7 +537,17 @@ def main():
     n_ins = len(root.findall('.//' + q('ins')))
     n_del = len(root.findall('.//' + q('del')))
 
+    # highlighted text that was itself deleted
+    hl_deleted = []
+    for d in root.iter(q('del')):
+        for r in d.iter(q('r')):
+            if is_hl(r):
+                hl_deleted.append(rtext(r))
     media = swap_figures(root, zin.read('word/_rels/document.xml.rels'))
+    accepted = [view(p, 'accept')[0] for p in ps]
+    accept_all(root)
+    assert [view(p, 'accept')[0] for p in ps] == accepted
+    assert root.find('.//' + q('ins')) is None and root.find('.//' + q('del')) is None
     xml = etree.tostring(root, xml_declaration=True, encoding='UTF-8', standalone=True)
     tmp = OUT.with_suffix('.tmp')
     with zipfile.ZipFile(tmp, 'w') as zout:
@@ -546,18 +564,25 @@ def main():
             if n.endswith('.xml') or n.endswith('.rels'):
                 etree.fromstring(z.read(n))
 
-    # highlighted text that was itself deleted
-    hl_deleted = []
-    for d in root.iter(q('del')):
-        for r in d.iter(q('r')):
-            if is_hl(r):
-                hl_deleted.append(rtext(r))
 
     print(f'\nedits {len(applied)}  w:ins {n_ins}  w:del {n_del}')
     print(f'highlight runs with visible text: before {hl_before}  after {hl_after}')
     print(f'highlighted text deleted: {hl_deleted}')
     write_log(applied, hl_before, hl_after, hl_deleted, n_ins, n_del)
     print(f'wrote {OUT.relative_to(ROOT)}\nwrote {LOG.relative_to(ROOT)}')
+
+
+def accept_all(root):
+    """Accept every tracked change: drop w:del, unwrap w:ins."""
+    for d in list(root.iter(q('del'))):
+        d.getparent().remove(d)
+    for ins in list(root.iter(q('ins'))):
+        par = ins.getparent()
+        k = par.index(ins)
+        for child in list(ins):
+            par.insert(k, child)
+            k += 1
+        par.remove(ins)
 
 
 def swap_figures(root, rels_xml):
@@ -611,7 +636,7 @@ def write_log(applied, hb, ha, hdel, n_ins, n_del):
     L += ['', '## Edits', '']
     names = {'A': 'A. Rate numbers', 'B': 'B. Supplementary cross-references',
              'C': 'C. Main-figure cross-references', 'D': 'D. Factual corrections',
-             'E': 'E. Fig. 2 caption',
+             'G': 'G. Consistency',
              'F': 'F. Harmonic combs (adaptive detector; Figs. 8-9 pictures replaced, untracked)'}
     last = None
     for n, (grp, sec, i, pre, old, post, new, why, src) in enumerate(applied, 1):

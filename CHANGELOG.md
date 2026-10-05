@@ -6,6 +6,20 @@ Records all code changes to library modules, scripts, and notebooks.
 
 ## 2026-10-05
 
+- **Changed** `writeup/ppt/_build_v12.py`. V12 is now written as **clean text**: the edits are still made as tracked changes, validated against V11, and then accepted (author request: no red or strike-through). V12_CHANGES.md remains the record. 48 edits; Word reports 0 revisions, 36 pages.
+  - Group E (Fig. 2 caption ages) is dropped, so the professor's caption stays; the figure is now one session.
+  - New group G (consistency review):
+    - removed "or K-complexes" in §3.5 and the Discussion (9/344 onsets);
+    - Methods no longer announces the cross-correlation dropped from §3.5;
+    - the §3.5 K-complex sentence is reworded so it follows logically.
+  - The Fig. 12 (K-complex) picture is swapped for the untitled version.
+- **Changed** `paper/stages/_s08_delta_kcomplex_figures.py`: Fig. 12 has no suptitle or panel titles, only the letters a/b/c.
+- **Changed** `writeup/edits/EMAIL_TO_PROF_2026-10-05.md`, rewritten to accompany V12 + supp V4:
+  - what changed;
+  - where S5 goes;
+  - the imbalance metric removed;
+  - a list of items for the professor's decision (§3.8 refs/signs, Fig. 2 caption, §3.3 artifact ridge, SWS association R = −0.17, §3.7 R² 0.86, truncated ¶53, section numbering, the stray note, ref 22, uncited 6.4 s, Fig. 13 age).
+
 - **Changed** `paper/stages/s06_harmonic_comb.py`: the harmonic-comb detector is replaced by the adaptive one tuned by eye with the author (`analysis/slow_wave/comb_tune.py`, all 12 nights x CH/CLE/CRE).
   - Score: the mean height above background of the first 4 harmonics of the best f0 (0.15–0.55 Hz), smoothed over 1.5 min and expressed as a robust z within each night and channel.
   - Episodes by hysteresis: start at z ≥ 2.5, extend while z ≥ 1.0, bridge gaps ≤ 7 min, keep episodes ≥ 3 min.

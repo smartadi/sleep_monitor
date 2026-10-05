@@ -51,7 +51,6 @@ def fig12_kcomplex(lags, ev, null, eeg, table, peak_win, rng):
     fig = plt.figure(figsize=(17, 6.4))
     gs = fig.add_gridspec(1, 3, width_ratios=[1.35, 1.0, 1.05], wspace=0.34)
     w = (lags >= peak_win[0]) & (lags <= peak_win[1])
-    n_ev = len(ev[CHANNELS[0]])
 
     # (a) event-triggered average
     ax = fig.add_subplot(gs[0, 0])
@@ -76,8 +75,7 @@ def fig12_kcomplex(lags, ev, null, eeg, table, peak_win, rng):
     ax.axhline(0, color='#999', lw=0.8)
     ax.set_xlabel('Time from scored K-complex (s)')
     ax.set_ylabel('Low-frequency SEC power (z, baselined)')
-    ax.set_title(f'a   SEC response at the K-complex (n={n_ev})', loc='left',
-                 fontweight='bold')
+    ax.set_title('a', loc='left', fontweight='bold', fontsize=15)
     ax.legend(loc='upper left', framealpha=0.92)
     ax.grid(True, alpha=0.15)
 
@@ -103,7 +101,7 @@ def fig12_kcomplex(lags, ev, null, eeg, table, peak_win, rng):
     ax.set_ylim(-0.75, 2.85)
     ax.set_xlim(peak_win)
     ax.set_xlabel('Latency of the peak response (s)')
-    ax.set_title('b   Response follows the event', loc='left', fontweight='bold')
+    ax.set_title('b', loc='left', fontweight='bold', fontsize=15)
     ax.grid(True, axis='x', alpha=0.15)
 
     # (c) per recording
@@ -118,10 +116,9 @@ def fig12_kcomplex(lags, ev, null, eeg, table, peak_win, rng):
     ax.set_xticklabels([f'{r.session}  n={r.n_kcomplex}' for r in t.itertuples()],
                        fontsize=9.5, rotation=60, ha='right')
     ax.set_ylabel('Peak response (z)')
-    ax.set_title('c   Per recording', loc='left', fontweight='bold')
+    ax.set_title('c', loc='left', fontweight='bold', fontsize=15)
     ax.legend(framealpha=0.92)
     ax.grid(True, axis='y', alpha=0.15)
 
-    fig.suptitle('SEC response at technologist-scored K-complexes', fontsize=15,
-                 fontweight='bold')
+    # no figure title: the manuscript caption carries it
     return fig

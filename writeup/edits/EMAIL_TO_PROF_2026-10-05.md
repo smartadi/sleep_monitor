@@ -1,80 +1,112 @@
-**Subject:** Supplementary V4: new slow-trend section, imbalance metric retired, cardiac reference corrected
+**Subject:** Manuscript V12 and Supplementary V4: corrected numbers, new supplementary results, items for your decision
 
 Dear Professor,
 
-I have updated the supplementary material (V4, attached). There are three things I would
-like your advice on.
+Please find attached manuscript V12 and supplementary V4.
 
-**1. Where should the new results go?**
+V12 is V11 with every number checked against the analysis code and corrected where the code
+disagreed. The changes are accepted into the text, so it reads cleanly. I have a list of
+each change with its reason if you would like to see it. I did not touch §3.8, Figs. 3–4,
+or your Fig. 2 caption.
 
-I added a new supplementary section, S5, on how the slow part of the SEC signal behaves
-across sleep. I put it in the supplement for now so that you can decide what, if
-anything, should move into the main text:
+**1. What changed in V12**
 
-- **Signal variance tracks sleep depth (S5.1, Fig. S9).** The quietest 10% of each night
-  fall in N3 about twice as often as chance on all three channels (CH 10/12 nights, CLE
-  9/12, CRE 11/12). The most variable epochs fall in wakefulness and almost never in N3.
-  This is the clearest stage-related result we have, and it is not in the current
-  manuscript.
-- **Slow trends with head movements removed (S5.2, Figs. S10–S12).** Head position
-  explains about 40% of the slow signal. The breathing-band amplitude during sleep is
-  2–9 times that of the mask recorded unworn, so the stage differences come from the
-  person, not the sensor.
-- **Changes at stage transitions (S5.4, Fig. S14).**
-  - CH falls when sleep gets deeper: N1→N2 on 8 of 10 nights, N2→N3 on 10 of 12.
-  - CH rises when sleep gets lighter: N2→N1 on 7 of 7 nights, N3→N2 on 9 of 11.
+- **Heart-rate reference.** The PSG heart-rate reference had been taken from the pulse
+  oximeter on every night instead of the ECG, as the methods state. On two nights the
+  oximeter reads 36% and 29% too high. With the ECG:
+  - nightly heart-rate error is 1.19 beats/min (was 1.56);
+  - per-epoch error is 3.09 beats/min (was 3.41);
+  - the cardiac calibration factor is close to 2 on 11 of 12 nights.
+
+  The Discussion and Conclusion now give these numbers and cite the rate figures, which
+  are now in the supplement (Figs. S4–S8).
+- **Harmonic-comb events (§3.6, Figs. 8–9, new supplementary section S6).**
+  - The old detector required three harmonics each 5 dB above background. It missed combs
+    that are clearly visible and split single combs in two. I replaced it with a score
+    that adapts to each night, tuned by inspecting all 12 nights on all three channels.
+  - It finds 45 events on all 12 nights (previously 22 on 9).
+  - The N2 association holds: 35 of 45 events are in N2.
+  - The earlier claim that combs emerge 10–30 min after REM does not hold up. REM is closer
+    before the event in only 2 of 6 participants (previously 5 of 6). §3.6 now says this.
+- **Smaller corrections in §3.1–§3.5 and Methods.** Examples:
+  - CH exceeded 1000 fF in five recordings, not three.
+  - Spindle counts and dB values.
+  - Only 9 of 344 delta-burst onsets coincide with a scored K-complex, so "most were
+    K-complexes" was removed.
+  - The causal-filtering paragraph in §3.5 is rewritten.
+  - Supplementary and figure cross-references are renumbered.
+- **Figure titles.** The K-complex figure (Fig. 12) and Figs. 8–9 no longer carry titles
+  inside the image; the captions carry them.
+
+**2. Where should the new supplementary results go?**
+
+Supplementary section S5 covers how the slow part of the SEC signal behaves across sleep.
+I kept it in the supplement so that you can decide what moves to the main text:
+
+- **Signal variance tracks sleep depth (S5.1, Fig. S9).**
+  - The quietest 10% of each night falls in N3 about twice as often as chance on all three
+    channels (CH 10/12 nights, CLE 9/12, CRE 11/12).
+  - The most variable epochs fall in wakefulness and almost never in N3.
+  - This is our clearest stage-related result, and it is not in the manuscript.
+- **Slow trends with head movements removed (S5.2, Figs. S10–S12).** Head position explains
+  about 40% of the slow signal.
+- **Stage transitions (S5.4, Fig. S14).**
+  - CH falls as sleep deepens: N1→N2 on 8 of 10 nights, N2→N3 on 10 of 12.
+  - CH rises as sleep lightens: N2→N1 on 7 of 7 nights, N3→N2 on 9 of 11.
   - CLE and CRE move the opposite way on entering N3.
-- **The lowest frequencies, 0.01–0.03 Hz (S5.5, Fig. S15).**
-  - The bright patches visible in the spectrogram turned out to be head movements.
-  - After the movements are removed, what is left is more common in REM and rare in N3.
-- **REM onset (S5.3, Fig. S13).** There is a small rise in the trend velocity at REM
-  onset, as the literature on intracranial blood volume would predict. It is weak, so I
-  report it only as an observation.
+- **0.01–0.03 Hz (S5.5, Fig. S15).** The bright low-frequency patches in the spectrograms
+  are head movements. After removing them, what remains is more common in REM and rare
+  in N3.
+- **REM onset (S5.3, Fig. S13).** There is a small rise in trend velocity at REM onset. It
+  is weak, so it is reported only as an observation.
 
-Would you like any of these in the main text? The variance result (S5.1) would fit the
-opening of the Discussion, in my view.
+In my view the variance result would fit the opening of the Discussion.
 
-**2. Why the capacitance imbalance metric has been removed**
+**3. The capacitance imbalance metric has been removed**
 
-The imbalance measure (the integrated magnitude of the CLE−CRE difference, and the
-supplementary figures built on it) has been taken out. We had two reasons:
+The imbalance measure (the integrated magnitude of the CLE−CRE difference) has been
+removed, for two reasons:
 
-- **It was a poor metric.** It summed the size of the left–right difference over the
-  night. That number is dominated by mask fit and posture: it varied 46-fold between
-  nights and up to 6-fold between one person's two nights. Because the trace is
+- **It is a poor metric.** It is dominated by mask fit and posture. It varied 46-fold
+  between nights and up to 6-fold between one person's two nights. Because the trace is
   referenced to its own mean, its sign is close to zero by construction.
-- **It was filtered improperly.** The slow signal was being smoothed and motion-masked in
-  a way that left head-movement steps in it and let the smoothing look ahead in time.
-  Most of what looked like slow "flow" was the level jumping each time the head moved.
+- **It was filtered improperly.** The smoothing left head-movement steps in the signal and
+  looked ahead in time. Much of the apparent slow "flow" was the level jumping each time
+  the head moved.
 
-What the imbalance was meant to convey is the flow-like, slowly drifting behaviour of
-the left–right signal. We now show that directly:
+The metric was meant to show the flow-like, slowly drifting behaviour of the left–right
+signal. We now show that directly, in S5.2 (Figs. S10–S12):
 
-- First the CLE−CRE difference (and CH) with the head-movement steps removed.
-- Then its "velocity": how fast the level is drifting, measured as the slope over the
-  previous 30 minutes, in fF per hour (S5.2, Figs. S10–S12).
+- the CLE−CRE difference and CH, with head-movement steps removed;
+- their velocity, meaning the slope over the previous 30 minutes in fF per hour.
 
-These show the drift without the posture jumps, and they need no summary number that
-mixes the two. Please advise whether this is acceptable. If so, the §3.1 sentences that
-cite the old figures (S4, S5a–c) need to be rewritten.
+Please advise whether this is acceptable. If it is, the §3.1 sentences that cite the old
+figures (S4, S5a–c) need rewriting.
 
-**3. The cardiac reference is now the ECG**
+**4. Items left for your decision**
 
-While checking the rate numbers I found that the PSG heart-rate reference had silently
-been taken from the pulse oximeter on every night instead of the ECG, as the methods
-state. Checked against the ECG, the pulse oximeter reads 36% and 29% too high on two
-nights. The supplement now uses the ECG wherever it is usable (10 of 12 nights).
-
-This changes the cardiac numbers:
-
-- The calibration factor is now close to 2 on 11 of 12 nights. The exception is the one
-  night without a valid reference.
-- The nightly heart-rate error is 1.19 rather than 1.56 beats/min.
-- Both breathing and heart-rate night averages now beat a no-sensor baseline, including
-  when the calibration comes from another night or other people.
-
-The main text (¶253 and ¶259) still quotes the old cardiac numbers. I can send the
-corrected sentences.
+- **§3.8.**
+  - "(Fig. 12)" in the first paragraph should be Fig. 11.
+  - "Fig. Sxx" is still a placeholder.
+  - Several correlation signs in the code differ from the text. For example, the
+    impulse-frequency/PSQI value and the age value are negative in the code.
+- **Fig. 2 caption.** It says "four male participants aged 54 years", but the figure now
+  shows one recording.
+- **§3.3 low-frequency ridges.** The 0.05–0.08 Hz ridge (67 ridges, "around 0.1 Hz") comes
+  from the motion-filter corner, not physiology; S5.5 shows the corrected picture. "Fig. S10"
+  in §3.3 now points to a different figure.
+- **Discussion and Conclusion.** Mean SEC area against PSG N3 duration gives R = −0.17, which
+  does not support "a moderate association with SWS duration".
+- **§3.7.** The third R² (median variance) computes to 0.86, not 0.68.
+- **Small text issues.**
+  - Methods ¶53 ends mid-sentence ("mean values of").
+  - Sections 2.5–2.6 are missing from the numbering.
+  - A note, "Mention absolute value?", remains in §3.1.
+  - The previous ICP work in §2.1 cites reference 22 (a near-infrared paper); I think it
+    should be 23 or 24.
+  - The "6.4 s" CSF latency in §3.9 has no citation.
+  - The Fig. 13 participant is 24, which is outside our cohort; please confirm this is the
+    separate optical test.
 
 Best regards,
 Aditya
