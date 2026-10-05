@@ -6,6 +6,12 @@ Records all code changes to library modules, scripts, and notebooks.
 
 ## 2026-10-05
 
+- **Added** `analysis/slow_wave/supp_comb_figures.py` -> `writeup/figures/supp_s6/`. The supplement's harmonic-comb figures, drawn from the paper pipeline's detector (the same 22 events as §3.6): all events over the stages, four close-ups, and event properties. Only bands that last at least half the event count as sustained; counting every fragment gave misleading totals of 25–47 bands per event.
+- **Changed** `writeup/ppt/_build_supp_v4.py`: new last section **S6. Harmonic-comb events** (Figs. S16–S18), with a plain-language method and results read from the tables.
+- **Changed** `writeup/ppt/_build_v12.py` (still 47 tracked edits):
+  - ¶208 is rewritten simply in one edit. It replaces three patches; the causal AUC is now 0.37–0.51, and the zero-lag and per-participant details are dropped.
+  - The ¶179 S6N1/S3N1 example sentence is cut, because it used the old calculation and named no channel.
+  - ¶219 "Fig. S11" now points to "Figs. S16–S18".
 - **Added** `writeup/ppt/_build_v12.py` -> `writeup/review/final/CAP_sleep_mask_manuscript_V12.docx` (git-ignored) and `writeup/edits/V12_CHANGES.md`. V12 is V11 with 47 Word tracked changes (author Aditya Deole), all made inside the existing runs so the professor's highlights survive. Each target must match exactly once or the build stops. The build checks that rejecting every change gives back V11's text and highlighting, paragraph by paragraph.
   - Rate numbers use the ECG reference: cardiac 1.19/3.09 beats/min, k 2.00 (1.95–2.07), respiratory range 14.2–17.0. "(Table 3)" and "calibrated agreement" are removed, and the rate text now cites Figs. S4–S8.
   - Fixes the SNR reference (S6 to S2) and the off-by-one main-figure references (Figs. 6–10).

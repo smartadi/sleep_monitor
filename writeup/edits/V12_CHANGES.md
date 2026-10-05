@@ -4,16 +4,16 @@ Built by `writeup/ppt/_build_v12.py` from `writeup/review/final/CAP_sleep_mask_m
 
 Paragraph index **P** counts every `w:p` in the body from 0 (as in V11_HIGHLIGHTS.md); paper_numbers.csv / the task use **¶ = P + 1**.
 
-**47 edits** (44 insertions, 42 deletion wrappers). Highlighted runs with visible text: 60 before, 65 after. Highlighted text deleted: 'a frequency-median-filtered spectrum was subtracted', 'by the prespecified detection criterion', 'S6'. Validation: "reject all" view equals V11 text and highlighting in every paragraph.
+**47 edits** (43 insertions, 48 deletion wrappers). Highlighted runs with visible text: 60 before, 65 after. Highlighted text deleted: 'a frequency-median-filtered spectrum was subtracted', 'by the prespecified detection criterion', 'S6'. Validation: "reject all" view equals V11 text and highlighting in every paragraph.
 
 | section | edits |
 |---|---|
 | Discussion | 8 |
 | Conclusion | 1 |
-| §3.2 | 5 |
+| §3.2 | 6 |
+| §3.6 | 9 |
 | §3.4 | 5 |
-| §3.5 | 7 |
-| §3.6 | 8 |
+| §3.5 | 5 |
 | §3.7 | 1 |
 | §3.1 | 1 |
 | §2.4 Methods | 2 |
@@ -69,113 +69,113 @@ Paragraph index **P** counts every `w:p` in the body from 0 (as in V11_HIGHLIGHT
    - Reason: SNR figure is Fig. S2 in supplement V4 (old S6 / S3).
    - Source: supplementary V4 caption "Figure S2. Physiological-band SNR"; paper/outputs/paper_numbers.csv snr_fig_ref
 
+11. **P218 (¶219), §3.6.** "…**Supporting information Fig. S11**).…" → **"Supporting information, Figs. S16–S18"**
+   - Reason: Old S11 no longer exists; the harmonic-comb events are now supplementary section S6 (S16 all 22 events over the stages, S17 four events up close, S18 event properties).
+   - Source: supplementary V4 section S6; analysis/slow_wave/supp_comb_figures.py
+
 ### C. Main-figure cross-references
 
-11. **P198 (¶199), §3.4.** "… channel (Fig. **7**). This average…" → **"6"**
+12. **P198 (¶199), §3.4.** "… channel (Fig. **7**). This average…" → **"6"**
    - Reason: Spindle figure is captioned "Fig. 6. Mechanical SEC responses associated with sleep spindles".
    - Source: V11 caption P201; PROVENANCE.md cross-reference list
 
-12. **P206 (¶207), §3.5.** "…channel–band combination (Fig. **8**).…" → **"7"**
+13. **P206 (¶207), §3.5.** "…channel–band combination (Fig. **8**).…" → **"7"**
    - Reason: Delta-onset figure is captioned "Fig. 7 SEC band-power changes surrounding delta-burst onset".
    - Source: V11 caption P211; PROVENANCE.md
 
-13. **P218 (¶219), §3.6.** "…and 0.95 Hz (Fig. **9**, Supporting information…" → **"8"**
+14. **P218 (¶219), §3.6.** "…and 0.95 Hz (Fig. **9**, Supporting information…" → **"8"**
    - Reason: Comb example is captioned "Fig. 8 Representative harmonic-comb events".
    - Source: V11 caption P216; PROVENANCE.md
 
-14. **P219 (¶220), §3.6.** "…at onset (Fig. **10a**), indicating…" → **"9a"**
+15. **P219 (¶220), §3.6.** "…at onset (Fig. **10a**), indicating…" → **"9a"**
    - Reason: Stage-occupancy figure is captioned "Fig. 9 Sleep-stage distribution of 22 harmonic-comb events".
    - Source: V11 caption P221; PROVENANCE.md
 
-15. **P219 (¶220), §3.6.** "…little REM thereafter (Fig. **10b**). The nearest…" → **"9b"**
+16. **P219 (¶220), §3.6.** "…little REM thereafter (Fig. **10b**). The nearest…" → **"9b"**
    - Reason: As above (panel B of Fig. 9).
    - Source: V11 caption P221; PROVENANCE.md
 
-16. **P229 (¶230), §3.7.** "…two separate nights (Fig. **11**). Significant…" → **"10"**
+17. **P229 (¶230), §3.7.** "…two separate nights (Fig. **11**). Significant…" → **"10"**
    - Reason: Reproducibility figure is captioned "Fig. 10. Night-to-night reproducibility".
    - Source: V11 caption P227; paper/outputs/paper_numbers.csv fig_ref_230
 
 ### D. Factual corrections
 
-17. **P174 (¶175), §3.1.** "…exceeded 1000 fF in the **three** most mobile recordings…" → **"five"**
+18. **P174 (¶175), §3.1.** "…exceeded 1000 fF in the **three** most mobile recordings…" → **"five"**
    - Reason: Five recordings exceed 1000 fF within-night CH range (S2N1, S2N2, S4N1, S6N1, S6N2).
    - Source: paper/outputs/paper_numbers.csv ch_gt_1000; analysis/mean_value/mean_centred_traces.py
 
-18. **P178 (¶179), §3.2.** "…accounted for **29–48%** of the total power below 5 Hz…" → **"9–59%"**
+19. **P178 (¶179), §3.2.** "…accounted for **29–48%** of the total power below 5 Hz…" → **"9–59%"**
    - Reason: All 12 nights × CH/CLE/CRE, denominator 0 < f ≤ 5 Hz (the text already states "power below 5 Hz"). 29–48% was 3 nights of CLE−CRE with a 0.05–10 Hz denominator.
    - Source: paper/outputs/paper_numbers.csv resp_frac_range; writeup/figures/signal_validation/generate_band_energy.py
 
-19. **P178 (¶179), §3.2.** "…contributed an additional **8–48%**. Relative to…" → **"3–60%"**
+20. **P178 (¶179), §3.2.** "…contributed an additional **8–48%**. Relative to…" → **"3–60%"**
    - Reason: As above, cardiac band share.
    - Source: paper/outputs/paper_numbers.csv card_frac_range
 
-20. **P178 (¶179), §3.2.** "…and CH **consistently **yielded the highest SNR…" → **"(deleted)"**
+21. **P178 (¶179), §3.2.** "…and CH **consistently **yielded the highest SNR…" → **"(deleted)"**
    - Reason: "consistently" no longer true (see next edit).
    - Source: paper/outputs/paper_numbers.csv ch_highest
 
-21. **P178 (¶179), §3.2.** "…highest SNR in **every participant**. The greater…" → **"5 of 6 participants"**
+22. **P178 (¶179), §3.2.** "…highest SNR in **every participant**. The greater…" → **"5 of 6 participants"**
    - Reason: CH is highest in 5/6 participants (10/12 nights); CRE is higher on both nights of participant 4.
    - Source: paper/outputs/paper_numbers.csv ch_highest; writeup/figures/signal_validation/inband_snr.py
 
-22. **P152 (¶153), §2.4 Methods.** "…In each time column, **a frequency-median-filtered spectrum was subtracted** to reduce the 1/f…" → **"power in a plain spectrogram (30-s windows for respiration and 15-s windows for cardiac activity, 50% overlap) was divided by its in-band column median"**
+23. **P178 (¶179), §3.2.** "…constant electronic noise floor across sessions.** The relative contributions of respiratory and cardiac activity also varied across recordings: S6N1 was predominantly respiratory (48% respiratory versus 8% cardiac power), whereas S3N1 showed a stronger cardiac contribution (48% cardiac power).**…" → **"(deleted)"**
+   - Reason: Sentence cut: its percentages came from the earlier calculation (3 nights, CLE−CRE, 0.05–10 Hz denominator) and it names no channel, so it contradicts the corrected range stated two sentences earlier.
+   - Source: paper/outputs/paper_numbers.csv resp_frac_S6N1, card_frac_S6N1, card_frac_S3N1
+
+24. **P152 (¶153), §2.4 Methods.** "…In each time column, **a frequency-median-filtered spectrum was subtracted** to reduce the 1/f…" → **"power in a plain spectrogram (30-s windows for respiration and 15-s windows for cardiac activity, 50% overlap) was divided by its in-band column median"**
    - Reason: The median-filter subtraction belongs to the display spectrogram only; the tracker emission is log(PSD / in-band column median) of a plain spectrogram, 30 s / 15 s windows, 50% overlap.
    - Source: paper/outputs/paper_numbers.csv vit_method; analysis/slow_wave/ridge_overlay_tune.py:track_single_ridge
 
-23. **P152 (¶153), §2.4 Methods.** "…column-median background **by the prespecified detection criterion**. These trajectories…" → **"by more than a factor of two (3 dB)"**
+25. **P152 (¶153), §2.4 Methods.** "…column-median background **by the prespecified detection criterion**. These trajectories…" → **"by more than a factor of two (3 dB)"**
    - Reason: The confidence rule was never stated: tracked bin > 2× the in-band column median.
    - Source: paper/outputs/paper_numbers.csv vit_conf_rule; track_single_ridge
 
-24. **P159 (¶160), §2.7 Methods.** "…random NREM draws **per event** and were interpreted…" → **"per session"**
+26. **P159 (¶160), §2.7 Methods.** "…random NREM draws **per event** and were interpreted…" → **"per session"**
    - Reason: The null draws 200 windows per SESSION (event durations cycled), not per event.
    - Source: paper/outputs/paper_numbers.csv null_draws; harmonic_ladder_overlay.py → ladder_stage_relationship.py
 
-25. **P197 (¶198), §3.4.** "…Across the 12 recordings, **351–2,134** N2 spindles…" → **"351–2,130"**
+27. **P197 (¶198), §3.4.** "…Across the 12 recordings, **351–2,134** N2 spindles…" → **"351–2,130"**
    - Reason: K-complex marks (40 in N2) are no longer analysed as spindles.
    - Source: paper/outputs/paper_numbers.csv spin_n_range
 
-26. **P197 (¶198), §3.4.** "…per session (**14,305** total)…" → **"14,265"**
+28. **P197 (¶198), §3.4.** "…per session (**14,305** total)…" → **"14,265"**
    - Reason: As above, total.
    - Source: paper/outputs/paper_numbers.csv spin_n_total
 
-27. **P198 (¶199), §3.4.** "… channels and **0.55** dB in the CH channel…" → **"0.54"**
+29. **P198 (¶199), §3.4.** "… channels and **0.55** dB in the CH channel…" → **"0.54"**
    - Reason: CH low-band change, mean of the 12 recording means = 0.544 (0.55 was a 13-row mean that included the POOLED row). CLE/CRE 0.45–0.49 (0.448–0.492) and EEG sigma 3.45 (3.445) MATCH as recording means and are kept.
    - Source: paper/outputs/paper_numbers.csv spin_low_ch_recmean, spin_low_temple_recmean, spin_eeg_sigma_recmean
 
-28. **P198 (¶199), §3.4.** "…response was observed in all 12 recordings**(insert)**, was absent…" → **" on CH and CLE−CRE and 11 of 12 on CLE and CRE"**
+30. **P198 (¶199), §3.4.** "…response was observed in all 12 recordings**(insert)**, was absent…" → **" on CH and CLE−CRE and 11 of 12 on CLE and CRE"**
    - Reason: Positive mean low-band change in 12/12 recordings on CH and CLE−CRE but 11/12 on CLE and on CRE.
    - Source: paper/outputs/paper_numbers.csv spin_all12_CLE, spin_all12_CRE, spin_all12_CLE-CRE, spin_all12_CH
 
-29. **P201 (¶202), Fig. 6 caption.** "…largest increase in CH (**0.55** dB). (B)…" → **"0.54"**
+31. **P201 (¶202), Fig. 6 caption.** "…largest increase in CH (**0.55** dB). (B)…" → **"0.54"**
    - Reason: Same quantity as the main text (CH, 12-recording mean 0.544 dB; the note says the curve averaged over |t| < 1 s equals this). The single-sample curve peak would be 0.63 dB.
    - Source: paper/outputs/paper_numbers.csv fig6a_ch_peak, spin_low_ch_recmean
 
-30. **P201 (¶202), Fig. 6 caption.** "…increases by an average of **0.55** dB, whereas…" → **"0.59"**
+32. **P201 (¶202), Fig. 6 caption.** "…increases by an average of **0.55** dB, whereas…" → **"0.59"**
    - Reason: Panel B is the pooled per-spindle distribution: CH pooled mean 0.587 dB.
    - Source: paper/outputs/paper_numbers.csv fig6b_ch_low
 
-31. **P201 (¶202), Fig. 6 caption.** "…changes by only **0.02** dB. (C)…" → **"0.03"**
+33. **P201 (¶202), Fig. 6 caption.** "…changes by only **0.02** dB. (C)…" → **"0.03"**
    - Reason: Panel B pooled CH sigma mean 0.027 dB.
    - Source: paper/outputs/paper_numbers.csv fig6b_ch_sigma
 
-32. **P201 (¶202), Fig. 6 caption.** "…consistent increase across all 12 recordings**(insert)**. …" → **" on CH and CLE−CRE and 11 of 12 on CLE and CRE"**
+34. **P201 (¶202), Fig. 6 caption.** "…consistent increase across all 12 recordings**(insert)**. …" → **" on CH and CLE−CRE and 11 of 12 on CLE and CRE"**
    - Reason: Panel C: CLE 11/12, CRE 11/12, CLE−CRE 12/12, CH 12/12.
    - Source: paper/outputs/paper_numbers.csv fig6c_all12
 
-33. **P205 (¶206), §3.5.** "…1 to 99 per recording; **three** recordings contained fewer…" → **"four"**
+35. **P205 (¶206), §3.5.** "…1 to 99 per recording; **three** recordings contained fewer…" → **"four"**
    - Reason: Four recordings have < 10 onsets: S1N2 9, S4N2 4, S5N1 1, S5N2 6.
    - Source: paper/outputs/paper_numbers.csv n_rec_lt10; analysis/delta_onset/delta_onset_detection.py
 
-34. **P207 (¶208), §3.5.** "…cross-correlation peaked at zero lag**(insert)**, and pre-onset…" → **" with zero-phase filtering"**
-   - Reason: Zero lag holds for the zero-phase envelopes (−0.2 to 0.0 s); with causal envelopes the peak is at −1.6 to −0.2 s. Numbers unchanged, attribution corrected.
-   - Source: paper/outputs/paper_numbers.csv xcorr_lag_zerophase, xcorr_lag_causal; analysis/delta_onset/delta_cap_precursor.py
-
-35. **P207 (¶208), §3.5.** "…(area under the curve**(insert)**, 0.42–0.56)…" → **" with zero-phase filtering"**
-   - Reason: The 0.42–0.56 AUC came from the zero-phase pipeline (causal: 0.37–0.51). Numbers unchanged.
-   - Source: paper/outputs/paper_numbers.csv auc_zerophase, auc_causal
-
-36. **P207 (¶208), §3.5.** "…standardized units, positive in all six participants**(insert)**, to approximately…" → **" on CLE and CRE and in four of six on CH"**
-   - Reason: Zero-phase pre-onset real−null > 0 in 6/6 participants on CLE and CRE but 4/6 on CH.
-   - Source: paper/outputs/paper_numbers.csv lowband_zp_pos_CLE/CRE/CH; analysis/delta_onset/lowband_precursor_check.py
+36. **P207 (¶208), §3.5.** "…followed rather than preceded delta-burst onset. **With strictly causal filtering, the pre-onset baseline remained flat, SEC–EEG cross-correlation peaked at zero lag, and pre-onset SEC power did not predict an impending onset (area under the curve, 0.42–0.56). Zero-phase filtering produced an apparent pre-onset increase in the 0–0.5 Hz band, but this resulted from backward leakage of the large post-onset response. With causal filtering, the real-minus-control difference during the final 3 s before onset decreased from 0.35–0.41 standardized units, positive in all six participants, to approximately zero and positive in only two to three participants.**…" → **"With causal filtering, which uses only past data, SEC power was flat before onset and did not predict an upcoming onset (area under the curve, 0.37–0.51). Zero-phase filtering, which also uses later data, showed a small apparent rise before onset, but this was the large post-onset response spreading backward in time: switching to causal filtering reduced the pre-onset difference from the random-time control from 0.35–0.41 standardized units to approximately zero."**
+   - Reason: Rewritten for clarity and corrected: the old text attributed the zero-lag cross-correlation and the 0.42–0.56 AUC to causal filtering, but both came from the zero-phase pipeline. With causal envelopes the AUC is 0.37–0.51. The cross-correlation and the per-participant counts are dropped as unnecessary detail.
+   - Source: paper/outputs/paper_numbers.csv auc_causal, auc_zerophase, xcorr_lag_zerophase, lowband_zp_pos_*; analysis/delta_onset/lowband_precursor_check.py, delta_cap_precursor.py
 
 37. **P208 (¶209), §3.5.** "…Moreover, K-complexes**, which constituted most detected onsets, were** frequently accompanied…" → **" are"**
    - Reason: Only 9 of 344 onsets fall within ±5 s of a scored K-complex; the claim that K-complexes made up most onsets is not supported by the scoring.

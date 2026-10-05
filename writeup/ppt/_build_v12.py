@@ -104,6 +104,11 @@ EDITS = [
      'supplementary V4 caption "Figure S2. Physiological-band SNR"; ' + PN + ' snr_fig_ref'),
 
     # ── C. Main-figure cross-references (checked against V11 captions) ──────
+    ('B', '§3.6', '', 'Supporting information Fig. S11', ').',
+     'Supporting information, Figs. S16–S18',
+     'Old S11 no longer exists; the harmonic-comb events are now supplementary section S6 '
+     '(S16 all 22 events over the stages, S17 four events up close, S18 event properties).',
+     'supplementary V4 section S6; analysis/slow_wave/supp_comb_figures.py'),
     ('C', '§3.4', ' channel (Fig. ', '7', '). This average', '6',
      'Spindle figure is captioned "Fig. 6. Mechanical SEC responses associated with sleep spindles".',
      'V11 caption P201; PROVENANCE.md cross-reference list'),
@@ -137,6 +142,11 @@ EDITS = [
     ('D', '§3.2', 'highest SNR in ', 'every participant', '. The greater', '5 of 6 participants',
      'CH is highest in 5/6 participants (10/12 nights); CRE is higher on both nights of participant 4.',
      PN + ' ch_highest; writeup/figures/signal_validation/inband_snr.py'),
+    ('D', '§3.2', 'constant electronic noise floor across sessions.', ' The relative contributions of respiratory and cardiac activity also varied across recordings: S6N1 was predominantly respiratory (48% respiratory versus 8% cardiac power), whereas S3N1 showed a stronger cardiac contribution (48% cardiac power).', '', '',
+     'Sentence cut: its percentages came from the earlier calculation (3 nights, CLE−CRE, '
+     '0.05–10 Hz denominator) and it names no channel, so it contradicts the corrected range '
+     'stated two sentences earlier.',
+     PN + ' resp_frac_S6N1, card_frac_S6N1, card_frac_S3N1'),
     ('D', '§2.4 Methods', 'In each time column, ', 'a frequency-median-filtered spectrum was subtracted',
      ' to reduce the 1/f',
      'power in a plain spectrogram (30-s windows for respiration and 15-s windows for cardiac '
@@ -179,18 +189,14 @@ EDITS = [
     ('D', '§3.5', '1 to 99 per recording; ', 'three', ' recordings contained fewer', 'four',
      'Four recordings have < 10 onsets: S1N2 9, S4N2 4, S5N1 1, S5N2 6.',
      PN + ' n_rec_lt10; analysis/delta_onset/delta_onset_detection.py'),
-    ('D', '§3.5', 'cross-correlation peaked at zero lag', '', ', and pre-onset',
-     ' with zero-phase filtering',
-     'Zero lag holds for the zero-phase envelopes (−0.2 to 0.0 s); with causal envelopes the '
-     'peak is at −1.6 to −0.2 s. Numbers unchanged, attribution corrected.',
-     PN + ' xcorr_lag_zerophase, xcorr_lag_causal; analysis/delta_onset/delta_cap_precursor.py'),
-    ('D', '§3.5', '(area under the curve', '', ', 0.42–0.56)', ' with zero-phase filtering',
-     'The 0.42–0.56 AUC came from the zero-phase pipeline (causal: 0.37–0.51). Numbers unchanged.',
-     PN + ' auc_zerophase, auc_causal'),
-    ('D', '§3.5', 'standardized units, positive in all six participants', '', ', to approximately',
-     ' on CLE and CRE and in four of six on CH',
-     'Zero-phase pre-onset real−null > 0 in 6/6 participants on CLE and CRE but 4/6 on CH.',
-     PN + ' lowband_zp_pos_CLE/CRE/CH; analysis/delta_onset/lowband_precursor_check.py'),
+    ('D', '§3.5', 'followed rather than preceded delta-burst onset. ', 'With strictly causal filtering, the pre-onset baseline remained flat, SEC–EEG cross-correlation peaked at zero lag, and pre-onset SEC power did not predict an impending onset (area under the curve, 0.42–0.56). Zero-phase filtering produced an apparent pre-onset increase in the 0–0.5 Hz band, but this resulted from backward leakage of the large post-onset response. With causal filtering, the real-minus-control difference during the final 3 s before onset decreased from 0.35–0.41 standardized units, positive in all six participants, to approximately zero and positive in only two to three participants.', '',
+     'With causal filtering, which uses only past data, SEC power was flat before onset and did not predict an upcoming onset (area under the curve, 0.37–0.51). Zero-phase filtering, which also uses later data, showed a small apparent rise before onset, but this was the large post-onset response spreading backward in time: switching to causal filtering reduced the pre-onset difference from the random-time control from 0.35–0.41 standardized units to approximately zero.',
+     'Rewritten for clarity and corrected: the old text attributed the zero-lag '
+     'cross-correlation and the 0.42–0.56 AUC to causal filtering, but both came from the '
+     'zero-phase pipeline. With causal envelopes the AUC is 0.37–0.51. The cross-correlation '
+     'and the per-participant counts are dropped as unnecessary detail.',
+     PN + ' auc_causal, auc_zerophase, xcorr_lag_zerophase, lowband_zp_pos_*; '
+     'analysis/delta_onset/lowband_precursor_check.py, delta_cap_precursor.py'),
     ('D', '§3.5', 'Moreover, K-complexes', ', which constituted most detected onsets, were',
      ' frequently accompanied', ' are',
      'Only 9 of 344 onsets fall within ±5 s of a scored K-complex; the claim that K-complexes '
