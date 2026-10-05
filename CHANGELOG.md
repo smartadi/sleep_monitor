@@ -4,6 +4,25 @@ Records all code changes to library modules, scripts, and notebooks.
 
 ---
 
+## 2026-10-05
+
+- **Rebuilt** `writeup/ppt/_build_supp_v4.py` as a clean assembly from V3, writing `writeup/review/final/CAP_sleep_mask_manuscript supplementary V4.docx` (git-ignored; 18 pages, 13 figures). V3's blank pages came from dozens of empty paragraphs and stray page breaks left by earlier cuts. V4 has none of either.
+  - Headings are Heading1 for sections S1–S5 and Heading2 for S5.1–S5.3.
+  - Every figure is kept with its caption, and captions open with a bold "Figure Sn." label.
+  - Figures are capped at 7.4 in tall so a caption always fits on the same page.
+  - **Removed:** V3 Figs S2 (left-right difference), S4 (overnight CH vs CLE-CRE) and S6, plus the integrated-imbalance section (superseded by S5); S11 (calibration vs baseline), with its numbers kept in the prose.
+  - **Renumbered:** S1 drift, S2 SNR, S3 coherence + Table S1, S4–S8 rates, S9 variance tails, S10–S12 slow trends, S13 REM onset.
+  - **Text corrections** from the paper-code audit: ten (not eleven) nights use all four respiratory signals; thorax ≥ airflow holds on three of four channels; spectral k spread is up to about twice peak counting's (not 2–3×); the S3N2 reference spans about 56–66 beats/min (not 55–80).
+- **Added** `analysis/rates/_supp_style.py`: one print style for supplementary figures. Figures are drawn 9 in wide for the 6 in text width (~8–9 pt on the page), with no titles and bold panel letters.
+- **Changed** `analysis/rates/supp_rate_pipeline.py`, `supp_k_by_channel.py`, `supp_rate_epoch_k.py`, `supp_rate_allsessions.py` to use it.
+  - Panel titles and the worked-arithmetic box are gone; that content now lives in the captions.
+  - The S8 median labels no longer collide, and the S9 y-label is no longer clipped.
+  - The all-recordings figure is redrawn as a full page with error values on a white backing.
+- **Added** `analysis/mean_value/supp_s5_figures.py` -> `writeup/figures/supp_s5/*.png`. The five S5 figures are drawn at print size in the same style, with no head-movement shading; the stage ladder is a colour band with one shared legend.
+- S2 and S3 in V4 use the paper pipeline's title-free SNR and coherence figures (`paper/outputs/figures/s03_signal/`), whose values match V3's exactly.
+
+---
+
 ## 2026-10-04
 
 - **Added** `analysis/mean_value/rem_onset_velocity.py` -> `writeup/figures/imbalance/fig_rem_onset_velocity.png`, `reports/mean_value/rem_onset_velocity_{events,subjects,sensitivity}.csv`. REM-episode-onset-locked trend velocity of de-stepped CLE-CRE and CH. Uses a centred 30-min slope so timing is not delayed, compares against random NREM times in the same night, summarises per participant, and checks sensitivity to the REM-onset definition.

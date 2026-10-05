@@ -83,16 +83,10 @@ MIN_DIST_S = 0.4
 K_RESP = 1.18        # measured per-recording median
 K_CARD = 1.96
 
-# large type throughout: these are supplementary figures meant to be read
-# quickly, and the reviewer asked for bigger fonts
-plt.rcParams.update({
-    'font.size': 21, 'axes.titlesize': 23, 'axes.labelsize': 21,
-    'xtick.labelsize': 19, 'ytick.labelsize': 19, 'legend.fontsize': 19,
-    'font.weight': 'bold', 'axes.labelweight': 'bold',
-    'axes.titleweight': 'bold',
-    'axes.spines.top': False, 'axes.spines.right': False,
-    'figure.dpi': 110, 'savefig.dpi': 200,
-})
+# print style shared by every supplementary rate figure (see _supp_style.py):
+# drawn 9 in wide for a 6 in text width, no titles, panel letters
+import _supp_style   # noqa: E402
+_supp_style.apply()
 
 BLUE, GREY, RED, GREEN = '#2e75b6', '#6b6b6b', '#c0392b', '#1b7a43'
 
@@ -123,36 +117,33 @@ def worked_example(session_label='S2N1', minutes_in=120.0, span_s=60.0):
 
 
 def fig_pipeline(ex):
-    fig, ax = plt.subplots(2, 1, figsize=(13.5, 8.0), sharex=True,
+    """(a) the raw channel, (b) band-passed with every counted peak marked.
+
+    The worked arithmetic (peaks -> per minute -> divided by k) used to sit in a
+    box under the figure; it is in the caption now.
+    """
+    fig, ax = plt.subplots(2, 1, figsize=(_supp_style.WIDTH_IN, 5.0), sharex=True,
                            gridspec_kw={'height_ratios': [1, 1.25]})
 
-    ax[0].plot(ex['t'], ex['raw'], color=GREY, lw=1.4)
-    ax[0].set_ylabel('CRE, raw\n(fF)')
-    ax[0].set_title('Step 1-2.  One channel (CRE), band-passed to the '
-                    'respiratory band 0.1–0.5 Hz', loc='left')
+    ax[0].plot(ex['t'], ex['raw'], color=GREY, lw=0.9)
+    ax[0].set_ylabel('CRE, raw (fF)')
+    _supp_style.letter(ax[0], 'a', x=-0.11, y=1.05)
 
-    ax[1].plot(ex['t'], ex['bp'], color=BLUE, lw=2.2)
-    ax[1].plot(ex['t'][ex['pk']], ex['bp'][ex['pk']], 'v', ms=11,
+    ax[1].plot(ex['t'], ex['bp'], color=BLUE, lw=1.6)
+    ax[1].plot(ex['t'][ex['pk']], ex['bp'][ex['pk']], 'v', ms=7,
                color=RED, zorder=5)
-    ax[1].axhline(0, color=GREY, lw=0.8)
-    ax[1].set_ylabel('CRE, filtered\n(a.u.)')
-    ax[1].set_xlabel('seconds')
-    ax[1].set_title('Step 3.  Count peaks — loose detector '
-                    '(prominence 0.05σ, minimum spacing 0.4 s)', loc='left')
+    ax[1].axhline(0, color=GREY, lw=0.6)
+    ax[1].set_ylabel('CRE, filtered (a.u.)')
+    ax[1].set_xlabel('time (s)')
+    _supp_style.letter(ax[1], 'b', x=-0.11, y=1.05)
 
-    txt = (f"Step 4–5.   {ex['n']} peaks  →  "
-           f"{ex['raw_rate']:.1f} per min  ÷  k = {K_RESP}"
-           f"  →  {ex['rate']:.1f} breaths/min")
-    ax[1].annotate(txt, (0.5, -0.42), xycoords='axes fraction', ha='center',
-                   va='top', fontsize=19, color='#1b2a41',
-                   bbox=dict(boxstyle='round,pad=0.5', fc='#eef3f9',
-                             ec='#b9c8da'))
-
-    fig.tight_layout(rect=(0, 0.16, 1, 1))
+    fig.tight_layout()
+    fig.align_ylabels(ax)
     p = OUT / 'fig_rate_pipeline.png'
-    fig.savefig(p, bbox_inches='tight', facecolor='white')
+    fig.savefig(p, bbox_inches='tight')
     plt.close(fig)
-    print('wrote', p.name)
+    print('wrote', p.name, f"(example: {ex['n']} peaks, {ex['raw_rate']:.1f}/min, "
+          f"{ex['rate']:.1f} breaths/min at k = {K_RESP})")
 
 
 def _median(cell):

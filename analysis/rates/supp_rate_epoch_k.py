@@ -62,14 +62,9 @@ SMOOTH_EPOCHS = 5          # 5 x 30 s = 2.5 min
 AGE = {'OS006': 25, 'OS003': 37, 'OS004': 54,
        'OS005': 55, 'OS001': 61, 'OS002': 66}
 
-plt.rcParams.update({
-    'font.size': 22, 'axes.titlesize': 24, 'axes.labelsize': 22,
-    'xtick.labelsize': 20, 'ytick.labelsize': 21, 'legend.fontsize': 19,
-    'font.weight': 'bold', 'axes.labelweight': 'bold',
-    'axes.titleweight': 'bold',
-    'axes.spines.top': False, 'axes.spines.right': False,
-    'figure.dpi': 110, 'savefig.dpi': 200,
-})
+# print style shared by every supplementary rate figure (see _supp_style.py)
+import _supp_style   # noqa: E402
+_supp_style.apply()
 
 
 def load():
@@ -129,7 +124,7 @@ def fig_fullnight(d):
         ax.set_xlabel('hours into the recording')
     fig.tight_layout(rect=(0, 0, 1, 1))
     p = FIG / 'fig_rate_fullnight.png'
-    fig.savefig(p, bbox_inches='tight', facecolor='white')
+    fig.savefig(p, bbox_inches='tight')
     plt.close(fig)
     print('wrote', p.name, f'({sess}, {", ".join(CHANNELS)})')
     return sess
@@ -152,7 +147,7 @@ def fig_allnight_counts_and_k(d, sess=None):
                 .groupby('session').size().idxmax())
     g = d[d.session == sess]
 
-    fig, axes = plt.subplots(2, 2, figsize=(16.5, 10.0), sharex=True)
+    fig, axes = plt.subplots(2, 2, figsize=(_supp_style.WIDTH_IN, 6.4), sharex=True)
     for c, (band, title, unit) in enumerate(BANDS):
         top, bot = axes[0, c], axes[1, c]
         ref = None
@@ -160,33 +155,35 @@ def fig_allnight_counts_and_k(d, sess=None):
             b = g[(g.channel == ch) & (g.band == band)].sort_values('t_hr')
             if ref is None:
                 ref = (b.t_hr.to_numpy(), (smooth(b.gt_hz) * 60.0).to_numpy())
-            top.plot(b.t_hr, smooth(b.peaks_loose) * 60.0, lw=1.7,
+            top.plot(b.t_hr, smooth(b.peaks_loose) * 60.0, lw=0.9,
                      color=CH_COLORS[ch], alpha=0.9, label=ch)
 
             ke_raw = (b.peaks_loose / b.gt_hz).clip(*CLIP)
-            bot.plot(b.t_hr, smooth(ke_raw), lw=1.7, color=CH_COLORS[ch],
+            bot.plot(b.t_hr, smooth(ke_raw), lw=0.9, color=CH_COLORS[ch],
                      alpha=0.9, label=ch)
-            bot.axhline(ke_raw.median(), color=CH_COLORS[ch], lw=1.6, ls='--',
+            bot.axhline(ke_raw.median(), color=CH_COLORS[ch], lw=1.2, ls='--',
                         alpha=0.85)
 
-        top.plot(ref[0], ref[1], color='#111111', lw=2.8,
-                 label='PSG reference', zorder=5)
-        top.set_title(f'{title}', loc='left', fontweight='bold')
-        top.set_ylabel(f'peaks counted per minute\n({unit} for the reference)')
+        top.plot(ref[0], ref[1], color='#111111', lw=1.6,
+                 label='PSG', zorder=5)
+        # what each column is (breathing / heart rate) is stated in the caption
+        _supp_style.letter(top, 'ab'[c], x=-0.20)
+        _supp_style.letter(bot, 'cd'[c], x=-0.20)
+        top.set_ylabel('per minute')
         top.grid(alpha=0.25)
-        top.legend(loc='upper right', ncol=4, fontsize=12.5)
+        top.legend(loc='upper right', ncol=4, fontsize=9.5, handlelength=1.2,
+                   columnspacing=0.8)
 
-        bot.axhline(1.0, color='#999999', ls=':', lw=1.6)
-        bot.set_ylabel('per-epoch k\n(count ÷ reference)')
-        bot.set_xlabel('hours into the recording')
+        bot.axhline(1.0, color='#999999', ls=':', lw=1.0)
+        bot.set_ylabel('per-epoch k')
+        bot.set_xlabel('time (h)')
         bot.grid(alpha=0.25)
-        bot.legend(loc='upper right', ncol=3, fontsize=12.5)
 
     # kept short on each line: a long single-line suptitle is wider than the
     # canvas, and bbox_inches='tight' then grows the figure sideways to fit it
     fig.tight_layout(rect=(0, 0, 1, 1))
     p = FIG / 'fig_rate_counts_and_k.png'
-    fig.savefig(p, bbox_inches='tight', facecolor='white')
+    fig.savefig(p, bbox_inches='tight')
     plt.close(fig)
     print('wrote', p.name, f'({sess})')
 
@@ -195,7 +192,7 @@ def fig_k_per_epoch(d):
     """Per-epoch k, reported per recording and channel -- never pooled."""
     sessions = sorted(d.session.unique())
     rows = []
-    fig, axes = plt.subplots(2, 1, figsize=(16.5, 9.6), sharex=True)
+    fig, axes = plt.subplots(2, 1, figsize=(_supp_style.WIDTH_IN, 6.6), sharex=True)
     for ax, (band, title, _) in zip(axes, BANDS):
         for xi, sess in enumerate(sessions):
             for ci, ch in enumerate(CHANNELS):
@@ -206,29 +203,29 @@ def fig_k_per_epoch(d):
                     continue
                 q1, med_, q3 = ke.quantile([.25, .5, .75])
                 x = xi + (ci - 1) * 0.26
-                ax.vlines(x, q1, q3, color=CH_COLORS[ch], lw=5.0, alpha=0.75)
-                ax.plot(x, med_, 'o', ms=8, color=CH_COLORS[ch],
-                        markeredgecolor='white', markeredgewidth=1.2, zorder=4)
+                ax.vlines(x, q1, q3, color=CH_COLORS[ch], lw=3.2, alpha=0.75)
+                ax.plot(x, med_, 'o', ms=5, color=CH_COLORS[ch],
+                        markeredgecolor='white', markeredgewidth=0.8, zorder=4)
                 rows.append(dict(session=sess, subject=g.subject.iloc[0],
                                  band=band, channel=ch, k_median=med_,
                                  k_q1=q1, k_q3=q3, iqr=q3 - q1,
                                  n_epochs=int(len(ke))))
-        ax.axhline(1.0, color='#999999', ls=':', lw=1.6)
+        ax.axhline(1.0, color='#999999', ls=':', lw=1.0)
         ax.set_ylabel('per-epoch k')
-        ax.set_title(title, loc='left', fontweight='bold')
+        _supp_style.letter(ax, 'a' if band == BANDS[0][0] else 'b', x=-0.08)
         ax.grid(axis='y', alpha=0.25)
     subj_of = dict(zip(d.session, d.subject))
     axes[-1].set_xticks(range(len(sessions)))
     axes[-1].set_xticklabels(
         [f'{s}\n{AGE.get(subj_of.get(s), "?")} y' for s in sessions],
         rotation=0, ha='center')
-    axes[-1].set_xlabel('recording   (two nights per participant, with age)')
-    handles = [plt.Line2D([], [], color=CH_COLORS[c], lw=5, label=c)
+    axes[-1].set_xlabel('recording (participant age)')
+    handles = [plt.Line2D([], [], color=CH_COLORS[c], lw=3.2, label=c)
                for c in CHANNELS]
     axes[0].legend(handles=handles, loc='upper right', ncol=3)
     fig.tight_layout(rect=(0, 0, 1, 1))
     p = FIG / 'fig_k_per_epoch.png'
-    fig.savefig(p, bbox_inches='tight', facecolor='white')
+    fig.savefig(p, bbox_inches='tight')
     plt.close(fig)
     print('wrote', p.name)
 

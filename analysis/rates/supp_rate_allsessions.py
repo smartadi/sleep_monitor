@@ -56,14 +56,9 @@ SMOOTH = 5
 AGE = {'OS006': 25, 'OS003': 37, 'OS004': 54,
        'OS005': 55, 'OS001': 61, 'OS002': 66}
 
-plt.rcParams.update({
-    'font.size': 18, 'axes.titlesize': 19, 'axes.labelsize': 18,
-    'xtick.labelsize': 16, 'ytick.labelsize': 16, 'legend.fontsize': 16,
-    'font.weight': 'bold', 'axes.labelweight': 'bold',
-    'axes.titleweight': 'bold',
-    'axes.spines.top': False, 'axes.spines.right': False,
-    'figure.dpi': 110, 'savefig.dpi': 170,
-})
+# print style shared by every supplementary rate figure (see _supp_style.py)
+import _supp_style   # noqa: E402
+_supp_style.apply()
 
 
 def main():
@@ -73,7 +68,8 @@ def main():
     sessions = sorted(d.session.unique())
 
     fig, axes = plt.subplots(len(sessions), len(BANDS),
-                             figsize=(17.0, 2.35 * len(sessions)))
+                             figsize=(_supp_style.WIDTH_IN, 1.12 * len(sessions)),
+                             sharex='col')
     rows = []
     for r, sess in enumerate(sessions):
         for c, (band, title, unit) in enumerate(BANDS):
@@ -91,33 +87,36 @@ def main():
                 ref = (b.gt_hz * 60.0).rolling(
                     SMOOTH, center=True, min_periods=2).median()
                 if not ref_drawn:
-                    ax.plot(b.t_hr, ref, color='#111111', lw=2.2, zorder=5,
-                            label='PSG reference')
+                    ax.plot(b.t_hr, ref, color='#111111', lw=1.3, zorder=5,
+                            label='PSG')
                     ref_drawn = True
-                ax.plot(b.t_hr, est, color=CH_COLORS[ch], lw=1.3, alpha=0.85,
+                ax.plot(b.t_hr, est, color=CH_COLORS[ch], lw=0.7, alpha=0.85,
                         label=ch)
                 err = float(np.nanmedian(np.abs(est - ref)))
                 notes.append(f'{ch} {err:.2f}')
                 rows.append(dict(session=sess, subject=subj[sess],
                                  age=AGE.get(subj[sess]), band=band,
                                  channel=ch, k=float(k), median_abs_err=err))
-            ax.annotate('  '.join(notes), (0.012, 0.045),
-                        xycoords='axes fraction', fontsize=11,
-                        color='#555555')
+            ax.annotate('  '.join(notes), (0.012, 0.04),
+                        xycoords='axes fraction', fontsize=8.5,
+                        color='#222222', zorder=10,
+                        bbox=dict(fc='white', ec='none', alpha=0.85, pad=0.6))
             ax.grid(alpha=0.22)
+            ax.tick_params(labelsize=10)
             if c == 0:
-                ax.set_ylabel(f'{sess}  ({AGE.get(subj[sess])} y)\n{unit}')
-            else:
-                ax.set_ylabel(unit)
+                ax.set_ylabel(f'{sess} ({AGE.get(subj[sess])} y)', fontsize=10.5)
             if r == 0:
-                ax.set_title(title, loc='left', fontweight='bold')
-                ax.legend(loc='upper right', ncol=4, fontsize=11)
+                # column a = breathing (breaths/min), b = heart rate
+                # (beats/min): stated in the caption
+                _supp_style.letter(ax, 'ab'[c], x=-0.14, y=1.08)
+                ax.legend(loc='lower center', bbox_to_anchor=(0.5, 1.0), ncol=4,
+                          fontsize=9.5, frameon=False, handlelength=1.4)
             if r == len(sessions) - 1:
-                ax.set_xlabel('hours into the recording')
+                ax.set_xlabel('time (h)')
 
-    fig.tight_layout(rect=(0, 0, 1, 1))
+    fig.tight_layout(h_pad=0.4)
     p = FIG / 'fig_rate_allsessions.png'
-    fig.savefig(p, bbox_inches='tight', facecolor='white')
+    fig.savefig(p, bbox_inches='tight')
     plt.close(fig)
 
     t = pd.DataFrame(rows)
