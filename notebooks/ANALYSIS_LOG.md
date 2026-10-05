@@ -3080,3 +3080,22 @@ Still-period median |trend velocity|: CLE−CRE 3.7–37.7 fF/h, CH 5.8–157 fF
 The two trends co-move on 10/12 nights (r −0.04 to +0.85, median 0.52; S1N2 and S5N1
 ≈0). Shared slow excursions are visible, e.g. S4N2 3.6–3.9 h both fall ~20 fF/h (CLE−CRE)
 and ~50 fF/h (CH) entering REM — observational, single night, not tested.
+
+## 2026-10-04 — Trend velocity at REM onset: right direction, weak, definition-dependent
+
+`analysis/mean_value/rem_onset_velocity.py`. Prediction from the literature (Näsi 2011 NIRS,
+Riedel 2023 invasive ICP): intracranial blood volume/ICP rise within minutes of REM onset.
+Events: REM-episode onsets (≥10 min REM-free before, REM ≥ half of the next 5 min) — 15
+onsets in 5 participants (S6 none; fragmented REM). Centred 30-min slope (not the trailing
+display marker, which would delay responses ~15 min); response = mean velocity 0–15 min after
+minus 15 min before; null = 500 random NREM-time sets per night ≥20 min from REM onsets.
+
+- CLE−CRE rises in **5/5 participants** (median +8.2 fF/h; 4/4 with movement-free onsets
+  only), but only **1/5** above its own null 95%.
+- CH rises in 3/5.
+- **Definition-dependent**: with a 5-min REM-free gap (brief REM re-entries counted),
+  CLE−CRE 3/6 — chance. Holds at 10 and 15 min.
+
+Reported in supplementary V4 §S5 as an observation, not a finding. Same section adds the
+variance-tail enrichment (low variance → N3 on CH/CLE/CRE) and the de-stepped trend
+velocity figures.

@@ -32,6 +32,8 @@ separate panel directly below it, so the two never share an axis.
 
 Writes  writeup/figures/imbalance/fig_destep_velocity_{S}.png
         writeup/figures/imbalance/fig_destep_velocity_allsessions_{CLE-CRE,CH}.png
+        ..._supp.png versions of both sheets and of S4N2, without the movement
+        shading, for the supplement
         reports/mean_value/destep_velocity.csv   (per-night summary)
 
 Usage
@@ -92,7 +94,12 @@ SIGNALS = {
 }
 
 
+SHADE_MOTION = True     # False for the supplement versions: plain white panels
+
+
 def _movement(ax, r):
+    if not SHADE_MOTION:
+        return
     t = r['t']
     for a, b in dmr._spans(r['moving']):
         ax.axvspan(t[a], t[min(b, len(t) - 1)], color='#F2C9C0', lw=0, zorder=0)
@@ -139,7 +146,7 @@ def _velocity_panel(ax, r, key, fontsize=13):
     ax.grid(alpha=0.2)
 
 
-def draw_one(r):
+def draw_one(r, suffix=''):
     """One night: stages, head turn, then each signal with its velocity below it."""
     fig, axes = plt.subplots(
         6, 1, figsize=(15.5, 14.5), sharex=True,
@@ -147,8 +154,9 @@ def draw_one(r):
     lad, hd, s1, v1, s2, v2 = axes
     t = r['t']
     dmr._ladder(lad, t, r['codes'], fontsize=13)
+    shade = '(shaded)' if SHADE_MOTION else ''
     lad.set_title(f"{r['label']}   —   {100 * r['pct_moving']:.0f}% of blocks inside a "
-                  f"head movement (shaded);  velocity = {TREND_MIN:.0f}-min trailing slope",
+                  f"head movement {shade};  velocity = {TREND_MIN:.0f}-min trailing slope",
                   loc='left', fontsize=17)
     hd.plot(t, r['turn'], lw=2.4, color='#1B7A43')
     hd.axhline(0, color='#2C3E50', ls=':', lw=1.2)
@@ -162,13 +170,13 @@ def draw_one(r):
     _velocity_panel(v2, r, 'CH')
     v2.set_xlabel('Time (hours)')
     fig.tight_layout()
-    out = dmr.FIG / f"fig_destep_velocity_{r['label']}.png"
+    out = dmr.FIG / f"fig_destep_velocity_{r['label']}{suffix}.png"
     fig.savefig(out, bbox_inches='tight')
     plt.close(fig)
     return out
 
 
-def draw_all(rs, key):
+def draw_all(rs, key, suffix=''):
     """All twelve nights for one signal: stages, trace, velocity below it."""
     nrow, ncol = 6, 2
     fig = plt.figure(figsize=(21.0, 4.8 * nrow))
@@ -181,7 +189,8 @@ def draw_all(rs, key):
         sig = fig.add_subplot(gs[rw * 4 + 1, c], sharex=lad)
         vel = fig.add_subplot(gs[rw * 4 + 2, c], sharex=lad)
         dmr._ladder(lad, r['t'], r['codes'], fontsize=9)
-        lad.set_title(f"{r['label']}   ({100 * r['pct_moving']:.0f}% moving)",
+        lad.set_title(f"{r['label']}" + (f"   ({100 * r['pct_moving']:.0f}% moving)"
+                                          if SHADE_MOTION else ''),
                       loc='left', fontsize=15)
         _signal_panel(sig, r, key, fontsize=11, legend=(k == 0))
         sig.tick_params(labelbottom=False)
@@ -190,7 +199,7 @@ def draw_all(rs, key):
             vel.set_xlabel('Time (hours)', fontsize=13)
         else:
             vel.tick_params(labelbottom=False)
-    out = dmr.FIG / f'fig_destep_velocity_allsessions_{key}.png'
+    out = dmr.FIG / f'fig_destep_velocity_allsessions_{key}{suffix}.png'
     fig.savefig(out, bbox_inches='tight')
     plt.close(fig)
     return out
@@ -219,6 +228,15 @@ def main():
     pd.DataFrame(rows).to_csv(dmr.TAB / 'destep_velocity.csv', index=False)
     for key in SIGNALS:
         print('  sheet ->', draw_all(rs, key).name)
+
+    # supplement versions: no movement shading, and the title says nothing about it
+    global SHADE_MOTION
+    SHADE_MOTION = False
+    for key in SIGNALS:
+        print('  supplement ->', draw_all(rs, key, suffix='_supp').name)
+    ex = next(r for r in rs if r['label'] == 'S4N2')
+    print('  supplement ->', draw_one(ex, suffix='_supp').name)
+    SHADE_MOTION = True
 
 
 if __name__ == '__main__':
