@@ -44,6 +44,7 @@ import sys
 from pathlib import Path
 
 import matplotlib
+import matplotlib.ticker
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt                      # noqa: E402
 import numpy as np                                   # noqa: E402
@@ -447,3 +448,56 @@ def sharper():
 if __name__ == '__main__':
     main()
     sharper()
+
+
+def all_nights_sheets():
+    """All twelve nights per channel: corrected low-band map, patches boxed,
+    stage band above, head movements ticked on top."""
+    pos = {c: k for k, c in enumerate(STAGE_ORDER)}
+    data = [signals(m) for m in SESSION_META]
+    for ch in CHANNELS:
+        fig = plt.figure(figsize=(18, 22))
+        gs = fig.add_gridspec(6 * 3, 2, height_ratios=[0.12, 1, 0.35] * 6,
+                              hspace=0.05, wspace=0.12)
+        for k, S in enumerate(data):
+            c, rw = k % 2, k // 2
+            band = fig.add_subplot(gs[rw * 3, c])
+            ax = fig.add_subplot(gs[rw * 3 + 1, c], sharex=band)
+            codes = np.asarray(S['codes'])
+            for code in STAGE_ORDER:
+                band.fill_between(S['t_ep'], 0, 1, where=codes == code, step='post',
+                                  color=STAGE_COLORS[code], lw=0)
+            band.set_yticks([])
+            band.tick_params(labelbottom=False, bottom=False)
+            band.set_title(S['label'], loc='left', fontsize=13, fontweight='bold')
+            f, t, db = lowband_map(np.nan_to_num(S['cor'][ch]), S['fs_cor'])
+            ax.pcolormesh(t, f, db, shading='auto', cmap='viridis', vmin=-6, vmax=10,
+                          rasterized=True)
+            ex, _ = band_excess(f, db)
+            for a, b in runs(ex >= PATCH_DB, int(round(MIN_MIN * 60 / STEP_S))):
+                ax.add_patch(plt.Rectangle((t[a], BAND[0]), t[b] - t[a],
+                                           BAND[1] - BAND[0], fill=False,
+                                           ec='#FF2D55', lw=1.5))
+            for a, b in dmr._spans(S['moving']):
+                ax.axvspan(S['t_blk'][a], S['t_blk'][min(b, len(S['t_blk']) - 1)],
+                           ymin=0.92, ymax=1.0, color='#E74C3C', lw=0)
+            ax.set_yscale('log')
+            ax.set_ylim(SHOW[0], 0.05)
+            ax.set_yticks([0.01, 0.02, 0.03, 0.05])
+            ax.set_yticklabels(['.01', '.02', '.03', '.05'], fontsize=9)
+            ax.yaxis.set_minor_formatter(matplotlib.ticker.NullFormatter())
+            ax.set_xlim(0, 9)
+            ax.tick_params(labelsize=9, labelbottom=(rw == 5))
+            if rw == 5:
+                ax.set_xlabel('time (h)')
+        h = [plt.Rectangle((0, 0), 1, 1, color=STAGE_COLORS[c]) for c in STAGE_ORDER]
+        fig.legend(h, [STAGE_LABELS[c] for c in STAGE_ORDER], loc='upper center',
+                   ncol=5, frameon=False, bbox_to_anchor=(0.5, 0.915), fontsize=12)
+        fig.suptitle(f'{ch}, head-movement steps removed: 0.008–0.05 Hz. Red boxes = '
+                     f'patches (0.01–0.03 Hz ≥ {PATCH_DB:g} dB above the night median '
+                     f'for ≥ {MIN_MIN:g} min). Red ticks = head movement.',
+                     y=0.93, fontsize=13)
+        out = FIG / f'patches_allnights_{ch}.png'
+        fig.savefig(out, dpi=110, bbox_inches='tight')
+        plt.close(fig)
+        print('wrote', out.name)
