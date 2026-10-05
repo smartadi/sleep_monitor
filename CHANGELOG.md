@@ -6,6 +6,11 @@ Records all code changes to library modules, scripts, and notebooks.
 
 ## 2026-10-05
 
+- **Added** `writeup/ppt/_build_v12.py` -> `writeup/review/final/CAP_sleep_mask_manuscript_V12.docx` (git-ignored) and `writeup/edits/V12_CHANGES.md`. V12 is V11 with 47 Word tracked changes (author Aditya Deole), all made inside the existing runs so the professor's highlights survive. Each target must match exactly once or the build stops. The build checks that rejecting every change gives back V11's text and highlighting, paragraph by paragraph.
+  - Rate numbers use the ECG reference: cardiac 1.19/3.09 beats/min, k 2.00 (1.95–2.07), respiratory range 14.2–17.0. "(Table 3)" and "calibrated agreement" are removed, and the rate text now cites Figs. S4–S8.
+  - Fixes the SNR reference (S6 to S2) and the off-by-one main-figure references (Figs. 6–10).
+  - Applies the code-verified corrections in §3.1, §3.2, §3.4–3.6, Methods ¶153/¶160 and the Fig. 2 ages.
+  - Items out of scope or ambiguous are listed in the log as left for the professor.
 - **Added** `analysis/rates/build_ecg_reference.py` -> `artifacts/rate_rerun_phase_a_ecgref.parquet`. The legacy rate table's cardiac reference is replaced with the paper pipeline's ECG-first reference. The pulse oximeter is kept only on S5N1 and S6N2, where the ECG is unusable. `supp_k_by_channel.py`, `supp_rate_allsessions.py` and `supp_rate_epoch_k.py` now read it by default (`RATE_SRC=legacy` gives the old Pleth-fallback table).
   - Cardiac k is now 1.97/1.99/2.00 (CH/CLE/CRE) and 1.84–2.32 on 11 of 12 nights; the exception is S6N2 (0.97), the night without a valid reference.
   - The rate prose in supp V4 now reads its numbers from the rate outputs.
