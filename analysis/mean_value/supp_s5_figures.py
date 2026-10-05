@@ -275,29 +275,39 @@ def fig_rem(rs):
 # ── fig 6: CH and CLE-CRE at N3 transitions (stage_event_locked.py) ─────────
 
 def fig_n3_transitions():
-    d = pd.read_csv(REP / 'stage_event_locked.csv')
-    d = d[(d.scale == 'transitions') & d.event.isin(['into N3', 'out of N3'])]
-    fig, axes = plt.subplots(1, 2, figsize=(st.WIDTH_IN, 3.8), sharey=False)
-    for ax, (ch, col), l in zip(axes, (('CH', CH_C), ('CLE-CRE', DIFF_C)), 'ab'):
-        for i, ev in enumerate(('into N3', 'out of N3')):
+    """Level change at stage transitions, every channel (stage_event_locked_all.py).
+
+    Transitions are ordered from deepening to lightening; only those with clean
+    events on at least six nights are drawn (REM exit and Wake entry have 3-4).
+    """
+    d = pd.read_csv(REP / 'stage_event_locked_all.csv')
+    order = [('N1 -> N2', 'N1→N2'), ('into N3', 'N2→N3'), ('into REM', 'NREM→REM'),
+             ('N2 -> N1', 'N2→N1'), ('out of N3', 'N3→N2')]
+    chans = [('CH', CH_C), ('CLE', '#27AE60'), ('CRE', '#8E44AD'), ('CLE-CRE', DIFF_C)]
+    fig, axes = plt.subplots(2, 2, figsize=(st.WIDTH_IN, 6.6), sharex=True)
+    for ax, (ch, col), l in zip(axes.ravel(), chans, 'abcd'):
+        for i, (ev, _) in enumerate(order):
             g = d[(d.event == ev) & (d.channel == ch)].dropna(subset=['response_fF'])
-            x = i + np.random.default_rng(i).uniform(-0.12, 0.12, len(g))
-            ax.scatter(x, g.response_fF, s=26, color=col, edgecolor='k', lw=0.4, zorder=3)
-            ax.hlines(g.response_fF.median(), i - 0.25, i + 0.25, color='k', lw=1.8)
+            x = i + np.random.default_rng(i).uniform(-0.13, 0.13, len(g))
+            ax.scatter(x, g.response_fF, s=16, color=col, edgecolor='k', lw=0.3, zorder=3)
+            ax.hlines(g.response_fF.median(), i - 0.28, i + 0.28, color='k', lw=1.6)
             dn, up = int((g.response_fF < 0).sum()), int((g.response_fF > 0).sum())
-            ax.text(i, 1.02, f'{dn} fall / {up} rise', transform=ax.get_xaxis_transform(),
-                    ha='center', fontsize=10)
+            ax.text(i, 1.01, f'{dn}↓ {up}↑', transform=ax.get_xaxis_transform(),
+                    ha='center', va='bottom', fontsize=9)
         ax.axhline(0, color='k', ls=':', lw=0.8)
-        ax.set_xticks([0, 1])
-        ax.set_xticklabels(['entering N3', 'leaving N3'])
-        ax.set_xlim(-0.6, 1.6)
-        ax.set_ylabel(f'{ch} change (fF)')
-        lim = np.nanpercentile(np.abs(d[d.channel == ch].response_fF), 95) * 1.3
+        ax.axvline(2.5, color='#999999', lw=0.8)
+        lim = np.nanpercentile(np.abs(d[d.channel == ch].response_fF), 95) * 1.25
         ax.set_ylim(-lim, lim)
+        ax.set_ylabel(f'{ch} change (fF)')
         ax.grid(axis='y', alpha=0.2)
+        ax.set_xticks(range(len(order)))
+        ax.set_xticklabels([o[1] for o in order], fontsize=9.5, rotation=0)
         st.letter(ax, l, x=-0.2, y=1.07)
-    fig.tight_layout(w_pad=2.0)
-    return save(fig, 'figS5_6_n3_transitions')
+    for ax in axes[0]:
+        ax.text(1.0, -0.06, 'deeper', transform=ax.get_xaxis_transform(), ha='center',
+                fontsize=0.1, alpha=0)
+    fig.tight_layout(h_pad=2.2)
+    return save(fig, 'figS5_6_transitions')
 
 
 # ── fig 7: the 0.01-0.03 Hz patches (analysis/slow_wave/lowband_patches.py) ──

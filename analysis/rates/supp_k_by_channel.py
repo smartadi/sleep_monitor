@@ -47,6 +47,7 @@ Usage
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -60,7 +61,11 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 from sleep_monitor.sessions import SESSION_META      # noqa: E402
 
-SRC = ROOT / 'artifacts' / 'rate_rerun_phase_a.parquet'
+# cardiac reference ECG-first (build_ecg_reference.py); RATE_SRC=legacy for the
+# original Pleth-fallback table the V3 supplement was drawn from
+SRC = ROOT / 'artifacts' / ('rate_rerun_phase_a.parquet'
+                            if os.environ.get('RATE_SRC') == 'legacy'
+                            else 'rate_rerun_phase_a_ecgref.parquet')
 OUT_FIG = ROOT / 'writeup' / 'figures' / 'rate_supp'
 OUT_TAB = ROOT / 'reports' / 'rates'
 for p in (OUT_FIG, OUT_TAB):

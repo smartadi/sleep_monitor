@@ -6,6 +6,11 @@ Records all code changes to library modules, scripts, and notebooks.
 
 ## 2026-10-05
 
+- **Added** `analysis/rates/build_ecg_reference.py` -> `artifacts/rate_rerun_phase_a_ecgref.parquet`. The legacy rate table's cardiac reference is replaced with the paper pipeline's ECG-first reference. The pulse oximeter is kept only on S5N1 and S6N2, where the ECG is unusable. `supp_k_by_channel.py`, `supp_rate_allsessions.py` and `supp_rate_epoch_k.py` now read it by default (`RATE_SRC=legacy` gives the old Pleth-fallback table).
+  - Cardiac k is now 1.97/1.99/2.00 (CH/CLE/CRE) and 1.84–2.32 on 11 of 12 nights; the exception is S6N2 (0.97), the night without a valid reference.
+  - The rate prose in supp V4 now reads its numbers from the rate outputs.
+- **Added** `analysis/mean_value/stage_event_locked_all.py`: the transition analysis on CH, CLE, CRE and CLE−CRE, adding N1↔N2. CH follows the direction of depth at every boundary with enough events; CLE and CRE rise entering N3 (10/12 each), opposite to CH. The supp S5.4 section and its figure (figS5_6_transitions) were rewritten to match.
+- **Added** `writeup/edits/EMAIL_TO_PROF_2026-10-05.md`: email draft covering S5 placement, why the imbalance metric was removed, and the cardiac reference change.
 - **Added** `analysis/slow_wave/lowband_patches.py` -> `writeup/figures/harmonics/lowband_patches/`, `reports/slow_wave/low_band/lowband_patches*.csv`. Detects 0.01–0.03 Hz patches (6 dB above each frequency's night median for at least 5 min, using 4-min windows) on the raw and on the movement-corrected channel. Tested with stage enrichment and with event-locked power around movement onsets and around stage changes that have no movement, each against a same-size random-time null. The first attempts used a per-column 1/f fit, which absorbed the patches, and a coincidence test, which saturated at about 85% chance; both were replaced.
 - **Changed** `analysis/mean_value/supp_s5_figures.py`: added figS5_6 (CH and CLE−CRE at N3 transitions, from `stage_event_locked.csv`) and figS5_7 (low-band patches).
 - **Changed** `writeup/ppt/_build_supp_v4.py`: added a S5.2 paragraph on head-orientation R² and the unworn-mask floor, plus new sections S5.4 (N3 transitions, Fig. S14) and S5.5 (0.01–0.03 Hz, with the filter explanation, Fig. S15). V4 is now 21 pages with 15 figures.

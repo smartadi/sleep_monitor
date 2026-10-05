@@ -3117,3 +3117,18 @@ after de-stepping (10-s blocks):
 
 Written up as supp V4 §S5.5. §S5.4 adds the N3-transition result from
 `stage_event_locked.py` (CH falls entering N3 10/12, rises leaving 9/11).
+
+## 2026-10-05 — Stage transitions on every channel; the supplement switches to the ECG reference
+
+- `stage_event_locked_all.py`, movement-corrected, per night:
+  - CH falls going deeper (N1→N2 8/10, N2→N3 10/12) and rises going lighter (N2→N1 7/7,
+    N3→N2 9/11).
+  - CLE and CRE **rise** entering N3 (10/12 each), so CLE−CRE cancels (6/12).
+  - REM entry (6 nights), waking (4 events) and REM exit (3 events) are too few: waking
+    almost always comes with movement.
+  - Whether CH's opposite sign is its electrode arrangement is open.
+- Supplement rate section: the cardiac reference is now ECG-first. The legacy table had
+  silently used Pleth throughout.
+  - k is 1.84–2.32 on 11/12 nights; S6N2 (Pleth only, 129 bpm) is 0.97.
+  - Night-average heart rate now beats the no-sensor baseline under the transferable
+    calibrations (3.89 / 2.44 vs 4.04 beats/min).

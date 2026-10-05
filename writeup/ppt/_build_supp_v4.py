@@ -76,11 +76,28 @@ def _r(x, d=1):
 # ('table',)                    Table S1 caption + table, from V3
 
 def rate_section():
+    # every number below is read from the rate outputs, built with the cardiac
+    # reference taken from ECG where usable (analysis/rates/build_ecg_reference.py)
+    k = pd.read_csv(ROOT / 'reports' / 'rates' / 'k_by_channel.csv')
+
+    def kmed(band, meth, ch):
+        return f"{k[(k.band == band) & (k.method == meth) & (k.channel == ch)].k.median():.2f}"
+    kc = k[(k.band == 'card') & (k.method == 'peaks_loose') & (k.channel == 'CRE')]
+    kc_ok = kc[kc.session != 'S6N2'].k
+    sp = pd.read_csv(ROOT / 'reports' / 'rates' / 'k_per_epoch_spread.csv')
+    iqr = sp.groupby(['band', 'channel']).iqr.median()
+    ho = pd.read_csv(ROOT / 'paper' / 'outputs' / 'tables' / 's04_rates' /
+                     'heldout_table.csv').set_index('band')
+
+    def h(band, col):
+        return str(ho.loc[band, col]).split(' ')[0]
     return [
         ('h1', 'S4. Respiratory and cardiac rate estimation'),
         ('t', 'This section describes the rate pipeline as it is run and reports '
               'what it produces. It is descriptive: no agreement limits and no '
-              'inferential tests are reported.'),
+              'inferential tests are reported. Respiratory reference rates come from '
+              'the PSG breathing sensors (Table S1); cardiac reference rates from the '
+              'ECG, as described below.'),
         ('t', 'A rate is produced in five steps. Take one SEC channel, band-pass it '
               'to the band of interest (0.1–0.5 Hz for respiration, 0.5–3.0 Hz for '
               'cardiac activity), count peaks in each 30-second epoch with a loose '
@@ -100,10 +117,14 @@ def rate_section():
               'recording’s valid epochs with individual ratios clipped to 0.3–5.0. '
               'It is reported per night, per participant and per channel '
               '({fig:kch}). k is not a fitted correction but a measurement of what '
-              'the waveform contains: with peak counting, breathing gives 1.04 on CH, '
-              '1.14 on CLE and 1.18 on CRE — roughly one detected peak per breath — '
-              'while cardiac activity gives 1.93, 1.95 and 1.96, two deflections per '
-              'heartbeat.'),
+              'the waveform contains: with peak counting, breathing gives '
+              f'{kmed("resp", "peaks_loose", "CH")} on CH, '
+              f'{kmed("resp", "peaks_loose", "CLE")} on CLE and '
+              f'{kmed("resp", "peaks_loose", "CRE")} on CRE — roughly one detected peak '
+              'per breath — '
+              f'while cardiac activity gives {kmed("card", "peaks_loose", "CH")}, '
+              f'{kmed("card", "peaks_loose", "CLE")} and {kmed("card", "peaks_loose", "CRE")}, '
+              'two deflections per heartbeat.'),
         ('fig', 'kch', RATE / 'fig_k_by_channel.png',
          'k for every night, participant and channel. (a) Breathing, peak '
          'counting. (b) Breathing, spectral peak. (c) Heart rate, peak counting. '
@@ -119,17 +140,20 @@ def rate_section():
               'nearly the same value in every epoch; its k is therefore that constant '
               'divided by the reference and carries no channel information. It is '
               'shown so that the degeneracy is visible rather than asserted.'),
-        ('t', 'A caveat applies wherever k appears. The cardiac reference was checked '
-              'against R-peaks detected on the raw ECG of the same recording. It '
-              'agrees on eight of the twelve, but runs 36% high on S2N1 and 29% high '
-              'on S6N1, and cannot be checked on S5N1 or S6N2 where the ECG channel '
-              'is unusable; S6N2’s reference of 129 beats/min median during sleep is '
-              'implausible on its face. Because k is a count divided by that '
-              'reference, an inflated reference reads as a deflated k, and those '
-              'three recordings are exactly the three that sit below the rest. Over '
-              'the eight recordings with a verified reference the cardiac k is 1.98, '
-              'range 1.81–2.28. The low values should not be read as a property of '
-              'the sensor until the reference is corrected.'),
+        ('t', 'The cardiac reference. Heart rate from the PSG is taken from R-peaks '
+              'detected on the ECG. On two nights (S5N1 and S6N2) the ECG channel is '
+              'unusable, and the pulse oximeter of the PSG is used instead. On the '
+              'nights where both are available the pulse oximeter agreed with the ECG '
+              'on eight and read 36% and 29% high on the other two (S2N1, S6N1), '
+              'which is why the ECG is preferred. Because k is a count divided by the '
+              'reference, a reference that reads high makes k look low. With the ECG '
+              'reference the cardiac k lies between '
+              f'{kc_ok.min():.2f} and {kc_ok.max():.2f} on 11 of the 12 nights. The '
+              'exception is S6N2 (k = '
+              f"{kc[kc.session == 'S6N2'].k.iloc[0]:.2f}"
+              '), whose pulse-oximeter reference reads 129 beats/min during sleep, '
+              'which is implausible; that night is best read as having no valid '
+              'cardiac reference.'),
         ('t', 'Before the division by k it is worth seeing what is counted '
               '({fig:counts}). The raw count, undivided, against the reference makes '
               'the gap between them — which is k — directly visible. The cardiac '
@@ -150,14 +174,17 @@ def rate_section():
         ('t', 'Applying each recording’s single k epoch by epoch gives the output the '
               'pipeline would produce for a night ({fig:all}). Across all twelve '
               'recordings the estimate holds a plausible level but does not follow '
-              'the reference’s excursions. Compared with a no-sensor baseline that '
-              'predicts the cohort-median rate, the night-average breathing rate is '
-              'better under every calibration (error 0.24, 0.57 and 0.94 breaths/min '
-              'for k from the same night, the same participant’s other night, and '
-              'the other participants, against 1.20 for the baseline). The '
-              'night-average heart rate is not: under either calibration usable in '
-              'practice the error (3.77 and 3.19 beats/min) exceeds the baseline of '
-              '2.76, a comparison to be read with the reference caveat above.'),
+              'the reference’s excursions. Against a no-sensor baseline that predicts '
+              'the cohort-median rate for every night, the night-average error was '
+              f"{h('resp', 'night_self')}, {h('resp', 'night_cross')} and "
+              f"{h('resp', 'night_pop')} breaths/min with k from the same night, the "
+              'same participant’s other night and the other participants, against '
+              f"{h('resp', 'night_nosensor')} for the baseline; for heart rate it was "
+              f"{h('card', 'night_self')}, {h('card', 'night_cross')} and "
+              f"{h('card', 'night_pop')} beats/min against {h('card', 'night_nosensor')}. "
+              'Both night averages are therefore closer to the PSG than the baseline '
+              'under every calibration, including the two that could be used in '
+              'practice (k from another night or from other people).'),
         ('fig', 'all', RATE / 'fig_rate_allsessions.png',
          'Rate estimates for all twelve recordings, one row per recording (participant '
          'age in brackets). (a) Breathing rate, breaths/min. (b) Heart rate, '
@@ -167,8 +194,10 @@ def rate_section():
         ('t', 'How much a single k per recording gets wrong is shown by the per-epoch k '
               '({fig:kep}). That quantity uses the reference, so it is not an '
               'estimator, but it measures how far the ratio moves. Within a recording '
-              'it is fairly steady, with an interquartile width of about 0.18–0.20 '
-              'for breathing and 0.19–0.24 for cardiac activity; between recordings '
+              'it is fairly steady, with an interquartile width of about '
+              f"{iqr.loc['resp'].min():.2f}–{iqr.loc['resp'].max():.2f} for breathing "
+              f"and {iqr.loc['card'].min():.2f}–{iqr.loc['card'].max():.2f} for "
+              'cardiac activity; between recordings '
               'it moves much more. The twelve recordings are six participants on two '
               'nights each, and nothing is averaged across them.'),
         ('fig', 'kep', RATE / 'fig_k_per_epoch.png',
@@ -177,16 +206,15 @@ def rate_section():
          'recording’s per-epoch k; recordings are labelled with participant age.'),
         ('t', 'No capacitive feature varied with participant age, k included, in '
               'either band. With six participants no correlation is computed; the '
-              'ages are printed so that a reader can see the spread. Cardiac k sits '
-              'near 2 for the 37, 54, 55 and 61 year olds, and the two recordings '
-              'furthest from that belong to the youngest and the oldest participant — '
-              'the same two whose cardiac reference is in question.'),
+              'ages are printed so that a reader can see the spread. Cardiac k is '
+              'close to 2 at every age; the one night far from it (S6N2) is the night '
+              'without a valid reference.'),
         ('t', 'Limitations. Six participants and twelve nights; every number here is '
               'descriptive and no statistical test is reported. Reference rates come '
               'from PSG channels measuring different physical quantities from the SEC '
               'sensor, so some disagreement is expected and is not separable from '
-              'sensor error, and on four recordings the cardiac reference is either '
-              'demonstrably high or unverifiable. The respiratory reference range '
+              'sensor error, and on one recording (S6N2) there is no valid cardiac '
+              'reference. The respiratory reference range '
               'across this cohort is narrow, which is why a constant predictor '
               'performs as well as it does. k is treated as one number per '
               'recording, which the per-epoch k shows is an approximation.'),
@@ -216,14 +244,17 @@ def s5_section():
     r2 = pd.read_csv(REP / 'diff_motion_regressed.csv')
     floor = pd.read_csv(REP / 'baseline_variance_floor.csv')
     fl = floor.groupby(['band', 'channel']).ratio.agg(['min', 'max'])
-    tr = pd.read_csv(REP / 'stage_event_locked.csv')
-    tr = tr[tr.scale == 'transitions'].dropna(subset=['response_fF'])
+    tr = pd.read_csv(REP / 'stage_event_locked_all_summary.csv').set_index(['event', 'channel'])
 
     def trans(ev_, ch):
-        g = tr[(tr.event == ev_) & (tr.channel == ch)]
-        return (f'{int((g.response_fF < 0).sum())} of {len(g)} nights fell and '
-                f'{int((g.response_fF > 0).sum())} rose (median '
-                f'{g.response_fF.median():+.1f} fF)')
+        r_ = tr.loc[(ev_, ch)]
+        return f'{int(r_.fall)} of {int(r_.n_nights)} nights fell'
+    def rose(ev_, ch):
+        r_ = tr.loc[(ev_, ch)]
+        return f'{int(r_.rise)} of {int(r_.n_nights)} rose'
+    ev_n = {e: int(tr.loc[(e, 'CH')].movement_free) for e in
+            ('into N3', 'out of N3', 'N1 -> N2', 'N2 -> N1', 'into REM', 'into Wake', 'out of REM')}
+    ev_all = {e: int(tr.loc[(e, 'CH')]['all']) for e in ev_n}
     lb = ROOT / 'reports' / 'slow_wave' / 'low_band'
     pt = pd.read_csv(lb / 'lowband_patches.csv')
     lk = pd.read_csv(lb / 'lowband_patches_event_locked.csv')
@@ -245,10 +276,13 @@ def s5_section():
         remv=_r(rem_e.median()), remk=int((rem_e > 1).sum()), remn=len(rem_e),
         n3v=_r(n3_e.median(), 2), n3k=int((n3_e < 1).sum()), n3n=len(n3_e),
         chc=lk_above('cor', 'stage change'),
-        n3in=('CH fell on entering N3 (' + trans('into N3', 'CH')[:-1].replace(' (', '; ')
-              + ') and rose on leaving it (' + trans('out of N3', 'CH')[:-1].replace(' (', '; ')
-              + ')'),
-        dfin=trans('into N3', 'CLE-CRE'))
+        ch_n12=trans('N1 -> N2', 'CH'), ch_n23=trans('into N3', 'CH'),
+        ch_n21=rose('N2 -> N1', 'CH'), ch_n32=rose('out of N3', 'CH'),
+        le_n23=rose('into N3', 'CLE'), re_n23=rose('into N3', 'CRE'),
+        d_n23=trans('into N3', 'CLE-CRE'),
+        e_n3=ev_n['into N3'], e_n3a=ev_all['into N3'], e_n12=ev_n['N1 -> N2'],
+        e_n21=ev_n['N2 -> N1'], e_rem=ev_n['into REM'], e_wake=ev_n['into Wake'],
+        e_wakea=ev_all['into Wake'], e_orem=ev_n['out of REM'])
 
     items = [
         ('h1', 'S5. Variance and slow trends of the SEC signal across sleep'),
@@ -391,32 +425,49 @@ def s5_section():
          '15 minutes before onset to the 15 minutes after (dot), against the 5–95% '
          'range of the random-time reference (grey bar) and its median (tick).'),
 
-        ('h2', 'S5.4 CH at transitions into and out of N3'),
+        ('h2', 'S5.4 Level changes at sleep-stage transitions'),
         ('t', 'Rather than comparing whole stages, we looked at the few minutes around '
-              'each change into or out of N3, using the movement-corrected signal. '
-              'For each transition we took the change in level from the 5 minutes '
-              'before to the 5 minutes after, keeping only transitions where the '
-              'stage was held for at least a minute on each side and no head '
+              'each change of sleep stage, on all four movement-corrected signals (CH, '
+              'CLE, CRE and CLE−CRE). For each transition we took the change in level '
+              'from the 5 minutes before to the 5 minutes after, keeping only '
+              'transitions where each stage was held for at least a minute and no head '
               'movement occurred within 1.5 minutes. Transitions were averaged within '
-              'each night first. Because N3 bouts in these recordings are short '
-              '(a median of one minute), this describes brief excursions into N3, '
-              'not sustained deep sleep.'),
-        ('t', '{n3in}. CLE−CRE did not respond: on entering N3, {dfin}. Entering and '
-              'leaving N3 moved CH in opposite directions on 10 of the 11 nights that '
-              'had both; when every event of a night was shifted together to a random '
-              'time, which keeps the trace and the spacing of events but breaks their '
-              'link to the scored stages, this happened in 4.5 nights on average and '
-              'never in 10 or more across 400 shifts. The changes are small, about '
-              '1–2 fF, and on a single night they do not stand out from that night’s '
-              'own variability; what carries the result is that the direction repeats '
-              'across nights ({fig:n3}). It agrees with S5.1: CH is quieter, and here '
-              'lower, in deep sleep.'),
-        ('fig', 'n3', S5 / 'figS5_6_n3_transitions.png',
-         'Change in movement-corrected CH (a) and CLE−CRE (b) from the 5 minutes '
-         'before to the 5 minutes after entering and leaving N3. One point per night '
-         '(transitions averaged within the night); the bar is the median across '
-         'nights, and the counts above give the nights in which the level fell and '
-         'rose.'),
+              'each night first, so the unit is the night.'),
+        ('t', 'Which transitions can be examined is set by the hypnograms. Stages here '
+              'are short (a median N3 bout lasts one minute), and most stage changes '
+              'come with a head movement, so the requirements above keep few events. '
+              'Entering N3 kept {e_n3} of {e_n3a} transitions; N1 to N2 kept {e_n12} '
+              'and N2 to N1 kept {e_n21}. Entering REM kept {e_rem}, on six nights. '
+              'Waking kept only {e_wake} of {e_wakea}, because waking almost always '
+              'involves movement, and leaving REM kept {e_orem}. Those last two are '
+              'not interpreted.'),
+        ('t', 'CH followed the direction of sleep depth at every boundary with enough '
+              'events. It fell when sleep deepened ({ch_n12} going from N1 to N2; '
+              '{ch_n23} entering N3) and rose when sleep lightened ({ch_n21} going from '
+              'N2 to N1; {ch_n32} leaving N3). Entering and leaving N3 moved CH in '
+              'opposite directions on 10 of the 11 nights that had both; when every '
+              'event of a night was shifted together to a random time, which keeps the '
+              'trace and the spacing of events but breaks their link to the scoring, '
+              'this happened in 4.5 nights on average and never in 10 or more across '
+              '400 shifts. The single-sided channels behaved differently: entering N3, '
+              'CLE and CRE both rose (each on 10 of 12 nights), the opposite direction to '
+              'CH, and at the other boundaries they were inconsistent. Because CLE and '
+              'CRE moved together, their difference CLE−CRE did not respond ({d_n23} '
+              'entering N3). Entering REM, CH fell on 5 of 6 nights, too few to '
+              'interpret. The changes are small, about 1–2 fF, and on a single night '
+              'they do not stand out from that night’s own variability; what carries '
+              'the result is that the direction repeats across nights ({fig:n3}). '
+              'Whether the opposite sign of CH and the single-sided channels reflects '
+              'the different electrode arrangement of CH remains to be established.'),
+        ('fig', 'n3', S5 / 'figS5_6_transitions.png',
+         'Change in movement-corrected level from the 5 minutes before to the 5 '
+         'minutes after a sleep-stage transition, for CH (a), CLE (b), CRE (c) and '
+         'CLE−CRE (d). Transitions to deeper sleep are on the left of the grey line '
+         '(N1→N2, N2→N3, and NREM→REM) and to lighter sleep on the right (N2→N1, '
+         'N3→N2). One point per night (transitions averaged within the night); the '
+         'bar is the median across nights, and the counts above give the nights in '
+         'which the level fell (↓) and rose (↑). Waking and leaving REM had too few '
+         'movement-free events to show.'),
 
         ('h2', 'S5.5 The lowest frequencies: 0.01–0.03 Hz'),
         ('t', 'Why this band is handled differently from the main text. The '
