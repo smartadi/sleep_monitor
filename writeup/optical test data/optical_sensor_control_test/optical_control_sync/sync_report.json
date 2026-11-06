@@ -1,0 +1,127 @@
+{
+  "mask_file": "SM2_4_20260910_Giang.txt",
+  "muse_file": "mindMonitor_2026-09-11--02-07-30.csv",
+  "mask_timing": {
+    "n_samples": 2042881,
+    "t_first_ms": 124907,
+    "t_last_ms": 18510827,
+    "span_s": 18385.92,
+    "dt_median_ms": 9.0,
+    "dt_min_ms": 9,
+    "dt_max_ms": 9,
+    "fs_effective": 111.11111111111111,
+    "n_gaps_over_50ms": 0
+  },
+  "muse_timing": {
+    "n_rows": 1728097,
+    "n_sample_rows": 1727954,
+    "t_start": "2026-09-11 02:07:28.095000",
+    "t_end": "2026-09-11 04:00:04.182000",
+    "span_s": 6756.087,
+    "fs_mean": 255.7625442064319,
+    "n_timestamp_backsteps": 0,
+    "frac_duplicate_timestamps": 0.5823086623305148
+  },
+  "tap_markers_reported": [
+    "2026-09-11 02:10:03",
+    "2026-09-11 02:10:40"
+  ],
+  "clock": {
+    "model": "real_time = epoch(offset_s) + timeMS/1000",
+    "offset_s": 1789092440.222026,
+    "offset_s_tap_only": 1789092439.1820002,
+    "offset_disagreement_between_bursts_s": 0.2980000972747803,
+    "mask_power_on": "2026-09-11 02:07:20.222025984",
+    "mask_stream_start": "2026-09-11 02:09:25.129026048",
+    "mask_stream_end": "2026-09-11 07:15:51.049026048"
+  },
+  "refinement": {
+    "n_used": 40,
+    "lag_median_s": 1.0400259394683893,
+    "lag_mad_s": 0.44466939785756265,
+    "lag_robust_sd_s": 0.6592668492636223,
+    "lag_se_s": 0.10423924147579736,
+    "lag_iqr_s": 1.0947659995914076,
+    "r_median": 0.5673129292180956,
+    "n_candidate_events": 133
+  },
+  "per_burst": [
+    {
+      "burst": 0,
+      "n_taps": 3,
+      "reported": "2026-09-11 02:10:03",
+      "first_tap_t_dev": 163.967,
+      "last_tap_t_dev": 166.442,
+      "intervals_s": [
+        1.674,
+        0.801
+      ],
+      "n_taps_expected": 3
+    },
+    {
+      "burst": 1,
+      "n_taps": 3,
+      "reported": "2026-09-11 02:10:40",
+      "first_tap_t_dev": 200.669,
+      "last_tap_t_dev": 203.216,
+      "intervals_s": [
+        1.305,
+        1.242
+      ],
+      "n_taps_expected": 3
+    }
+  ],
+  "overlap": {
+    "start": "2026-09-11 02:09:25.129026048",
+    "end": "2026-09-11 04:00:04.332000",
+    "minutes": 110.65
+  },
+  "motion_check": {
+    "n_bins": 6640,
+    "bin_s": 1.0,
+    "r_at_zero": 0.33564291939660573,
+    "r_peak": 0.33564291939660573,
+    "lag_peak_s": 0.0,
+    "r_background_p95": 0.06053923577588881
+  },
+  "synced_10Hz": {
+    "rows": 66393,
+    "columns": [
+      "time",
+      "sm_CH",
+      "sm_CLE",
+      "sm_CRE",
+      "sm_aX",
+      "sm_aY",
+      "sm_aZ",
+      "sm_headUDTilt",
+      "sm_headLRTilt",
+      "sm_CH_sd",
+      "sm_CLE_sd",
+      "sm_CRE_sd",
+      "muse_RAW_TP9",
+      "muse_RAW_AF7",
+      "muse_RAW_AF8",
+      "muse_RAW_TP10",
+      "muse_AUX_1",
+      "muse_AUX_2",
+      "muse_AUX_3",
+      "muse_AUX_4",
+      "muse_Accelerometer_X",
+      "muse_Accelerometer_Y",
+      "muse_Accelerometer_Z",
+      "muse_Gyro_X",
+      "muse_Gyro_Y",
+      "muse_Gyro_Z",
+      "muse_Optics1",
+      "muse_Optics2",
+      "muse_Optics3",
+      "muse_Optics4",
+      "muse_Heart_Rate",
+      "muse_RAW_TP9_sd",
+      "muse_RAW_AF7_sd",
+      "muse_RAW_AF8_sd",
+      "muse_RAW_TP10_sd"
+    ]
+  }
+}

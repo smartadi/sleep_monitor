@@ -4,6 +4,12 @@ Records all code changes to library modules, scripts, and notebooks.
 
 ---
 
+## 2026-11-06
+
+- **Added** `analysis/slow_wave/low_band_ridges.py` and `analysis/slow_wave/ridge_stage_all_channels.py` (previously uncommitted).
+- **Added** `writeup/optical test data/optical_sensor_control_test/`: sync and plotting scripts plus reports (`sync_report.md/.json`, `SIGNAL_PROCESSING_control_session_plots.md`). The raw recordings (`SM2_4_20260910_Giang.txt`, `*.csv.gz`) are data and are not committed.
+- **Updated** `writeup/figures/spindles/fig_spindle_lowband_allsessions.png`.
+
 ## 2026-10-05
 
 - **Changed** `writeup/ppt/_build_v12.py`. V12 is now written as **clean text**: the edits are still made as tracked changes, validated against V11, and then accepted (author request: no red or strike-through). V12_CHANGES.md remains the record. 48 edits; Word reports 0 revisions, 36 pages.
