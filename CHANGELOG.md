@@ -6,6 +6,18 @@ Records all code changes to library modules, scripts, and notebooks.
 
 ## 2026-11-06
 
+- **Added** `writeup/edits/REVIEW_V18_2026-11-06.md`. It is Aditya's review of manuscript V18 + Supp V8, saved verbatim, plus "Repo check" blocks covering every item against the paper code (`paper/`, `PAPER_NUMBERS.md`), the raw PSG and mask data, and the earlier review trail.
+  - What it adds: missed issues, two review rows that were wrong, and a prep list for Aditya's tracked-changes pass.
+  - Main findings:
+    - the §3.3 LFO results come from the superseded detector;
+    - the §3.1 C_H and C_LE−C_RE range labels are swapped;
+    - the K-complex latencies are zero-phase (causal: 3.5 / 5.2 / 5.5 s);
+    - the PSG staging and K-complex marks were automatic and unedited;
+    - the EEG is Fp1/Fp2 only;
+    - AHI is ≥ 15 on 6 of 12 nights;
+    - S4/S5 synchronisation has a single anchor.
+  - The manuscript .docx files were not edited.
+- **Changed** `.gitignore`: ignore `data/`, the local raw-data drop (about 7 GB of zips, now unpacked there, plus V18 and Supp V8). It holds participant-identifying files and must never be committed.
 - **Added** `analysis/slow_wave/low_band_ridges.py` and `analysis/slow_wave/ridge_stage_all_channels.py` (previously uncommitted).
 - **Added** `writeup/optical test data/optical_sensor_control_test/`: sync and plotting scripts plus reports (`sync_report.md/.json`, `SIGNAL_PROCESSING_control_session_plots.md`). The raw recordings (`SM2_4_20260910_Giang.txt`, `*.csv.gz`) are data and are not committed.
 - **Updated** `writeup/figures/spindles/fig_spindle_lowband_allsessions.png`.
