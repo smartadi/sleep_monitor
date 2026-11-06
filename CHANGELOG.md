@@ -6,6 +6,9 @@ Records all code changes to library modules, scripts, and notebooks.
 
 ## 2026-11-06
 
+- **Added** `writeup/edits/V18_EDIT_LIST_2026-11-06.md`: the V18 review turned into a list of edits in document order, for Aditya's tracked-changes pass.
+  - Contents: 107 main-text points, 16 supplement points, 7 upfront decisions (D1–D7), 7 optional analyses (R1–R7) and a 12-row Find/Replace pass at the end.
+  - Every point has an exact Word Find phrase. A script confirmed all 230 phrases against `data/text/V18.txt` and `SuppV8.txt`, and that the points run in document order.
 - **Added** `writeup/edits/REVIEW_V18_2026-11-06.md`. It is Aditya's review of manuscript V18 + Supp V8, saved verbatim, plus "Repo check" blocks covering every item against the paper code (`paper/`, `PAPER_NUMBERS.md`), the raw PSG and mask data, and the earlier review trail.
   - What it adds: missed issues, two review rows that were wrong, and a prep list for Aditya's tracked-changes pass.
   - Main findings:
