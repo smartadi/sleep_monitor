@@ -6,6 +6,16 @@ Records all code changes to library modules, scripts, and notebooks.
 
 ## 2026-11-07
 
+- **Changed** `paper/stages/_s08_delta_kcomplex_figures.py`:
+  - Fig. 7: panels in a row share one y-scale, with labels on the first column only, so channels compare directly.
+  - `fig12_kcomplex(..., latency_panel=True)`: with `False`, the per-event latency panel is left out, each channel's grand-average peak is marked on panel (a) and given in its legend entry, and the per-recording panel becomes (b). The panel drawing moved to `_latency_panel`; the zero-phase Fig. 12 is unchanged.
+- **Changed** `paper/stages/s10_review_v18.py`:
+  - `fig8_causal` draws the two-panel version and returns the grand-average peak latencies, registered as `f8_causal_ga_latency` (3.9 / 3.9 / 4.1 s).
+  - R8 now also returns the nights and writes `r8_lfo_search_edges.csv` (ridge time within 0.002 Hz of 0.02 or 0.20 Hz). The cross-channel table gains edge-free columns. New numbers: `r8_lfo_edge_*`, `r8_lfo_overlap_mid_*`.
+  - New figures: Fig. S6 for CH and CLE as well as CRE (`fig_s6` per channel); `fig_lfo_channels` → `figS6_lfo_ridges_all_channels` (lanes per night × channel, coloured by ridge frequency); `fig_spindle_explainer` → `explain_fig6_spindles` (from s07 tables; not a paper figure).
+  - No existing s10 number changed (103 numbers, 7 new).
+- **Changed** `paper/stages/s06_harmonic_comb.py`: Fig. 9 legend says "Multi-band event" (V18 rename). The s06 numbers are byte-identical.
+
 - **Changed** `paper/stages/s09_reproducibility.py`: Figs. 10 and 11 redrawn under V18 rule D2 (no Pearson, no p-values, no fitted lines).
   - Fig. 10: each panel prints Spearman ρ and ICC(2,1) across the six participants; the dashed identity line stays and the regression line is gone.
   - Fig. 11: each participant is a diamond (two-night mean, which carries ρ) with its two nights as small faint markers joined to it. Panel b is titled "LFO ridge duration" as in V18.

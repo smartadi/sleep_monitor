@@ -82,6 +82,7 @@ def fig7_causal_grid(tax, curves, nulls, n_subj, n_events):
     fig, axes = style.subplots(len(BANDS), len(CHANNELS), style.COL2_MM, 104,
                                layout='constrained', sharex=True)
     for i, bn in enumerate(BANDS):
+        lo, hi = 0.0, 0.0                  # one y-scale per row: channels compare directly
         for j, ch in enumerate(CHANNELS):
             ax = axes[i, j]
             C, N = curves[(ch, bn)], nulls[(ch, bn)]
@@ -94,13 +95,17 @@ def fig7_causal_grid(tax, curves, nulls, n_subj, n_events):
             ax.plot(tax, nm, zorder=2.5, **NULL_STYLE)
             ax.axvline(0, **EVENT_STYLE)
             style.reference_line(ax, y=0)
-            lo = np.nanmin([np.nanmin(m - sem), np.nanmin(nm), 0.0])
-            hi = np.nanmax([np.nanmax(m + sem), np.nanmax(nm), 0.0])
-            _set_ticks(ax, 'y', _ticks(lo, hi, nbins=6), sparse=True)
+            lo = np.nanmin([lo, np.nanmin(m - sem), np.nanmin(nm)])
+            hi = np.nanmax([hi, np.nanmax(m + sem), np.nanmax(nm)])
             if i == 0:
                 ax.set_title(ch, loc='center')
             if j == 0:
                 ax.set_ylabel(f'{bn.replace("-", "–")} Hz power (z)')
+        yt = _ticks(lo, hi, nbins=6)
+        for j in range(len(CHANNELS)):
+            _set_ticks(axes[i, j], 'y', yt, sparse=True)
+            if j:
+                axes[i, j].tick_params(labelleft=False)
     _time_axis(axes[-1, 0], tax[0], tax[-1])          # x is shared by every panel
     axes[-1, len(CHANNELS) // 2].set_xlabel('Time from delta-burst onset (s)')
     for ax in axes.flat:
@@ -117,11 +122,15 @@ def fig7_causal_grid(tax, curves, nulls, n_subj, n_events):
 
 
 @style.paper
-def fig12_kcomplex(lags, ev, null, eeg, table, peak_win, rng):
-    """Three-panel K-complex figure (kcomplex_cap_response.figure)."""
+def fig12_kcomplex(lags, ev, null, eeg, table, peak_win, rng, latency_panel=True):
+    """K-complex figure (kcomplex_cap_response.figure): (a) grand average, (b) per-event
+    peak latencies, (c) per-recording peaks. With latency_panel=False, panel (b) is left
+    out and each channel's grand-average peak is marked on (a) and given in its legend
+    entry (V18 edit 8: the latency claim rests on the grand average only)."""
     ch_color = {c: CAP_COLORS[c] for c in CHANNELS}
     fig = style.figure(style.COL2_MM, 66, layout='constrained')
-    gs = fig.add_gridspec(1, 3, width_ratios=[1.35, 1.0, 1.05])
+    gs = (fig.add_gridspec(1, 3, width_ratios=[1.35, 1.0, 1.05]) if latency_panel else
+          fig.add_gridspec(1, 2, width_ratios=[1.45, 1.0]))
     w = (lags >= peak_win[0]) & (lags <= peak_win[1])
 
     # (a) event-triggered average; EEG delta (positive control) on the right axis
@@ -133,7 +142,13 @@ def fig12_kcomplex(lags, ev, null, eeg, table, peak_win, rng):
         if not len(st):
             continue
         m, se = st.mean(0), st.std(0) / np.sqrt(len(st))
-        handles += ax.plot(lags, m, lw=1.0, color=ch_color[ch], label=ch, zorder=4)
+        label = ch
+        if not latency_panel:
+            k = np.flatnonzero(w)[np.argmax(m[w])]
+            label = f'{ch}, peak {lags[k]:.1f} s'
+            ax.plot(lags[k], m[k] + se[k], marker='v', ms=3.2, color=ch_color[ch], lw=0,
+                    zorder=5, clip_on=False)
+        handles += ax.plot(lags, m, lw=1.0, color=ch_color[ch], label=label, zorder=4)
         ax.fill_between(lags, m - se, m + se, color=ch_color[ch], alpha=0.18, lw=0, zorder=3)
         lo, hi = min(lo, (m - se).min()), max(hi, (m + se).max())
     nl = null[CHANNELS[-1]]
@@ -171,8 +186,37 @@ def fig12_kcomplex(lags, ev, null, eeg, table, peak_win, rng):
     style.spines_to_ticks(ax)
     style.panel_label(ax, 'a')
 
-    # (b) per-event peak latency: one row per channel
-    ax = fig.add_subplot(gs[0, 1])
+    if latency_panel:
+        _latency_panel(fig.add_subplot(gs[0, 1]), lags, ev, w, peak_win, ch_color, rng)
+
+    # (c) per recording ('b' when the latency panel is left out)
+    ax = fig.add_subplot(gs[0, 2 if latency_panel else 1])
+    t = table.dropna(subset=[f'{CHANNELS[0]}_peak_z'])
+    x = np.arange(len(t))
+    names = [f'{r.session} ({r.n_kcomplex})' for r in t.itertuples()]
+    ax.xaxis.update_units(np.array(names))                 # a categorical axis
+    for i, ch in enumerate(CHANNELS):
+        ax.bar(x + (i - 1) * 0.27, t[f'{ch}_peak_z'], width=0.26, color=ch_color[ch],
+               label=ch, lw=0)
+    peaks = t[[f'{ch}_peak_z' for ch in CHANNELS]].to_numpy()
+    yt = _ticks(min(np.nanmin(peaks), 0.0), max(np.nanmax(peaks), 0.0), nbins=4)
+    _set_ticks(ax, 'y', yt)
+    if yt[0] < 0:
+        style.reference_line(ax, y=0)
+    ax.set_xticks(x, names, rotation=90)
+    ax.tick_params(axis='x', direction='out')    # category ticks stay out of the bars
+    ax.set_xlim(-0.7, len(t) - 0.3)              # first bars clear the y ticks
+    ax.set_xlabel('Recording (number of K-complexes)')
+    ax.set_ylabel('Peak response (z)')
+    style.spines_to_ticks(ax, sides=('left',))
+    style.panel_label(ax, 'c' if latency_panel else 'b')
+
+    # no figure title: the manuscript caption carries it; channel key in panel a only
+    return fig
+
+
+def _latency_panel(ax, lags, ev, w, peak_win, ch_color, rng):
+    """Per-event peak latency, one row per channel, with each channel's median."""
     ax.yaxis.update_units(np.array(CHANNELS))          # a categorical axis
     for i, ch in enumerate(CHANNELS):
         st = ev[ch]
@@ -201,28 +245,3 @@ def fig12_kcomplex(lags, ev, null, eeg, table, peak_win, rng):
     ax.spines[['left', 'bottom']].set_position(('outward', 3))   # time-0 line stays visible
     style.spines_to_ticks(ax, sides=('bottom',))
     style.panel_label(ax, 'b')
-
-    # (c) per recording
-    ax = fig.add_subplot(gs[0, 2])
-    t = table.dropna(subset=[f'{CHANNELS[0]}_peak_z'])
-    x = np.arange(len(t))
-    names = [f'{r.session} ({r.n_kcomplex})' for r in t.itertuples()]
-    ax.xaxis.update_units(np.array(names))                 # a categorical axis
-    for i, ch in enumerate(CHANNELS):
-        ax.bar(x + (i - 1) * 0.27, t[f'{ch}_peak_z'], width=0.26, color=ch_color[ch],
-               label=ch, lw=0)
-    peaks = t[[f'{ch}_peak_z' for ch in CHANNELS]].to_numpy()
-    yt = _ticks(min(np.nanmin(peaks), 0.0), max(np.nanmax(peaks), 0.0), nbins=4)
-    _set_ticks(ax, 'y', yt)
-    if yt[0] < 0:
-        style.reference_line(ax, y=0)
-    ax.set_xticks(x, names, rotation=90)
-    ax.tick_params(axis='x', direction='out')    # category ticks stay out of the bars
-    ax.set_xlim(-0.7, len(t) - 0.3)              # first bars clear the y ticks
-    ax.set_xlabel('Recording (number of K-complexes)')
-    ax.set_ylabel('Peak response (z)')
-    style.spines_to_ticks(ax, sides=('left',))
-    style.panel_label(ax, 'c')
-
-    # no figure title: the manuscript caption carries it; channel key in panel a only
-    return fig

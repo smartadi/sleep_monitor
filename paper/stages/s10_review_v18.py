@@ -445,13 +445,18 @@ def fig8_causal():
     tab = pd.DataFrame(rows)
     tab.to_csv(OUT / 'fig8_causal_per_recording.csv', index=False)
     # inside the paper rc so the figure checks measure the printed fonts
-    style.save(fig12_kcomplex(lags, ev, null, eeg, tab, S8.KC_PEAK_WIN, rng),
-                            'fig8_kcomplex_response_causal', STAGE)
+    style.save(fig12_kcomplex(lags, ev, null, eeg, tab, S8.KC_PEAK_WIN, rng,
+                              latency_panel=False),
+               'fig8_kcomplex_response_causal', STAGE)
     med = {ch: float(np.median(lags[w][np.argmax(ev[ch][:, w], axis=1)]))
            for ch in S8.CHANNELS if len(ev[ch])}
     nullpk = {ch: float(null[ch].mean(0)[w].max()) for ch in S8.CHANNELS if len(null[ch])}
     evpk = {ch: float(ev[ch].mean(0)[w].max()) for ch in S8.CHANNELS if len(ev[ch])}
-    return med, evpk, nullpk, int(sum(len(v) for v in ev.values()) / len(S8.CHANNELS))
+    # edit 8: the latency claim rests on the grand average, not on per-event peaks
+    galat = {ch: float(lags[w][np.argmax(ev[ch].mean(0)[w])])
+             for ch in S8.CHANNELS if len(ev[ch])}
+    return (med, evpk, nullpk, int(sum(len(v) for v in ev.values()) / len(S8.CHANNELS)),
+            galat)
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -523,7 +528,10 @@ def register(nb, r1, r1_counts, r2, reg, rep, assoc, legacy, r4, r5, f8):
                f'{r.median_all:.2f} ({r.n_all}) vs {r.median_two_anchor:.2f} '
                f'({r.n_two_anchor})', unit='s')
     # Fig. 8 causal
-    med, evpk, nullpk, n = f8
+    med, evpk, nullpk, n, galat = f8
+    nb.add('f8_causal_ga_latency', 'V18 §3.6 / Fig. 8 (edit 8)',
+           'K-complex grand-average peak latency, causal: CLE / CRE / CH',
+           ' / '.join(f'{galat[c]:.1f}' for c in ('CLE', 'CRE', 'CH')), unit='s')
     nb.add('f8_causal_latency', 'V18 §3.6 / Fig. 8', 'K-complex median per-event latency, '
            'causal: CLE / CRE / CH', ' / '.join(f'{med[c]:.1f}' for c in ('CLE', 'CRE', 'CH')),
            unit='s')
@@ -539,12 +547,22 @@ def r8_ridges_all_channels():
     found by running the s05 low-band detector on CH and CLE as well as CRE, and gated
     LFO columns are compared between channels (coincidence and frequency)."""
     import stages.s05_ridges as S5
-    lfo, keeps = [], {}
+    from stages import _s05_lowband as LB
+    lo, hi = LB.RIDGE_BAND
+    at_edge = lambda f: (f <= lo + EDGE_TOL_HZ) | (f >= hi - EDGE_TOL_HZ)
+    lfo, keeps, nights_by_ch, edges = [], {}, {}, []
     for ch in ('CH', 'CLE', 'CRE'):
         nights, rows, _, _ = S5.lowband_all(ch)
         lfo.append(rows)
+        nights_by_ch[ch] = nights
         keeps[ch] = {r['label']: (r['keep'], r['fr']) for r in nights}
+        for r in nights:
+            f = r['fr'][r['keep']]
+            edges.append(dict(session=r['label'], channel=ch, ridge_cols=int(f.size),
+                              at_floor=int((f <= lo + EDGE_TOL_HZ).sum()),
+                              at_ceiling=int((f >= hi - EDGE_TOL_HZ).sum())))
     lfo = pd.concat(lfo, ignore_index=True)
+    edges = pd.DataFrame(edges)
     co = []
     for lab in keeps['CRE']:
         for a, b in (('CRE', 'CLE'), ('CRE', 'CH'), ('CLE', 'CH')):
@@ -552,19 +570,25 @@ def r8_ridges_all_channels():
             n = min(len(ka), len(kb))
             ka, kb, fa, fb = ka[:n], kb[:n], fa[:n], fb[:n]
             both = ka & kb
+            # the same overlap with ridge columns on either search edge left out
+            ma, mb = ka & ~at_edge(fa), kb & ~at_edge(fb)
             co.append(dict(session=lab, pair=f'{a}-{b}', frac_a=float(ka.mean()),
                            frac_b=float(kb.mean()),
                            p_b_given_a=float(both.sum() / ka.sum()) if ka.any() else np.nan,
                            f_absdiff_med_hz=float(np.median(np.abs(fa[both] - fb[both])))
-                           if both.any() else np.nan))
+                           if both.any() else np.nan,
+                           frac_b_mid=float(mb.mean()),
+                           p_b_given_a_mid=float((ma & mb).sum() / ma.sum())
+                           if ma.any() else np.nan))
     co = pd.DataFrame(co)
     dom = pd.read_csv(TAB_DIR / 's05_ridges' / 'ridge_dominance.csv')
     lfo.to_csv(OUT / 'r8_lfo_by_channel.csv', index=False)
     co.to_csv(OUT / 'r8_lfo_cross_channel.csv', index=False)
-    return lfo, co, dom
+    edges.to_csv(OUT / 'r8_lfo_search_edges.csv', index=False)
+    return lfo, co, dom, edges, nights_by_ch
 
 
-def register_r8(nb, lfo, co, dom):
+def register_r8(nb, lfo, co, dom, edges):
     rng = lambda v, f='{:.2f}': f'{f.format(v.median())} ({f.format(v.min())}–{f.format(v.max())})'
     for band, word in (('resp', 'respiratory'), ('card', 'cardiac')):
         d = dom[dom.band == band]
@@ -592,6 +616,19 @@ def register_r8(nb, lfo, co, dom):
                f'{h.p_b_given_a.median():.2f} vs {h.frac_b.median():.2f}; '
                f'{int((h.p_b_given_a > h.frac_b).sum())} of {len(h)}; '
                f'{g.f_absdiff_med_hz.median():.3f} Hz')
+        hm = g.dropna(subset=['p_b_given_a_mid'])
+        nb.add(f'r8_lfo_overlap_mid_{a}_{b}', 'V18 §3.3 (D5)',
+               f'same as r8_lfo_overlap_{a}_{b}, ridge columns at either search edge '
+               f'(within {EDGE_TOL_HZ} Hz of 0.02 or 0.20 Hz) left out; nights with any',
+               f'{hm.p_b_given_a_mid.median():.2f} vs {hm.frac_b_mid.median():.2f}; '
+               f'{int((hm.p_b_given_a_mid > hm.frac_b_mid).sum())} of {len(hm)}')
+    for ch, g in edges.groupby('channel'):
+        tot = g.ridge_cols.sum()
+        nb.add(f'r8_lfo_edge_{ch}', 'V18 §3.3 (D5)',
+               f'LFO ridge time on {ch} at the search floor (<= 0.022 Hz) / ceiling '
+               f'(>= 0.198 Hz), pooled over nights; nights whose ridge time is mostly at an edge',
+               f'{g.at_floor.sum() / tot:.2f} / {g.at_ceiling.sum() / tot:.2f}; '
+               f'{int(((g.at_floor + g.at_ceiling) > 0.5 * g.ridge_cols).sum())} of {len(g)}')
 
 
 def fig_s6(channel='CRE'):
@@ -606,6 +643,142 @@ def fig_s6(channel='CRE'):
                 src.replace(src.with_name(f'figS6_{s.label}_{channel}{src.suffix}'
                                           if src.suffix != '.txt' else
                                           f'figS6_{s.label}_{channel}.check.txt'))
+
+
+EDGE_TOL_HZ = 0.002          # "on the edge": within two display bins of 0.02 / 0.20 Hz
+LFO_LANES = ('CH', 'CLE', 'CRE')
+
+
+@style.paper
+def fig_lfo_channels(nights_by_ch):
+    """R8 summary (Fig. S6 companion): every night's gated LFO ridges on each channel,
+    one lane per channel, coloured by ridge frequency. Grey lane = recording length."""
+    import matplotlib.pyplot as plt
+    from matplotlib.cm import ScalarMappable
+    from matplotlib.colors import LogNorm
+    from matplotlib.patches import Rectangle
+    from stages import _s05_lowband as LB
+    norm, cmap = LogNorm(*LB.RIDGE_BAND), plt.get_cmap('viridis')
+    by = {ch: {r['label']: r for r in nights_by_ch[ch]} for ch in LFO_LANES}
+    labels = [r['label'] for r in nights_by_ch['CRE']]
+    lane_h, gap = 0.8, 1.4
+    fig, ax = style.subplots(1, 1, style.COL2_MM, 128, layout='constrained')
+    yticks, tmax = [], 0.0
+    for i, lab in enumerate(labels):
+        y0 = i * (len(LFO_LANES) + gap)
+        yticks.append(y0 + (len(LFO_LANES) - 1 + lane_h) / 2)
+        for j, ch in enumerate(LFO_LANES):
+            r = by[ch][lab]
+            tt = np.asarray(r['t'], float)
+            dt = float(np.median(np.diff(tt)))
+            y = y0 + j
+            ax.add_patch(Rectangle((tt[0] - dt / 2, y), tt[-1] - tt[0] + dt, lane_h,
+                                   color='0.93', lw=0, zorder=1))
+            v = np.ma.masked_where(~r['keep'], r['fr'])[None, :]
+            ax.pcolormesh(np.r_[tt - dt / 2, tt[-1] + dt / 2], [y, y + lane_h], v,
+                          cmap=cmap, norm=norm, shading='flat', zorder=2, rasterized=True)
+            if i == 0:
+                ax.text(tt[-1] + 3 * dt, y + lane_h / 2, ch, fontsize=5, va='center',
+                        ha='left', color='0.3')
+            tmax = max(tmax, tt[-1] + dt / 2)
+    ax.set_yticks(yticks, labels)
+    ax.tick_params(axis='y', length=0)
+    ax.set_ylim(len(labels) * (len(LFO_LANES) + gap) - gap + 0.2, -0.2)
+    ht = np.arange(0, np.ceil(tmax) + 1)
+    ax.set_xticks(ht, [f'{h:g}' if h % 2 == 0 else '' for h in ht])
+    ax.set_xlim(0, ht[-1])
+    ax.set_xlabel('Time (h)')
+    ax.spines['left'].set_visible(False)
+    style.spines_to_ticks(ax, sides=('bottom',))
+    cb = fig.colorbar(ScalarMappable(norm, cmap), ax=ax, shrink=0.5, aspect=22, pad=0.01)
+    cb.set_ticks([0.02, 0.05, 0.1, 0.2], labels=['0.02', '0.05', '0.1', '0.2'])
+    cb.minorticks_off()
+    cb.set_label('LFO ridge frequency (Hz)')
+    return style.save(fig, 'figS6_lfo_ridges_all_channels', STAGE)
+
+
+@style.paper
+def fig_spindle_explainer():
+    """Explainer for Fig. 6 (edit point 10), from s07's tables: how big the spindle
+    effect is per event, against random N2 times, and the sigma band against EEG."""
+    from seclib.config import CAP_COLORS
+    src = TAB_DIR / 's07_spindles'
+    d = pd.read_csv(src / 'detection_per_recording.csv')
+    ctl = pd.read_csv(src / 'ersp_controls.csv')
+    chans = ['CH', 'CLE', 'CRE', 'CLE-CRE']
+    fig, axes = style.subplots(2, 2, style.COL2_MM, 118, layout='constrained')
+
+    ax = axes[0, 0]                     # (a) share of events with a rise, per recording
+    for i, ch in enumerate(chans):
+        sp, nl = 100 * d[f'{ch}_low_detrate'], 100 * d[f'{ch}_low_nullrate']
+        xs = np.full(len(d), i) + np.linspace(-0.18, 0.18, len(d))
+        for x, a, b in zip(xs, nl, sp):
+            ax.plot([x, x], [a, b], color='0.75', lw=0.5, zorder=1)
+        ax.scatter(xs, nl, s=7, color='0.55', lw=0, zorder=2,
+                   label='Random N2 times' if i == 0 else None)
+        ax.scatter(xs, sp, s=9, color=CAP_COLORS[ch], lw=0, zorder=3,
+                   label='Spindles' if i == 0 else None)
+    style.reference_line(ax, y=50)
+    ax.set_xticks(range(len(chans)), chans)
+    ax.set_xlim(-0.6, len(chans) - 0.4)
+    ax.set_yticks([40, 45, 50, 55, 60])
+    ax.set_ylim(40, 60)
+    ax.set_ylabel('Events with a 0.1–3 Hz rise (%)')
+    ax.set_title('Per event: a small shift from 50%')
+    ax.legend(loc='lower right', ncol=2, handletextpad=0.2, columnspacing=0.8)
+
+    ax = axes[0, 1]                     # (b) mean vs median per recording, CH
+    x = np.arange(len(d))
+    ax.bar(x, d['CH_low_meandB'], width=0.62, color=CAP_COLORS['CH'], lw=0, label='Mean')
+    ax.scatter(x, d['CH_low_mediandB'], s=10, marker='D', color='0.15', lw=0, zorder=3,
+               label='Median (typical spindle)')
+    style.reference_line(ax, y=0)
+    ax.set_xticks(x, d['session'], rotation=90)
+    ax.set_xlim(-0.6, len(d) - 0.4)
+    ax.set_yticks([-0.5, 0, 0.5, 1.0, 1.5, 2.0])
+    ax.set_ylim(-0.5, 2.0)
+    ax.set_ylabel('CH 0.1–3 Hz change (dB)')
+    ax.set_title('Per recording: the mean rides on a tail')
+    ax.legend(loc='upper right', ncol=2, handletextpad=0.2, columnspacing=0.8)
+
+    ax = axes[1, 0]                     # (c) same measure at other times
+    conds = [('spindle', 'All\nspindles'), ('spindle_noarous', 'No\narousal'),
+             ('spindle_arous', 'With\narousal'), ('randN2', 'Random\nN2 times'),
+             ('arousal', 'Arousal\nonly')]
+    for k, ch in enumerate(['CH', 'CLE-CRE']):
+        c = ctl[ctl.channel == ch].set_index('cond')
+        ax.bar(np.arange(len(conds)) + (k - 0.5) * 0.36, [c.loc[n, 'lowfreq_dB'] for n, _ in conds],
+               width=0.34, color=CAP_COLORS[ch], lw=0, label=ch)
+    style.reference_line(ax, y=0)
+    ax.set_xticks(range(len(conds)), [lab for _, lab in conds])
+    ax.set_xlim(-0.6, len(conds) - 0.4)
+    ax.set_yticks([-0.5, 0, 0.5, 1.0, 1.5])
+    ax.set_ylim(-0.5, 1.5)
+    ax.set_ylabel('0.1–3 Hz change (dB)')
+    ax.set_title('Controls: spindles beat random N2 times')
+    ax.legend(loc='upper right', handletextpad=0.2)
+
+    ax = axes[1, 1]                     # (d) sigma band: SEC vs EEG, per recording
+    sig_ch = chans + ['EEG']
+    for i, ch in enumerate(sig_ch):
+        v = d[f'{ch}_sigma_meandB']
+        xs = np.full(len(d), i) + np.linspace(-0.18, 0.18, len(d))
+        ax.scatter(xs, v, s=9, lw=0, color=CAP_COLORS.get(ch, '0.45'))
+        ax.plot([i - 0.25, i + 0.25], [v.median()] * 2, color='0.15', lw=0.9)
+    style.reference_line(ax, y=0)
+    ax.set_xticks(range(len(sig_ch)), sig_ch)
+    ax.set_xlim(-0.6, len(sig_ch) - 0.4)
+    ax.set_yticks([-1, 0, 1, 2, 3, 4, 5])
+    ax.set_ylim(-1, 5)
+    ax.set_ylabel('11–16 Hz change (dB)')
+    ax.set_title('Sigma: EEG rises 3–4 dB, SEC stays at 0')
+
+    for ax, letter in zip(axes.flat, 'abcd'):
+        ax.spines[['left', 'bottom']].set_position(('outward', 3))
+        style.spines_to_ticks(ax, sides=('left',))
+        ax.tick_params(axis='x', length=0)          # categories, not a scale
+        style.panel_label(ax, letter)
+    return style.save(fig, 'explain_fig6_spindles', STAGE)
 
 
 def run():
@@ -623,12 +796,16 @@ def run():
     r5 = r5_latencies(paired)
     print('  Fig. 8, causal')
     f8 = fig8_causal()
-    print('  Fig. S6, current low-band detector')
-    fig_s6()
+    print('  Fig. S6, current low-band detector, every channel')
+    for ch in LFO_LANES:
+        fig_s6(ch)
     print('  R8 ridges on every channel (D5)')
-    r8 = r8_ridges_all_channels()
+    lfo, co, dom, edges, nights_by_ch = r8_ridges_all_channels()
+    fig_lfo_channels(nights_by_ch)
+    print('  Fig. 6 explainer')
+    fig_spindle_explainer()
     register(nb, r1, r1_counts, r2, reg, rep, assoc, legacy, r4, r5, f8)
-    register_r8(nb, *r8)
+    register_r8(nb, lfo, co, dom, edges)
     nb.save()
 
 

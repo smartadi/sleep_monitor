@@ -687,7 +687,7 @@ def fig8(fig8_data, channels, name):
 
     # One key, on the first spectrogram's title line, with dark swatches as in the image.
     key = [plt.Rectangle((0, 0), 1, 1), plt.Line2D([], [])]
-    axes[1].legend(key, ['Comb episode', f'Band (≥ {100 * SUSTAINED:.0f}% of episode)'],
+    axes[1].legend(key, ['Multi-band event', f'Band (≥ {100 * SUSTAINED:.0f}% of episode)'],
                    handler_map={key[0]: _OnDark('episode'), key[1]: _OnDark('band')},
                    loc='lower right', bbox_to_anchor=(1, 1), ncol=2, borderaxespad=0.2,
                    borderpad=0, handlelength=2.0, handleheight=1.2)
