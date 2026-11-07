@@ -85,6 +85,7 @@ from scipy.stats import spearmanr
 from seclib import CACHE_DIR, TAB_DIR, iter_sessions
 from seclib.config import (CAP_COLORS, CAP_UNIT, STAGE_COLORS, STAGE_LABELS, STAGE_ORDER,
                            STAGE_ROW)
+from seclib import style
 from seclib.figures import save
 from seclib.loader import load_position, position_at
 from seclib.motion import classify_head_position, head_angle
@@ -339,6 +340,50 @@ def sym_zero_ylim(*series, k=5.0, keep_pct=85.0, pad=0.10):
     return -half, half
 
 
+def _num(v, fmt=',.0f'):
+    """A printed number with a true minus sign."""
+    return format(v, fmt).replace('-', '−')
+
+
+def _sym_ticks(half, pad=0.10):
+    """Ticks symmetric about zero, one or two each side, so the axis ends on its end
+    ticks. The outer tick is the nice value nearest `half` (sym_zero_ylim's padded limit)
+    that still contains the unpadded bulk, half / (1 + pad): only the margin moves."""
+    bulk = half / (1 + pad)
+    best = None
+    e = int(np.floor(np.log10(half)))
+    for k in range(e - 1, e + 2):
+        for m in (1, 1.5, 2, 2.5, 3, 4, 5, 6, 8):
+            step = m * 10.0 ** k
+            for n in (2, 1):
+                L = n * step
+                key = (abs(L - half), -L, -n)
+                if L >= bulk and (best is None or key < best[0]):
+                    best = (key, step, n)
+    _, step, n = best
+    return np.round(np.arange(-n, n + 1) * step, 10)
+
+
+HOUR_OVERSHOOT = 0.12   # h: a night ending this little past a whole hour ends the axis there
+
+
+def _hour_axis(ax, t_end):
+    """Hourly ticks from 0, labelled every 2 h when there would be more than 6 labels.
+    The axis runs to the first whole hour at or after `t_end`, or, when the night ends
+    at most HOUR_OVERSHOOT past a whole hour, to `t_end` itself (no hour of empty axis,
+    no data cut). The bottom spine is left at the full limits so nothing overhangs it."""
+    last = int(np.floor(t_end + 1e-9))
+    if t_end - last <= HOUR_OVERSHOOT and last >= 1:
+        end, xmax = last, float(t_end)
+    else:
+        end = int(np.ceil(t_end - 1e-9))
+        xmax = float(end)
+    hours = np.arange(end + 1)
+    labels = [str(h) if (end < 6 or h % 2 == 0) else '' for h in hours]
+    ax.set_xticks(hours, labels)
+    ax.set_xlim(0, xmax)
+
+
 def draw_ladder(ax, sp):
     """Hypnogram as a depth-ordered ladder (Wake, N1, N2, N3, REM), runs merged."""
     t_ep = np.asarray(sp['t_ep_hr'], float)
@@ -352,17 +397,18 @@ def draw_ladder(ax, sp):
             start = j
     for a, b in runs:
         if np.isfinite(y[a]):
-            ax.plot([t_ep[a], t_ep[b]], [y[a]] * 2, lw=4.0, solid_capstyle='butt',
+            ax.plot([t_ep[a], t_ep[b]], [y[a]] * 2, lw=2.0, solid_capstyle='butt',
                     color=STAGE_COLORS.get(int(codes[a]), '#AAA'), zorder=4)
     for (a0, b0), (a1, _) in zip(runs[:-1], runs[1:]):
         if np.isfinite(y[a0]) and np.isfinite(y[a1]):
-            ax.plot([t_ep[b0]] * 2, [y[a0], y[a1]], lw=0.7, color='#2C3E50',
-                    alpha=0.35, zorder=3)
+            ax.plot([t_ep[b0]] * 2, [y[a0], y[a1]], lw=0.3, color='0.7', zorder=3)
     ax.set_yticks([STAGE_ROW[c] for c in STAGE_ORDER])
     ax.set_yticklabels([STAGE_LABELS[c] for c in STAGE_ORDER])
     ax.set_ylim(-0.6, len(STAGE_ORDER) - 0.4)
-    for c in STAGE_ORDER:
-        ax.axhline(STAGE_ROW[c], color='#CCCCCC', lw=0.5, zorder=1)
+
+
+HEAD_POSTURES = [(180, 'Prone'), (90, 'Left'), (0, 'Supine'), (-90, 'Right'),
+                 (-180, 'Prone')]
 
 
 def draw_head_row(ax, t, turn):
@@ -373,48 +419,70 @@ def draw_head_row(ax, t, turn):
     med = np.degrees(np.arctan2(np.median(np.sin(np.radians(turn[fin]))),
                                 np.median(np.cos(np.radians(turn[fin])))))
     turn = ((turn - med + 180.0) % 360.0) - 180.0 + med
-    ax.plot(t, turn, lw=1.7, color=HEAD_COLOR, zorder=4)
+    ax.plot(t, turn, lw=0.6, color=HEAD_COLOR, zorder=4)
     lo, hi = np.percentile(turn[np.isfinite(turn)], [2, 98])
     span = max(hi - lo, HEAD_MIN_SPAN_DEG)
     mid = 0.5 * (lo + hi)
+    s_lo, s_hi = mid - 0.5 * span, mid + 0.5 * span          # sustained posture
     lo, hi = max(mid - 0.62 * span, -190.0), min(mid + 0.62 * span, 190.0)
-    ax.set_ylim(lo, hi)
-    for lv, lb in [(180, 'prone'), (90, 'left'), (0, 'supine'), (-90, 'right'),
-                   (-180, 'prone')]:
-        if lo < lv < hi:
-            ax.axhline(lv, color='#555', ls=':', lw=0.8, zorder=3)
-            ax.annotate(lb, (0.997, lv), xycoords=('axes fraction', 'data'),
-                        fontsize=11, color='#444', va='bottom', ha='right')
-    step = next(s for s in (5, 10, 15, 30, 45, 90) if span / s <= 9)
-    ax.set_yticks(np.arange(np.ceil(lo / step) * step, np.floor(hi / step) * step + 1, step))
-    ax.set_ylabel('Head turn\n(deg)', color=HEAD_COLOR)
+    # end the axis on whole ticks (at most five, within +-180 deg): the tick nearest the
+    # padded limit, moved out a step if it would cut into the sustained posture
+    for step in (5, 10, 15, 20, 30, 45, 60, 90):
+        a, b = np.round(lo / step) * step, np.round(hi / step) * step
+        a = max(a - step if a > s_lo else a, -180.0)
+        b = min(b + step if b < s_hi else b, 180.0)
+        if (b - a) / step + 1 <= 5:
+            break
+    ax.set_ylim(a, b)
+    ax.set_yticks(np.arange(a, b + step / 2, step))
+    for lv, lb in HEAD_POSTURES:
+        if a <= lv <= b:            # posture lines, named just past the axis end
+            if lv > a:              # (at the bottom limit the x axis is the line)
+                style.reference_line(ax, y=lv, zorder=3)
+            ax.annotate(lb, (1.0, lv), xycoords=('axes fraction', 'data'),
+                        xytext=(2, 0), textcoords='offset points', fontsize=6,
+                        color='0.35', ha='left', va='center', annotation_clip=False)
+    ax.set_ylabel('Head turn (°)', color=HEAD_COLOR)
     ax.tick_params(axis='y', labelcolor=HEAD_COLOR)
 
 
 # ── figures ──────────────────────────────────────────────────────────────────
 
+FIG2_ROWS_MM = [14, 24, 20]       # stage ladder, CLE-CRE, head turn (relative heights)
+
+
+@style.paper
 def fig2(feats):
-    fig = plt.figure(figsize=(24, 13), layout='constrained')
-    subfigs = fig.subfigures(2, 2, wspace=0.03, hspace=0.04)
-    for sf, (letter, label, age) in zip(subfigs.ravel(), FIG2_PANELS):
+    fig = style.figure(style.COL2_MM, 150, layout='constrained')
+    gs = fig.add_gridspec(7, 2, height_ratios=FIG2_ROWS_MM + [2] + FIG2_ROWS_MM)
+    for k, (letter, label, age) in enumerate(FIG2_PANELS):
+        r0, col = 4 * (k // 2), k % 2
         f = feats[label]
-        axes = sf.subplots(3, 1, sharex=True, gridspec_kw={'height_ratios': [0.7, 1.25, 1.05]})
+        top = fig.add_subplot(gs[r0, col])
+        axes = [top] + [fig.add_subplot(gs[r0 + i, col], sharex=top) for i in (1, 2)]
         draw_ladder(axes[0], f['sp'])
         axes[0].set_ylabel('Sleep stage')
-        axes[0].set_title(f'({letter})  {label}, {age}-year-old male', loc='left',
-                          fontsize=16, fontweight='bold')
+        axes[0].set_title(f'{label}, {age}-year-old male')
         ax = axes[1]
-        ax.axhline(0, color='#2C3E50', ls='--', lw=1.2, zorder=2)
-        ax.plot(f['t_hr'], f['centred'], lw=1.2, color=CAP_COLORS['CLE-CRE'], zorder=4)
-        ax.set_ylim(*sym_zero_ylim(f['centred']))
-        ax.set_ylabel(f'CLE−CRE − mean\n({CAP_UNIT}; μ {f["mu"]:,.0f})',
+        style.reference_line(ax, y=0, zorder=2)
+        ax.plot(f['t_hr'], f['centred'], lw=0.6, color=CAP_COLORS['CLE-CRE'], zorder=4)
+        ticks = _sym_ticks(sym_zero_ylim(f['centred'])[1])
+        ax.set_yticks(ticks)
+        ax.set_ylim(ticks[0], ticks[-1])
+        ax.set_ylabel(f'CLE−CRE − mean\n({CAP_UNIT}; μ = {_num(f["mu"])})',
                       color=CAP_COLORS['CLE-CRE'])
         ax.tick_params(axis='y', labelcolor=CAP_COLORS['CLE-CRE'])
-        ax.grid(True, alpha=0.15)
         draw_head_row(axes[2], f['t_hr'], f['turn_deg'])
-        axes[2].set_xlabel('Time (hours)')
-        sf.align_ylabels(axes)
-    save(fig, 'fig2_overnight', STAGE)
+        axes[2].set_xlabel('Time (h)')
+        _hour_axis(axes[2], max(f['t_hr'][-1],
+                                np.nanmax(np.asarray(f['sp']['t_ep_hr'], float))))
+        for a in axes[:2]:
+            a.tick_params(labelbottom=False)
+        for a in axes:
+            style.spines_to_ticks(a, sides=('left',))
+        style.panel_label(axes[0], letter)
+        fig.align_ylabels(axes)
+    return style.save(fig, 'fig2_overnight', STAGE)
 
 
 def fig_s2(ep, sess):

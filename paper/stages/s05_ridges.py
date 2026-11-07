@@ -73,6 +73,7 @@ from scipy.stats import kruskal, mannwhitneyu
 
 from seclib import CACHE_DIR, FS, STAGE_LABELS, STAGE_ORDER, TAB_DIR, iter_sessions, get_session
 from seclib.config import STAGE_ROW, STAGE_ROW_TICKS, STAGE_ROW_LABELS
+from seclib import style
 from seclib.figures import save
 from seclib.harmonics import detect_persistent_ridges
 from seclib.numbers import Numbers
@@ -600,6 +601,27 @@ def draw_stage_ladder(ax, sp, fontsize=12):
     ax.grid(True, axis='y', alpha=0.15)
 
 
+HOUR_OVERSHOOT = 0.12   # h: a night ending this little past a whole hour ends the axis there
+
+
+def _hour_axis(ax, t_end):
+    """Hourly ticks from 0, labelled every 2 h when there would be more than 6 labels.
+    The axis runs to the first whole hour at or after `t_end`, or, when the night ends
+    at most HOUR_OVERSHOOT past a whole hour, to `t_end` itself (no hour of empty axis,
+    no data cut). The bottom spine is left at the full limits so nothing overhangs it."""
+    last = int(np.floor(t_end + 1e-9))
+    if t_end - last <= HOUR_OVERSHOOT and last >= 1:
+        end, xmax = last, float(t_end)
+    else:
+        end = int(np.ceil(t_end - 1e-9))
+        xmax = float(end)
+    hours = np.arange(end + 1)
+    labels = [str(h) if (end < 6 or h % 2 == 0) else '' for h in hours]
+    ax.set_xticks(hours, labels)
+    ax.set_xlim(0, xmax)
+
+
+@style.paper
 def fig5(lowband_night, s=None, channel=FIG5_CHANNEL, stage=STAGE):
     """Fig. 5: S4N2 CRE -- stage ladder, 0-3 Hz spectrogram + Viterbi traces, low band.
     Pass another session (and stage) to draw the same layout for it (Fig. S6 panels)."""
@@ -610,42 +632,57 @@ def fig5(lowband_night, s=None, channel=FIG5_CHANNEL, stage=STAGE):
     t_resp, resp_tr, resp_p = track_single_ridge(sig, s.fs, **TRACK['resp'])
     t_card, card_tr, card_p = track_single_ridge(sig, s.fs, **TRACK['card'])
     r = lowband_night
+    lfo_pct = 100 * r['keep'].mean()
 
-    fig = plt.figure(figsize=(15, 10))
-    gs = fig.add_gridspec(3, 1, height_ratios=[0.32, 1.0, 0.72], hspace=0.12)
+    fig = style.figure(style.COL2_MM, 112, layout='constrained')
+    gs = fig.add_gridspec(3, 1, height_ratios=[0.32, 1.0, 0.72])
     ax0 = fig.add_subplot(gs[0])
-    draw_stage_ladder(ax0, s.sleep_profile)
-    ax0.set_ylabel('Stage')
+    draw_stage_ladder(ax0, s.sleep_profile, fontsize=6)
+    ax0.grid(False)
+    for ln in ax0.lines:
+        ln.set_linewidth(0.6)
+    ax0.set_ylabel('Sleep stage')
     ax0.tick_params(labelbottom=False)
-    ax0.set_title(f'{s.label} {channel}: Viterbi tracker confidence respiratory '
-                  f'{resp_p:.0%}, cardiac {card_p:.0%}; low-band ridge on '
-                  f'{100 * r["keep"].mean():.0f}% of the night', fontsize=13)
+    ax0.set_title(f'{s.label}, sleep stages')
 
     ax1 = fig.add_subplot(gs[1], sharex=ax0)
     f1, t1, db1 = enhance_spec(sig, s.fs)
     ax1.pcolormesh(t1 / 3600, f1, db1, shading='gouraud', cmap='magma',
                    vmin=0, vmax=np.percentile(db1, 99.5), rasterized=True)
-    ax1.plot(t_resp, resp_tr, color=TRACE_COLOR['resp'], lw=2.0, label='respiratory')
-    ax1.plot(t_card, card_tr, color=TRACE_COLOR['card'], lw=2.0, label='cardiac')
+    ax1.plot(t_resp, resp_tr, color=TRACE_COLOR['resp'], lw=0.9,
+             label=f'Respiratory, tracker confidence {resp_p:.0%}')
+    ax1.plot(t_card, card_tr, color=TRACE_COLOR['card'], lw=0.9,
+             label=f'Cardiac, {card_p:.0%}')
     ax1.set_ylim(0, 3.0)
+    ax1.set_yticks(np.arange(0, 3.0 + 0.5, 1.0))
     ax1.set_ylabel('Frequency (Hz)')
     ax1.tick_params(labelbottom=False)
-    ax1.legend(loc='upper right')
+    ax1.set_title(f'{channel}, background-corrected spectrogram')
+    ax1.legend(loc='lower right', bbox_to_anchor=(1, 1), ncol=2, borderaxespad=0.2,
+               handlelength=1.2, columnspacing=1.2)
 
     ax2 = fig.add_subplot(gs[2], sharex=ax0)
     lo, hi = np.percentile(r['db'], [5, 99.5])
     ax2.pcolormesh(r['t'], r['f'], r['db'], shading='gouraud', cmap='viridis',
                    vmin=lo, vmax=hi, rasterized=True)
-    ax2.plot(r['t'], np.where(r['keep'], np.nan, r['fr']), color='white', lw=1.0,
-             alpha=0.45, ls=':', label='Viterbi path (below gate)')
-    ax2.plot(r['t'], np.where(r['keep'], r['fr'], np.nan), color=RIDGE_COLOR, lw=2.6,
-             label='gated low-band ridge')
+    ax2.plot(r['t'], np.where(r['keep'], np.nan, r['fr']), color='0.8', lw=0.6,
+             ls=(0, (1, 1.5)), label='Viterbi path, below gate')
+    ax2.plot(r['t'], np.where(r['keep'], r['fr'], np.nan), color=RIDGE_COLOR, lw=1.2,
+             label=f'Gated ridge, {lfo_pct:.0f}% of night')
     ax2.set_ylim(0.0, LB.FMAX)
-    ax2.set_ylabel('Low band (Hz)')
+    ax2.set_yticks(np.round(np.arange(0.0, LB.FMAX + 0.05, 0.1), 2))
+    ax2.set_ylabel('Frequency (Hz)')
     ax2.set_xlabel('Time (h)')
-    ax2.legend(loc='upper right', fontsize=9)
-    ax0.set_xlim(0, max(t1[-1] / 3600, r['t'][-1]))
-    return save(fig, f'fig5_{s.label}_{channel}', stage)
+    ax2.set_title(f'{channel}, low band')
+    ax2.legend(loc='lower right', bbox_to_anchor=(1, 1), ncol=2, borderaxespad=0.2,
+               handlelength=1.6, columnspacing=1.2)
+    _hour_axis(ax2, max(t1[-1] / 3600, r['t'][-1]))
+    for ax, letter in zip((ax0, ax1, ax2), 'abc'):
+        ax.tick_params(direction='out')       # ticks stay visible beside the images
+        style.spines_to_ticks(ax, sides=('left',))
+        style.panel_label(ax, letter)
+    fig.align_ylabels((ax0, ax1, ax2))
+    return style.save(fig, f'fig5_{s.label}_{channel}', stage)
 
 
 def lowband_sheet(nights, channel='CRE'):

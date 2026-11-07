@@ -101,10 +101,12 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator
 from scipy.stats import pearsonr
 
 from seclib import CACHE_DIR, TAB_DIR, iter_sessions
 from seclib.config import CAP_UNIT, CAP_UNIT_SQ
+from seclib import style
 from seclib.figures import save
 from seclib.filters import lowpass
 from seclib.loader import load_arousals, load_autonomic_arousals
@@ -165,6 +167,7 @@ AROUSAL_TYPES = ['spontaneous', 'respiratory', 'limb', 'cardiac']
 
 SUBJ_COLORS = {f'S{k + 1}': plt.cm.tab10(k) for k in range(6)}
 NIGHT_MARKER = {1: 'o', 2: 's'}
+MEAN_MARKER = 'D'                 # two-night mean (Fig. 11b)
 
 
 # ── per-epoch variance ───────────────────────────────────────────────────────
@@ -443,107 +446,156 @@ FIG10 = [
 ]
 
 
-def _fit(ax, x, y, ls=':'):
+def _nice_lims(lo, hi, nbins=4):
+    """Nice ticks from the last one at or below `lo` to the first at or above `hi`, so
+    the axis lines can end on their end ticks with every point inside."""
+    t = MaxNLocator(nbins=nbins, steps=[1, 2, 2.5, 5, 10]).tick_values(lo, hi)
+    step = t[1] - t[0]
+    start, stop = np.floor(lo / step + 1e-9) * step, np.ceil(hi / step - 1e-9) * step
+    return np.round(np.arange(start, stop + step / 2, step), 10)
+
+
+def _set_axis(ax, which, lo, hi, nbins=4):
+    t = _nice_lims(lo, hi, nbins)
+    (ax.set_xticks if which == 'x' else ax.set_yticks)(t)
+    (ax.set_xlim if which == 'x' else ax.set_ylim)(t[0], t[-1])
+
+
+def _num(v, fmt='.2f'):
+    return format(v, fmt).replace('-', '−')
+
+
+def _fit(ax, x, y, ls=':', xlim=None):
+    """Least-squares line over the data range (+6 %), kept inside the axis limits."""
     x, y = np.asarray(x, float), np.asarray(y, float)
     k, c = np.polyfit(x, y, 1)
     pad = 0.06 * (x.max() - x.min())
-    xx = np.array([x.min() - pad, x.max() + pad])
-    ax.plot(xx, k * xx + c, ls=ls, lw=1.8, color='#2C3E50', zorder=2)
+    lo, hi = x.min() - pad, x.max() + pad
+    if xlim is not None:
+        lo, hi = max(lo, xlim[0]), min(hi, xlim[1])
+    xx = np.array([lo, hi])
+    ax.plot(xx, k * xx + c, ls=ls, lw=1.0, color='0.2', zorder=2)
 
 
 def _points(ax, df, x, y, by_night=True):
     for _, r in df.iterrows():
-        ax.scatter(r[x], r[y], s=70, color=SUBJ_COLORS[r.subject],
+        ax.scatter(r[x], r[y], s=16, color=SUBJ_COLORS[r.subject],
                    marker=NIGHT_MARKER[int(r.night)] if by_night else 'o',
-                   edgecolor='white', lw=0.8, zorder=4)
+                   edgecolor='white', lw=0.4, zorder=4, clip_on=False)
 
 
 def _stat(ax, text, loc='upper left'):
     vert, horiz = loc.split()
-    x, ha = (0.04, 'left') if horiz == 'left' else (0.96, 'right')
-    y, va = (0.96, 'top') if vert == 'upper' else (0.04, 'bottom')
-    ax.text(x, y, text, transform=ax.transAxes, ha=ha, va=va, fontsize=12,
-            bbox=dict(boxstyle='round,pad=0.3', fc='white', ec='#BBBBBB', lw=0.6))
+    x, ha = (0.03, 'left') if horiz == 'left' else (0.97, 'right')
+    y, va = (0.97, 'top') if vert == 'upper' else (0.03, 'bottom')
+    ax.text(x, y, text, transform=ax.transAxes, ha=ha, va=va, fontsize=6)
 
 
-def _subject_legend(fig, nights=False, y=1.0):
-    h = [plt.Line2D([], [], ls='', marker='o', ms=9, color=c, label=s_)
+def _p(p):
+    return f'p = {p:.3f}' if p >= 0.001 else 'p < 0.001'
+
+
+def _subject_legend(fig, nights=False):
+    h = [plt.Line2D([], [], ls='', marker='o', ms=4, color=c, label=s_)
          for s_, c in SUBJ_COLORS.items()]
     if nights:
-        h += [plt.Line2D([], [], ls='', marker=NIGHT_MARKER[n], ms=8, color='#777',
-                         label=f'night {n}') for n in (1, 2)]
-    fig.legend(handles=h, loc='lower center', ncol=len(h), bbox_to_anchor=(0.5, y),
-               frameon=False, fontsize=11)
+        h += [plt.Line2D([], [], ls='', marker=NIGHT_MARKER[n], ms=3.5, color='0.45',
+                         label=f'Night {n}') for n in (1, 2)]
+        h += [plt.Line2D([], [], ls='', marker=MEAN_MARKER, ms=3.5, color='0.45',
+                         label='2-night mean')]
+    fig.legend(handles=h, loc='outside upper center', ncol=len(h), handletextpad=0.1,
+               columnspacing=1.2)
 
 
+def _square(ax, lo, hi):
+    """Same nice range and ticks on both axes, unity line inside the axis lines."""
+    t = _nice_lims(lo, hi)
+    for set_lim, set_ticks in ((ax.set_xlim, ax.set_xticks), (ax.set_ylim, ax.set_yticks)):
+        set_ticks(t)
+        set_lim(t[0], t[-1])
+    ax.set_aspect('equal', adjustable='box')
+    ax.plot([t[0], t[-1]], [t[0], t[-1]], zorder=1, **style.REFERENCE_STYLE)
+    ax.spines[['left', 'bottom']].set_position(('outward', 3))   # keep the two 0s apart
+    return t
+
+
+FIG10_TITLE = {'dur_above_pct': f'Time above {HEADLINE:g} {CAP_UNIT_SQ}',
+               'pct_above_10x_median': 'Time above 10× night median',
+               'night_median_fF2': 'Median variance'}
+FIG10_UNIT = {'dur_above_pct': '% of night', 'pct_above_10x_median': '% of night',
+              'night_median_fF2': CAP_UNIT_SQ}
+
+
+@style.paper
 def fig10(night, rep):
-    fig, axes = plt.subplots(1, 3, figsize=(16, 5.4))
-    for ax, (letter, (key, label)) in zip(axes, zip('abc', FIG10)):
+    fig, axes = style.subplots(1, 3, style.COL2_MM, 66, layout='constrained')
+    for ax, letter, (key, _) in zip(axes, 'abc', FIG10):
         w = night.pivot(index='subject', columns='night', values=key)
         for subj, r in w.iterrows():
-            ax.scatter(r[1], r[2], s=80, color=SUBJ_COLORS[subj], edgecolor='white',
-                       lw=0.8, zorder=4)
-        _fit(ax, w[1], w[2])
-        lo = min(w.min().min(), 0) if key != 'night_median_fF2' else w.min().min() * 0.9
-        hi = w.max().max() * 1.08
-        ax.plot([lo, hi], [lo, hi], ls='--', lw=0.8, color='#BBBBBB', zorder=1)
-        ax.set_xlim(lo, hi)
-        ax.set_ylim(lo, hi)
-        ax.set_aspect('equal', adjustable='box')
+            ax.scatter(r[1], r[2], s=18, color=SUBJ_COLORS[subj], edgecolor='white',
+                       lw=0.4, zorder=4, clip_on=False)
+        lo = 0.0 if key != 'night_median_fF2' else w.min().min()
+        lims = _square(ax, lo, w.max().max())
+        _fit(ax, w[1], w[2], xlim=(lims[0], lims[-1]))
         rr = rep.set_index('feature').loc[key]
-        _stat(ax, f'R² = {rr.r2:.3f}\nn = {int(rr.n)} participants', 'lower right')
-        ax.set_title(f'({letter})  {label}', loc='left', fontsize=12.5)
-        ax.set_xlabel('night 1')
-        ax.set_ylabel('night 2')
-        ax.grid(alpha=0.2)
-    _subject_legend(fig, y=0.96)
-    fig.tight_layout(rect=(0, 0, 1, 0.94))
-    save(fig, 'fig10_reproducibility', STAGE)
+        _stat(ax, f'r = {_num(rr.r)}, {_p(rr.p)}\nn = {int(rr.n)} participants',
+              'lower right')
+        ax.set_title(FIG10_TITLE[key])
+        ax.set_xlabel(f'Night 1 ({FIG10_UNIT[key]})')
+        ax.set_ylabel(f'Night 2 ({FIG10_UNIT[key]})')
+        style.spines_to_ticks(ax)
+        style.panel_label(ax, letter)
+    _subject_legend(fig)
+    return style.save(fig, 'fig10_reproducibility', STAGE)
 
 
+@style.paper
 def fig11(night, subj, assoc):
     a = assoc.set_index('id')
-    fig, axes = plt.subplots(1, 3, figsize=(16, 5.4))
+    fig, axes = style.subplots(1, 3, style.COL2_MM, 62, layout='constrained')
 
     ax = axes[0]
     _points(ax, night, 'idx_respiratory', 'impulses_per_hour')
-    _fit(ax, night.idx_respiratory, night.impulses_per_hour)
+    _set_axis(ax, 'x', 0, night.idx_respiratory.max())
+    _set_axis(ax, 'y', 0, night.impulses_per_hour.max())
+    _fit(ax, night.idx_respiratory, night.impulses_per_hour, xlim=ax.get_xlim())
     r = a.loc['imp_resp']
-    _stat(ax, f'R = {r.r:+.2f}  (R² = {r.r2:.2f})\nn = {int(r.n)} nights', 'upper left')
-    ax.set_xlabel('respiratory arousal index (/h of sleep)')
-    ax.set_ylabel('impulse frequency (events/h)')
-    ax.set_title('(a)  impulse frequency vs respiratory arousals', loc='left',
-                 fontsize=12.5)
+    _stat(ax, f'r = {_num(r.r)}, {_p(r.p)}\nn = {int(r.n)} nights', 'upper left')
+    ax.set_xlabel('Respiratory arousal index (per h of sleep)')
+    ax.set_ylabel('Impulse frequency (per h)')
+    ax.set_title('Respiratory arousals')
 
     ax = axes[1]
     for _, rw in subj.iterrows():
-        ax.scatter(rw.psqi, rw.osc_pct, s=80, color=SUBJ_COLORS[rw.subject],
-                   edgecolor='white', lw=0.8, zorder=4)
-    _fit(ax, subj.psqi, subj.osc_pct)
+        ax.scatter(rw.psqi, rw.osc_pct, s=18, color=SUBJ_COLORS[rw.subject], marker=MEAN_MARKER,
+                   edgecolor='white', lw=0.4, zorder=4, clip_on=False)
+    _set_axis(ax, 'y', 0, subj.osc_pct.max())
+    _fit(ax, subj.psqi, subj.osc_pct, xlim=(4, 10))
     r = a.loc['osc2_psqi']
-    _stat(ax, f'R = {r.r:+.2f}  (R² = {r.r2:.2f})\nn = {int(r.n)} participants',
-          'lower left')
+    _stat(ax, f'r = {_num(r.r)}, {_p(r.p)}\nn = {int(r.n)} participants', 'lower left')
     ax.set_xlabel('PSQI')
-    ax.set_ylabel('oscillation duration, mean of 2 nights\n(% of recording; hand-measured)')
-    ax.set_title('(b)  low-frequency oscillation duration vs PSQI', loc='left',
-                 fontsize=12.5)
+    ax.set_ylabel('Oscillation duration, 2-night mean\n(% of recording, hand-measured)')
+    ax.set_title('Oscillation duration')
 
     ax = axes[2]
     _points(ax, night, 'psqi', 'dur_above_pct')
-    _fit(ax, night.psqi, night.dur_above_pct)
+    _set_axis(ax, 'y', 0, night.dur_above_pct.max())
+    _fit(ax, night.psqi, night.dur_above_pct, xlim=(4, 10))
     r = a.loc['d10_psqi']
-    _stat(ax, f'R = {r.r:+.2f}  (R² = {r.r2:.2f})\nn = {int(r.n)} nights', 'upper right')
+    _stat(ax, f'r = {_num(r.r)}, {_p(r.p)}\nn = {int(r.n)} nights', 'upper right')
     ax.set_xlabel('PSQI')
-    ax.set_ylabel(f'% of night with variance > {HEADLINE:g} {CAP_UNIT_SQ}')
-    ax.set_title(f'(c)  time above {HEADLINE:g} {CAP_UNIT_SQ} vs PSQI', loc='left',
-                 fontsize=12.5)
-    for ax in axes[1:]:
-        ax.set_xlim(3, 10)
-    for ax in axes:
-        ax.grid(alpha=0.2)
-    _subject_legend(fig, nights=True, y=0.96)
-    fig.tight_layout(rect=(0, 0, 1, 0.94))
-    save(fig, 'fig11_associations', STAGE)
+    ax.set_ylabel(f'Time above {HEADLINE:g} {CAP_UNIT_SQ} (% of night)')
+    ax.set_title(f'Time above {HEADLINE:g} {CAP_UNIT_SQ}')
+
+    for ax, letter in zip(axes, 'abc'):
+        if ax is not axes[0]:
+            ax.set_xticks([4, 6, 8, 10])
+            ax.set_xlim(4, 10)
+        ax.spines[['left', 'bottom']].set_position(('outward', 3))
+        style.spines_to_ticks(ax)
+        style.panel_label(ax, letter)
+    _subject_legend(fig, nights=True)
+    return style.save(fig, 'fig11_associations', STAGE)
 
 
 # ── run ──────────────────────────────────────────────────────────────────────

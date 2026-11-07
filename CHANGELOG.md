@@ -6,6 +6,24 @@ Records all code changes to library modules, scripts, and notebooks.
 
 ## 2026-11-06
 
+- **Added** `paper/seclib/style.py`: print-size figure style for SLEEP (OUP), adapted from Anna Li's Steinmetz Lab style package (`SteinmetzLab/steinmetzlab-style`, MIT; its paper stylesheet and axis helpers are vendored, so the pipeline has no private dependency).
+  - Widths 86 / 178 mm (SLEEP gives none; OUP's usual columns). Text: Arial 7 pt labels, 6 pt ticks, 8 pt bold panel letters, minimum 5 pt.
+  - `@style.paper` decorator, `figure` / `subplots` in mm, `spines_to_ticks`, `panel_label`, `reference_line`.
+  - `save` writes PNG (white, 300 dpi, never cropped) and an editable-text PDF.
+  - With `SEC_FIGCHECK=1` (and `SLS_SRC` pointing at the lab clone's `src`), `save` runs the lab's `check_figure` and writes `<name>.check.txt`.
+- **Changed**: figure polish pass, panels, layout and data unchanged, on every figure Aditya made that is in V18. Each figure is drawn at print size, ends with 0 required issues on the lab checks, and was reviewed as a PNG.
+  - Figures covered: Fig. 2 (`s02.fig2`), Fig. 5 and Fig. S6 (`s05.fig5`, drawn for 12 nights by `s10.fig_s6`), Fig. 6 (`s07.make_figure`), Fig. 7 and Fig. 8 / S8 (`_s08_delta_kcomplex_figures.fig7_causal_grid`, `fig12_kcomplex`; causal version via `s10.fig8_causal`), Fig. 9 / S9 and S11 (`s06.fig8`, `fig9`), Fig. 10–11 (`s09`), Supp S4 SNR (`s03.fig_snr`), and the new eye-movement panel (`s10.fig_r2`).
+  - Not touched: co-author figures (Fig. 1, Fig. 3 correlations, Fig. 4 spectra, S1, S5, S16) and figures no longer in V18.
+  - `PAPER_NUMBERS.md` rebuilt identical; every stage's numbers file is byte-identical to before.
+  - An independent critic, which saw only the PNGs and one-line claims, reviewed the figures. That review led to three fixes:
+    - Fig. 11b: 2-night means are now diamonds with their own key entry; before, they looked like Night 1.
+    - Eye-movement panel: the key shows both median-bar colours, and the rows are labelled as variance enrichment.
+    - The R2 REM text in the numbers sheet and point 72a now rests on the regression only, because just 1 night keeps enough REM after the control.
+  - Hand-off: `writeup/edits/V18_FIGURES_2026-11-06.md` maps each V18 figure to its file and lists caption changes, critique points and open choices.
+  - Visible changes a caption may need to follow:
+    - Fig. 6 now uses the paper's channel colours (`CAP_COLORS`).
+    - Figs. 7 and 8 draw the null dotted and the onset line dark.
+    - Figs. 10 and 11 print r and p (from code) instead of R².
 - **Added** `paper/stages/s10_review_v18.py`: the V18 review analyses R1–R5 and R7 as a pipeline stage (needs s05, s08, s09). Writes `paper/outputs/tables/s10_review_v18/`, `figures/s10_review_v18/`, 82 NEW numbers.
   - R1: arousal-free delta-burst effect sizes, from s08's arousal-control tables.
   - R2: eye-movement control for the §3.8 variance tails. Anti-phase EOG power per legacy 30-s epoch; the tails use whole-night deciles as in `analysis/mean_value/variance_low_high.py`, and the baseline reproduces V18 exactly. Also a stage regression with and without EOG power.

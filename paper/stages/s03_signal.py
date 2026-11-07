@@ -61,12 +61,14 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator
 from scipy import signal
 from scipy.signal import find_peaks, resample_poly, welch
 
 from seclib import (CACHE_DIR, FS, LABELS, RESP_LO, RESP_HI, CARD_LO, CARD_HI, TAB_DIR,
                     get_session, Numbers)
 from seclib.config import BASELINE_FILE, CAP_COLORS
+from seclib import style
 from seclib.filters import bandpass
 from seclib.figures import save
 from seclib.loader import load_apnea_events
@@ -192,26 +194,37 @@ def snr_tables(freqs, psds):
     return pooled, split, floor
 
 
+def _nice_ticks(lo, hi, nbins=5):
+    """Nice ticks from the last one at or below `lo` to the first at or above `hi`."""
+    t = MaxNLocator(nbins=nbins, steps=[1, 2, 2.5, 5, 10]).tick_values(lo, hi)
+    step = t[1] - t[0]
+    start, stop = np.floor(lo / step + 1e-9) * step, np.ceil(hi / step - 1e-9) * step
+    return np.round(np.arange(start, stop + step / 2, step), 10)
+
+
+@style.paper
 def fig_snr(pooled):
     """Fig S3: grouped bars, one group per recording, three raw channels."""
-    fig, ax = plt.subplots(figsize=(14.5, 7.2))
+    fig, ax = style.subplots(1, 1, style.COL1_MM, 56, layout='constrained')
     x = np.arange(len(LABELS))
+    ax.xaxis.update_units(np.asarray(LABELS))   # a categorical axis, one tick per recording
     w = 0.26
     for i, c in enumerate(RAW):
         ax.bar(x + (i - 1) * w, pooled[c].to_numpy(), w, color=CAP_COLORS[c],
-               edgecolor='white', linewidth=0.5, zorder=3,
-               label=f'{c}  (mean {pooled[c].mean():.1f} dB)')
-    ax.axhline(0, color='gray', lw=1.0, zorder=2)
-    ax.set_xticks(x)
-    ax.set_xticklabels(LABELS, rotation=45, ha='right', fontsize=13)
-    ax.set_ylabel('Physiological-band SNR (dB, per-Hz density)', fontsize=15)
-    ax.set_xlabel('Recording', fontsize=15)
-    ax.tick_params(axis='y', labelsize=13)
-    ax.grid(True, axis='y', alpha=0.25, zorder=0)
-    ax.legend(loc='upper right', fontsize=13, framealpha=0.95, ncol=3)
-    ax.margins(y=0.14)
-    fig.tight_layout()
-    save(fig, 'figS3_inband_snr', STAGE)
+               edgecolor='white', linewidth=0.25, zorder=3,
+               label=f'{c} (mean {pooled[c].mean():.1f} dB)')
+    ax.set_xlim(-0.5, len(LABELS) - 0.5)
+    ticks = _nice_ticks(0.0, float(pooled[RAW].to_numpy().max()))
+    ax.set_yticks(ticks)
+    ax.set_ylim(ticks[0], ticks[-1])
+    ax.tick_params(axis='x', direction='out', length=2)    # category ticks, not under bars
+    ax.spines['bottom'].set_zorder(4)                       # a continuous baseline
+    ax.set_ylabel('Physiological-band SNR\n(dB, per-Hz density)')
+    ax.set_xlabel('Recording')
+    ax.legend(loc='upper right', ncol=1, handlelength=1.0, handletextpad=0.4,
+              borderaxespad=0.0, labelspacing=0.3)
+    style.spines_to_ticks(ax, sides=('left',))
+    return style.save(fig, 'figS3_inband_snr', STAGE)
 
 
 # ═════════════════════════════════════════════════════════════════════════════

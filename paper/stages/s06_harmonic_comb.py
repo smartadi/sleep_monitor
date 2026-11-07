@@ -61,12 +61,14 @@ if __package__ in (None, ''):
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from matplotlib.legend_handler import HandlerBase
+from matplotlib.ticker import MaxNLocator
 from scipy.ndimage import maximum_filter1d, median_filter, uniform_filter1d
 from scipy.signal import find_peaks, spectrogram
 
 from seclib import STAGE_COLORS, STAGE_LABELS, STAGE_ORDER, TAB_DIR, iter_sessions
+from seclib import style
 from seclib.config import STAGE_ROW, STAGE_ROW_LABELS, STAGE_ROW_TICKS
-from seclib.figures import save
 from seclib.numbers import Numbers
 from seclib.preprocessing import remove_acc_artifact
 
@@ -567,55 +569,169 @@ def draw_stage_ladder(ax, sp):
     ax.grid(True, axis='y', alpha=0.15)
 
 
+BAND_COLOR = '#00E5FF'      # detected bands, drawn over the magma spectrogram
+EPISODE_LS = (0, (3, 2))    # dashed white outline of a comb episode
+
+
+def _nice_lims(lo, hi, nbins=4):
+    """Nice ticks from the last one at or below `lo` to the first at or above `hi`, so
+    the axis lines can end on their end ticks with every point inside."""
+    t = MaxNLocator(nbins=nbins, steps=[1, 2, 2.5, 5, 10]).tick_values(lo, hi)
+    step = t[1] - t[0]
+    start, stop = np.floor(lo / step + 1e-9) * step, np.ceil(hi / step - 1e-9) * step
+    return np.round(np.arange(start, stop + step / 2, step), 10)
+
+
+def _set_axis(ax, which, lo, hi, nbins=4):
+    t = _nice_lims(lo, hi, nbins)
+    (ax.set_xticks if which == 'x' else ax.set_yticks)(t)
+    (ax.set_xlim if which == 'x' else ax.set_ylim)(t[0], t[-1])
+
+
+def _hypnogram(ax, sp):
+    """Paper version of draw_stage_ladder (kept as is for analysis/slow_wave/comb_tune.py):
+    same stepped ladder, top -> bottom Wake, N1, N2, N3, REM, at print line widths."""
+    t = np.asarray(sp['t_ep_hr'], float)
+    codes = np.asarray(sp['codes'])
+    n = min(len(t), len(codes))
+    ys = np.array([STAGE_ROW.get(int(c), np.nan) for c in codes[:n]], float)
+    ax.step(t[:n], ys, where='post', color='#2c3e50', lw=0.6)
+    ax.set_yticks(STAGE_ROW_TICKS, STAGE_ROW_LABELS)
+    ax.set_ylim(min(STAGE_ROW_TICKS) - 0.5, max(STAGE_ROW_TICKS) + 0.5)
+    ax.set_ylabel('Stage')
+
+
+class _OnDark(HandlerBase):
+    """Legend key drawn on a black swatch, so the white episode outline and the cyan
+    band read as they do on the spectrogram."""
+
+    def __init__(self, kind):
+        super().__init__()
+        self.kind = kind
+
+    def create_artists(self, legend, orig_handle, xdescent, ydescent, width, height,
+                       fontsize, trans):
+        x0, y0 = -xdescent, -ydescent
+        arts = [plt.Rectangle((x0, y0), width, height, fc='black', lw=0)]
+        if self.kind == 'episode':
+            i = 1.2                                # inset (pt) so the whole outline shows
+            arts.append(plt.Rectangle((x0 + i, y0 + i), width - 2 * i, height - 2 * i,
+                                      fill=False, ec='white', lw=0.6, ls=EPISODE_LS))
+        else:
+            arts.append(plt.Line2D([x0, x0 + width], [y0 + height / 2] * 2,
+                                   color=BAND_COLOR, lw=1.0, solid_capstyle='butt'))
+        for a in arts:
+            a.set_transform(trans)
+        return arts
+
+
+def _row_major(items, ncol):
+    """Order legend entries so that matplotlib's column-first fill reads row by row."""
+    grid = [items[r:r + ncol] for r in range(0, len(items), ncol)]
+    return [row[c] for c in range(ncol) for row in grid if c < len(row)]
+
+
+def _colorbar(fig, mappable, ax, label):
+    """Thin colorbar as tall as `ax`, no tick marks, text spaced like the axes' text
+    (as the lab's sls.colorbar)."""
+    cb = fig.colorbar(mappable, ax=ax, pad=0.008, aspect=24)
+    cb.outline.set_visible(False)
+    cb.ax.tick_params(which='both', size=0, pad=plt.rcParams['ytick.major.pad'])
+    cb.ax.yaxis.set_major_locator(MaxNLocator(nbins=3, steps=[1, 2, 5, 10]))
+    cb.set_label(label, labelpad=plt.rcParams['axes.labelpad'])
+    return cb
+
+
+@style.paper
 def fig8(fig8_data, channels, name):
     """Comb spectrogram(s) for S6N1 with the detected rungs, above the stage ladder."""
     label, sp, per_ch = fig8_data
     n = len(channels)
-    fig, axes = plt.subplots(n + 1, 1, figsize=(15, 3.2 + 3.4 * n), sharex=True,
-                             gridspec_kw={'height_ratios': [0.4 * max(1, n / 2)] + [1.0] * n})
-    draw_stage_ladder(axes[0], sp)
+    fig, axes = style.subplots(n + 1, 1, style.COL2_MM, 38 + 40 * n, sharex=True,
+                               gridspec_kw={'height_ratios': [0.4 * max(1, n / 2)] + [1.0] * n},
+                               layout='constrained')
+    _hypnogram(axes[0], sp)
     for ax, ch in zip(axes[1:], channels):
         f, t_hr, enh, active, episodes = per_ch[ch]
-        ax.pcolormesh(t_hr, f, enh, shading='gouraud', cmap='magma',
-                      vmin=0, vmax=np.percentile(enh, 99.5), rasterized=True)
+        mesh = ax.pcolormesh(t_hr, f, enh, shading='gouraud', cmap='magma',
+                             vmin=0, vmax=np.percentile(enh, 99.5), rasterized=True)
         for ep in episodes:
             a, b = t_hr[ep['lo']], t_hr[min(ep['hi'], len(t_hr) - 1)]
             ax.add_patch(plt.Rectangle((a, 0.03), b - a, FMAX - 0.06, fill=False,
-                                       ec='white', lw=1.2, ls='--'))
+                                       ec='white', lw=0.6, ls=EPISODE_LS))
             # only sustained bands (>= SUSTAINED of the episode); brief fragments clutter
             span = ep['hi'] - ep['lo']
             for fr, s0, s1 in ep['bands']:
                 if (s1 - s0 + 1) >= SUSTAINED * span:
-                    ax.plot([t_hr[s0], t_hr[s1]], [fr, fr], color='#00E5FF', lw=2.2)
+                    ax.plot([t_hr[s0], t_hr[s1]], [fr, fr], color=BAND_COLOR, lw=1.0,
+                            solid_capstyle='butt')
         ax.set_ylim(0, FMAX)
-        ax.set_ylabel(f'{ch}\nFrequency (Hz)')
+        ax.set_yticks(np.arange(0, FMAX + 1e-9, 1.0))
+        ax.set_ylabel('Frequency (Hz)')
+        ax.set_title(ch)
+        _colorbar(fig, mesh, ax, 'Power above local floor (dB)')
+
+    # Time axis: drawn once, under the bottom spectrogram. The spectrogram is an image,
+    # so its axis line runs the image's full extent (0 to the end of the recording)
+    # rather than stopping at the last whole hour; the panels above share it and
+    # carry no time axis of their own.
+    t_end = max([per_ch[ch][1][-1] for ch in channels] + [float(np.asarray(sp['t_ep_hr'])[-1])])
+    axes[-1].set_xticks(np.arange(0, np.floor(t_end) + 1e-9, 1.0))
+    axes[-1].set_xlim(0, t_end)
     axes[-1].set_xlabel('Time (h)')
-    return save(fig, name, STAGE)
+    for ax in axes[:-1]:
+        ax.spines['bottom'].set_visible(False)
+        ax.tick_params(axis='x', which='both', bottom=False)
+    for ax in axes:
+        style.spines_to_ticks(ax, sides=('left',))
+
+    # One key, on the first spectrogram's title line, with dark swatches as in the image.
+    key = [plt.Rectangle((0, 0), 1, 1), plt.Line2D([], [])]
+    axes[1].legend(key, ['Comb episode', f'Band (≥ {100 * SUSTAINED:.0f}% of episode)'],
+                   handler_map={key[0]: _OnDark('episode'), key[1]: _OnDark('band')},
+                   loc='lower right', bbox_to_anchor=(1, 1), ncol=2, borderaxespad=0.2,
+                   borderpad=0, handlelength=2.0, handleheight=1.2)
+    return style.save(fig, name, STAGE)
 
 
+@style.paper
 def fig9(occupancy):
     """(a) stage occupancy around onset, (b) REM occupancy."""
-    fig, axes = plt.subplots(1, 2, figsize=(15, 5.5))
+    fig, axes = style.subplots(1, 2, style.COL2_MM, 56, layout='constrained')
+    tau = occupancy.tau_min.to_numpy()
+    n_ev = int(occupancy['n_events'].iloc[0])
+    xt = np.arange(-WIN_MIN, WIN_MIN + 1e-9, WIN_MIN / 2)
+
+    # Lines are drawn unclipped: the curves sit exactly on the axis limits (0, +/-30 min)
+    # and would otherwise lose half their width there.
     ax = axes[0]
     for st in STAGE_ORDER:
-        ax.plot(occupancy.tau_min, occupancy[STAGE_LABELS[st]], color=STAGE_COLORS[st],
-                lw=2, label=STAGE_LABELS[st])
-    ax.axvline(0, color='k', lw=1, ls='--')
-    ax.set_xlabel('Minutes relative to event onset')
-    ax.set_ylabel('P(stage)')
-    ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.14), ncol=5, frameon=False)
-    ax.grid(alpha=0.15)
-    ax.text(-0.12, 1.03, '(a)', transform=ax.transAxes, fontsize=16, fontweight='bold')
+        ax.plot(tau, occupancy[STAGE_LABELS[st]], color=STAGE_COLORS[st], lw=0.9,
+                label=STAGE_LABELS[st], clip_on=False)
+    _set_axis(ax, 'y', 0, max(occupancy[STAGE_LABELS[st]].max() for st in STAGE_ORDER))
+    h, lab = ax.get_legend_handles_labels()
+    ax.legend(_row_major(h, 3), _row_major(lab, 3), loc='upper left', ncol=3,
+              borderaxespad=0, borderpad=0, handlelength=1.2, handletextpad=0.4,
+              columnspacing=1.0)
+    ax.text(1, 1, f'n = {n_ev} events', transform=ax.transAxes, ha='right', va='top',
+            fontsize=plt.rcParams['legend.fontsize'])
+    ax.set_title('Stage occupancy')
 
     ax = axes[1]
-    ax.plot(occupancy.tau_min, occupancy['REM'], color=STAGE_COLORS[REM], lw=2.5)
-    ax.axvline(0, color='k', lw=1, ls='--')
-    ax.set_xlabel('Minutes relative to event onset')
-    ax.set_ylabel('P(REM)')
-    ax.grid(alpha=0.15)
-    ax.text(-0.12, 1.03, '(b)', transform=ax.transAxes, fontsize=16, fontweight='bold')
-    fig.tight_layout()
-    return save(fig, 'fig9_stage_occupancy', STAGE)
+    ax.plot(tau, occupancy['REM'], color=STAGE_COLORS[REM], lw=0.9, clip_on=False)
+    _set_axis(ax, 'y', 0, occupancy['REM'].max(), nbins=2)
+    ax.set_title('REM occupancy')
+
+    for ax, letter in zip(axes, 'ab'):
+        ax.set_xticks(xt, [f'{v:g}'.replace('-', '−') for v in xt])
+        ax.set_xlim(xt[0], xt[-1])
+        style.reference_line(ax, x=0)
+        ax.set_xlabel('Time from event onset (min)')
+        ax.set_ylabel('Fraction of events')
+        ax.spines[['left', 'bottom']].set_position(('outward', 3))   # keep −30 and 0 apart
+        style.spines_to_ticks(ax)
+        style.panel_label(ax, letter)
+    return style.save(fig, 'fig9_stage_occupancy', STAGE)
 
 
 # ═════════════════════════════════════════════════════════════════════════════

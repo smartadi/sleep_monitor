@@ -30,7 +30,7 @@ from scipy.signal import welch
 from scipy.stats import pearsonr, spearmanr
 
 from seclib import CACHE_DIR, FS, TAB_DIR, Numbers, iter_sessions
-from seclib.figures import save
+from seclib import style
 from seclib.filters import bandpass
 from seclib.preprocessing import remove_acc_artifact
 
@@ -195,34 +195,57 @@ def r2_eye_movements():
     return summ, reg, em_stage, lr_stage
 
 
+@style.paper
 def fig_r2(e):
     import matplotlib.pyplot as plt
+    from matplotlib.ticker import NullLocator
     subsets = list(dict.fromkeys(e.subset))
-    fig, axes = plt.subplots(2, 3, figsize=(16, 8), sharey=True)
+    floor = 0.03                      # log axis: enrichment below this is drawn here
+    dot, bar = ('#7F8C8D', '#C0392B'), ('#2C3E50', '#922B21')
+    fig, axes = style.subplots(2, 3, style.COL2_MM, 90, sharey=True, layout='constrained')
     for r, tail in enumerate(('hi', 'lo')):
         for c, ch in enumerate(VAR_CHANNELS):
             ax = axes[r, c]
+            ax.xaxis.update_units(np.array(STAGES))          # a categorical axis
             for k, sub in enumerate(subsets):
                 g = e[(e.subset == sub) & (e['tail'] == tail) & (e.channel == ch)]
                 for i, st in enumerate(STAGES):
-                    v = np.maximum(g[g.stage == st].enrichment.to_numpy(), 0.03)
+                    v = np.maximum(g[g.stage == st].enrichment.to_numpy(), floor)
                     x = i + (k - 0.5) * 0.36
-                    ax.scatter(np.full(len(v), x), v, s=14, alpha=0.6,
-                               color=('#7F8C8D', '#C0392B')[k])
+                    ax.scatter(np.full(len(v), x), v, s=5, alpha=0.6, color=dot[k], lw=0,
+                               zorder=3, clip_on=False)
                     if len(v):
-                        ax.hlines(np.median(v), x - 0.15, x + 0.15, lw=3,
-                                  color=('#2C3E50', '#922B21')[k])
-            ax.axhline(1, ls='--', color='k', lw=1)
-            ax.set_yscale('log')
-            ax.set_xticks(range(len(STAGES)))
-            ax.set_xticklabels(STAGES)
-            ax.set_title(f'{ch}: {"top" if tail == "hi" else "bottom"} decile', loc='left')
-        axes[r, 0].set_ylabel('enrichment (observed / expected)')
-    fig.text(0.5, 0.01, 'grey: motion-free epochs (V18 §3.8); red: also without the night\'s '
-             'top 20% eye-movement epochs (anti-phase EOG). One point per night; bar = median.',
-             ha='center')
-    fig.tight_layout(rect=(0, 0.03, 1, 1))
-    save(fig, 'r2_variance_tails_eye_movement_control', STAGE)
+                        ax.hlines(np.median(v), x - 0.15, x + 0.15, lw=1.5, color=bar[k],
+                                  zorder=4, clip_on=False)
+            style.reference_line(ax, y=1)
+            ax.set_xticks(range(len(STAGES)), STAGES)
+            ax.set_xlim(-0.5, len(STAGES) - 0.5)
+            ax.spines['bottom'].set_position(('outward', 3))  # the floor row clears it
+            if r == 0:
+                ax.set_title(ch, loc='center')
+        word = 'Top' if tail == 'hi' else 'Bottom'
+        axes[r, 0].set_ylabel(f'{word}-decile variance\nenrichment (obs. / exp.)')
+    # one shared log axis from the floor to the decade above the largest value
+    ax = axes[0, 0]
+    ax.set_yscale('log')
+    top = 10.0 ** np.ceil(np.log10(max(e.enrichment.max(), 1.0)))
+    decades = 10.0 ** np.arange(np.ceil(np.log10(floor)), np.log10(top) + 0.5)
+    below = e.enrichment[e.enrichment < floor]
+    floor_label = '0' if (below == 0).all() else f'≤{floor:g}'
+    ax.set_yticks([floor, *decades], [floor_label, *[f'{d:g}' for d in decades]])
+    ax.yaxis.set_minor_locator(NullLocator())
+    ax.set_ylim(floor, top)
+    for ax in axes.flat:
+        style.spines_to_ticks(ax, sides=('left',))
+    fig.align_ylabels(axes[:, 0])
+    from matplotlib.legend_handler import HandlerTuple
+    handles = [(plt.Line2D([], [], ls='', marker='o', ms=2.5, color=dot[k]),
+                plt.Line2D([], [], color=bar[k], lw=1.5)) for k in (0, 1)]
+    fig.legend(handles, ['Motion-free epochs (dots: nights; bar: median)',
+                         f"Also without each night's top {EM_DROP:.0%} eye-movement epochs"],
+               handler_map={tuple: HandlerTuple(ndivide=None, pad=0.6)},
+               loc='outside upper center', ncol=2, columnspacing=2.0, handlelength=2.6)
+    style.save(fig, 'r2_variance_tails_eye_movement_control', STAGE)
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -438,8 +461,9 @@ def fig8_causal():
     eeg = np.vstack(eeg) if eeg else np.zeros((0, len(lags)))
     tab = pd.DataFrame(rows)
     tab.to_csv(OUT / 'fig8_causal_per_recording.csv', index=False)
-    save(fig12_kcomplex(lags, ev, null, eeg, tab, S8.KC_PEAK_WIN, rng),
-         'fig8_kcomplex_response_causal', STAGE)
+    # inside the paper rc so the figure checks measure the printed fonts
+    style.save(fig12_kcomplex(lags, ev, null, eeg, tab, S8.KC_PEAK_WIN, rng),
+                            'fig8_kcomplex_response_causal', STAGE)
     med = {ch: float(np.median(lags[w][np.argmax(ev[ch][:, w], axis=1)]))
            for ch in S8.CHANNELS if len(ev[ch])}
     nullpk = {ch: float(null[ch].mean(0)[w].max()) for ch in S8.CHANNELS if len(null[ch])}
@@ -533,7 +557,11 @@ def fig_s6(channel='CRE'):
     from stages import _s05_lowband as LB
     for s in iter_sessions():
         out = S5.fig5(LB.night(s.cap[channel], s.fs), s=s, channel=channel, stage=STAGE)
-        out.replace(out.with_name(f'figS6_{s.label}_{channel}.png'))
+        for src in (out, out.with_suffix('.pdf'), out.with_suffix('.check.txt')):
+            if src.exists():
+                src.replace(src.with_name(f'figS6_{s.label}_{channel}{src.suffix}'
+                                          if src.suffix != '.txt' else
+                                          f'figS6_{s.label}_{channel}.check.txt'))
 
 
 def run():

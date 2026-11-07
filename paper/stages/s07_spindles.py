@@ -83,7 +83,8 @@ from scipy.signal import spectrogram
 from scipy.stats import trim_mean
 
 import seclib
-from seclib import figures
+from seclib import style
+from seclib.config import CAP_COLORS
 from seclib.numbers import Numbers
 
 STAGE = 's07_spindles'
@@ -113,8 +114,11 @@ ALL_CHANNELS = CAP_CHANNELS + ['EEG']
 ERSP_CHANNELS = ['EEG', 'CLE-CRE', 'CLE', 'CRE', 'CH']
 CONTROL_CHANNELS = ['CH', 'CLE-CRE']
 CONDITIONS = ['spindle', 'randN2', 'arousal', 'spindle_arous', 'spindle_noarous']
-COLORS = {'CLE': '#4C72B0', 'CRE': '#55A868', 'CLE-CRE': '#C44E52', 'CH': '#8172B3'}
-SHOW = {'CLE': 'CLE', 'CRE': 'CRE', 'CLE-CRE': 'CLE−CRE', 'CH': 'CH', 'EEG': 'EEG'}
+# Channel colours: the paper-wide CAP_COLORS (Fig. 6 used its own set before, with CH
+# drawn in the purple that CAP_COLORS gives CRE).
+COLORS = {ch: CAP_COLORS[ch] for ch in CAP_CHANNELS}
+SIGN_CHANCE = 0.5         # share of events above their own baseline expected by chance
+SHOW ={'CLE': 'CLE', 'CRE': 'CRE', 'CLE-CRE': 'CLE−CRE', 'CH': 'CH', 'EEG': 'EEG'}
 
 
 # ── PSG annotations ───────────────────────────────────────────────────────────
@@ -536,77 +540,157 @@ def analyse(drop_kcomplex: bool = True) -> dict:
 
 # ── Fig. 6 ─────────────────────────────────────────────────────────────────────
 
+def _nice_lims(lo, hi, nbins=4):
+    """Nice ticks from the last one at or below `lo` to the first at or above `hi`, so
+    the axis lines can end on their end ticks with everything inside."""
+    from matplotlib.ticker import MaxNLocator
+    t = MaxNLocator(nbins=nbins, steps=[1, 2, 2.5, 5, 10]).tick_values(lo, hi)
+    step = t[1] - t[0]
+    start, stop = np.floor(lo / step + 1e-9) * step, np.ceil(hi / step - 1e-9) * step
+    return np.round(np.arange(start, stop + step / 2, step), 10)
+
+
+def _set_axis(ax, which, lo, hi, nbins=4, every=1):
+    """Limits on nice end ticks; with every=2 only every second tick (the multiples of
+    twice the step, so 0 among them) carries a label."""
+    t = _nice_lims(lo, hi, nbins)
+    lab_step = (t[1] - t[0]) * every
+    dec = max(0, int(-np.floor(np.log10(lab_step) + 1e-9)))
+    if not np.isclose(lab_step * 10 ** dec, round(lab_step * 10 ** dec)):
+        dec += 1                                   # e.g. a 0.25 step needs 2 decimals
+    labels = [_txt(v, f'.{dec}f') if np.isclose(v / lab_step, round(v / lab_step)) else ''
+              for v in t]
+    (ax.set_xticks if which == 'x' else ax.set_yticks)(t, labels)
+    (ax.set_xlim if which == 'x' else ax.set_ylim)(t[0], t[-1])
+
+
+def _txt(v, fmt):
+    """A printed number with a true minus sign."""
+    return format(v, fmt).replace('-', '−')
+
+
+def _tint(color, a):
+    """`color` at opacity `a` over white, as one opaque colour."""
+    from matplotlib.colors import to_rgb
+    return tuple(a * c + (1 - a) for c in to_rgb(color))
+
+
+@style.paper
 def make_figure(per_session, pooled, arrays):
     import matplotlib.pyplot as plt
-    fig = plt.figure(figsize=(16, 5.6))
-    gs = fig.add_gridspec(1, 3, width_ratios=[1.1, 1.0, 1.35], wspace=0.3)
+    from matplotlib.legend_handler import HandlerTuple
+    fig = style.figure(style.COL2_MM, 66, layout='constrained')
+    gs = fig.add_gridspec(1, 3, width_ratios=[1.1, 1.0, 1.35])
+    low_txt = f'{LOW[0]:g}–{LOW[1]:g} Hz'
+    sig_txt = f'σ {SIGMA[0]:g}–{SIGMA[1]:g} Hz'
+    t_show = 6.0                                   # s either side of the centre, shown
+    db_show = 6.0                                  # dB range of the histograms
 
     # A: centre-triggered low-band average, mean over recordings (CH +/- SEM)
     ax = fig.add_subplot(gs[0, 0])
     t = arrays['t_axis']
+    view = np.abs(t) <= t_show + np.diff(t).max()   # samples drawn inside the axes
+    lo = hi = 0.0
     for ch in CAP_CHANNELS:
         curves = arrays[f'trig_low_{ch}']
         m = curves.mean(axis=0)
         bold = ch == 'CH'
-        ax.plot(t, m, color=COLORS[ch], lw=2.4 if bold else 1.3,
-                alpha=1.0 if bold else 0.75, label=SHOW[ch])
+        ax.plot(t, m, color=COLORS[ch], lw=1.2 if bold else 0.7, zorder=3 if bold else 2,
+                label=SHOW[ch])
+        lo, hi = min(lo, m[view].min()), max(hi, m[view].max())
         if bold:
             se = curves.std(axis=0) / np.sqrt(curves.shape[0])
-            ax.fill_between(t, m - se, m + se, color=COLORS[ch], alpha=0.2,
-                            label='CH ± SEM (12 recordings)')
-    ax.axvline(0, color='k', ls='--', lw=1.0)
-    ax.axhline(0, color='0.6', lw=0.6)
-    ax.set_xlim(-6, 6)
+            ax.fill_between(t, m - se, m + se, color=_tint(COLORS[ch], 0.25), lw=0,
+                            zorder=1,
+                            label=f'{SHOW[ch]} ± SEM\n({curves.shape[0]} recordings)')
+            lo, hi = min(lo, (m - se)[view].min()), max(hi, (m + se)[view].max())
+    ax.set_xticks(np.linspace(-t_show, t_show, 5))
+    ax.set_xlim(-t_show, t_show)
+    _set_axis(ax, 'y', lo, hi, nbins=6, every=2)
+    style.reference_line(ax, x=0)
+    style.reference_line(ax, y=0)
     ax.set_xlabel('Time from spindle centre (s)')
-    ax.set_ylabel('0.1–3 Hz power (dB re own baseline)')
-    ax.set_title('A  Spindle-centred low-band average', loc='left')
-    ax.legend(fontsize=9, loc='lower right', frameon=False)
+    ax.set_ylabel(f'{low_txt} power (dB re own baseline)')
+    ax.set_title('Spindle-centred average')
+    ax.legend(loc='lower right', borderaxespad=0, borderpad=0, handlelength=1.2)
 
     # B: per-spindle change, low band vs sigma, CH, all spindles pooled
     ax = fig.add_subplot(gs[0, 1])
     db_low, db_sig = arrays['db_CH_low_03'], arrays['db_CH_sigma']
-    bins = np.linspace(-6, 6, 61)
-    ax.hist(db_sig, bins=bins, density=True, color='#999999', alpha=0.75,
-            label=f'σ 11–16 Hz  (mean {db_sig.mean():+.2f}, median '
-                  f'{np.median(db_sig):+.2f} dB)')
-    ax.hist(db_low, bins=bins, density=True, color=COLORS['CH'], alpha=0.6,
-            label=f'0.1–3 Hz  (mean {db_low.mean():+.2f}, median '
-                  f'{np.median(db_low):+.2f} dB)')
-    for arr, col in ((db_low, COLORS['CH']), (db_sig, '#555555')):
-        ax.axvline(arr.mean(), color=col, lw=2)               # solid = mean
-        ax.axvline(np.median(arr), color=col, lw=2, ls=':')   # dotted = median
-    ax.axvline(0, color='k', ls='--', lw=1.0)
-    ax.set_xlim(-6, 6)
-    ax.set_ylim(0, ax.get_ylim()[1] * 1.45)
-    ax.set_xlabel('Per-spindle power change (dB)\nsolid = mean, dotted = median')
+    bins = np.linspace(-db_show, db_show, 61)
+    sig_col, sig_line = _tint('#999999', 0.75), '#555555'
+    h_sig, _, _ = ax.hist(db_sig, bins=bins, density=True, histtype='stepfilled',
+                          color=sig_col, lw=0)
+    h_low, _, _ = ax.hist(db_low, bins=bins, density=True, histtype='stepfilled',
+                          color=COLORS['CH'], alpha=0.45, lw=0)
+    ax.hist(db_low, bins=bins, density=True, histtype='step', color=COLORS['CH'], lw=0.5)
+    y_line = 1.06 * max(h_sig.max(), h_low.max())  # mean / median lines end here
+    for arr, col in ((db_low, COLORS['CH']), (db_sig, sig_line)):
+        ax.plot([arr.mean()] * 2, [0, y_line], color=col, lw=0.8)                # mean
+        ax.plot([np.median(arr)] * 2, [0, y_line], color=col, lw=0.8, ls=(0, (1, 1)))
+    ax.set_xticks(np.linspace(-db_show, db_show, 5))
+    ax.set_xlim(-db_show, db_show)
+    _set_axis(ax, 'y', 0, 1.5 * y_line)
+    style.reference_line(ax, x=0, ymax=y_line / ax.get_ylim()[1])
+    ax.set_xlabel('Per-spindle power change (dB)')
     ax.set_ylabel('Density')
-    ax.set_title(f'B  CH, {len(db_low):,} N2 spindles', loc='left')
-    ax.legend(fontsize=8.5, loc='upper left', framealpha=1.0, edgecolor='none')
-    ax.text(0.98, 0.84, f'{100 * np.mean(db_low > 0):.1f}% of spindles\nabove own '
-            f'baseline\n(chance 50%)', transform=ax.transAxes, ha='right', va='top',
-            fontsize=9)
+    ax.set_title(f"{SHOW['CH']}, {len(db_low):,} N2 spindles")
+    key = [plt.Rectangle((0, 0), 1, 1, fc=sig_col, lw=0),
+           plt.Rectangle((0, 0), 1, 1, fc=_tint(COLORS['CH'], 0.45), lw=0),
+           (plt.Line2D([], [], color='0.2', lw=0.8),
+            plt.Line2D([], [], color='0.2', lw=0.8, ls=(0, (1, 1))))]
+    ax.legend(key, [f'{sig_txt}: {_txt(db_sig.mean(), "+.2f")}, '
+                    f'{_txt(np.median(db_sig), "+.2f")}',
+                    f'{low_txt}: {_txt(db_low.mean(), "+.2f")}, '
+                    f'{_txt(np.median(db_low), "+.2f")}',
+                    'Mean, median (dB)'],
+              handler_map={tuple: HandlerTuple(ndivide=None, pad=0.3)},
+              loc='upper left', borderaxespad=0, borderpad=0, handlelength=1.6)
+    ax.text(1, y_line, f'{100 * np.mean(db_low > 0):.1f}% above\nown baseline\n'
+            f'(chance {100 * SIGN_CHANCE:.0f}%)', transform=ax.get_yaxis_transform(),
+            ha='right', va='top', fontsize=plt.rcParams['legend.fontsize'],
+            color=COLORS['CH'])
 
     # C: per-recording mean change per channel, medians as ticks
     ax = fig.add_subplot(gs[0, 2])
     labels = per_session['session'].tolist()
     x = np.arange(len(labels))
+    ax.xaxis.update_units(labels)                  # a categorical axis: the recordings
     w = 0.2
+    lo = hi = 0.0
+    bars = []
     for i, ch in enumerate(CAP_CHANNELS):
         xs = x + (i - 1.5) * w
-        ax.bar(xs, per_session[f'{ch}_low_meandB'], w, color=COLORS[ch],
-               label=f'{SHOW[ch]} mean', edgecolor='none')
-        ax.scatter(xs, per_session[f'{ch}_low_mediandB'], marker='_', s=40, lw=1.4,
-                   color='k', zorder=4)
-    ax.scatter([], [], marker='_', s=40, lw=1.4, color='k', label='median')
-    ax.axhline(0, color='k', lw=0.8)
-    ax.set_xticks(x)
-    ax.set_xticklabels(labels, rotation=45, ha='right', fontsize=10)
+        mean, med = per_session[f'{ch}_low_meandB'], per_session[f'{ch}_low_mediandB']
+        bars.append(ax.bar(xs, mean, w, color=COLORS[ch], edgecolor='none')[0])
+        ax.scatter(xs, med, marker='_', s=8, lw=0.8, color='k', zorder=4, clip_on=False)
+        lo, hi = min(lo, mean.min(), med.min()), max(hi, mean.max(), med.max())
+    style.reference_line(ax, y=0)
+    # Recording labels as night (N1, N2) on the ticks and participant (S1...) centred
+    # under each pair, so the twelve labels need no rotation.
+    parts = [re.fullmatch(r'(S\d+)(N\d+)', lab) for lab in labels]
+    if all(parts):
+        ax.set_xticks(x, [p.group(2) for p in parts])
+        subj = list(dict.fromkeys(p.group(1) for p in parts))
+        centre = [x[[p.group(1) == s_ for p in parts]].mean() for s_ in subj]
+        ax.set_xticks(centre, subj, minor=True)
+        ax.tick_params(axis='x', which='minor', length=0,
+                       pad=plt.rcParams['xtick.major.pad'] + 1.4 * plt.rcParams['xtick.labelsize'])
+    else:
+        ax.set_xticks(x, labels, rotation=90)
     ax.set_xlim(-0.6, len(labels) - 0.4)
-    ax.set_ylabel('0.1–3 Hz power change (dB)')
-    ax.set_title('C  Per-recording low-band change', loc='left')
-    ax.legend(fontsize=9, ncol=3, loc='upper right', frameon=False)
-    ax.set_ylim(top=ax.get_ylim()[1] * 1.15)
-    return figures.save(fig, 'fig6_spindles', STAGE)
+    _set_axis(ax, 'y', lo, hi, nbins=8, every=2)
+    ax.set_ylabel(f'{low_txt} power change (dB)')
+    ax.set_title('Per-recording change')
+    ax.legend([tuple(bars), plt.Line2D([], [], ls='', marker='_', ms=3, mew=0.8, color='k')],
+              ['Mean', 'Median'], handler_map={tuple: HandlerTuple(ndivide=None, pad=0)},
+              loc='upper right', borderaxespad=0, borderpad=0, handlelength=1.6)
+
+    for ax, letter in zip(fig.axes, 'abc'):
+        ax.spines[['left', 'bottom']].set_position(('outward', 3))   # keep corner labels apart
+        style.spines_to_ticks(ax, sides=('left',) if letter == 'c' else ('left', 'bottom'))
+        style.panel_label(ax, letter)
+    return style.save(fig, 'fig6_spindles', STAGE)
 
 
 # ── Numbers ────────────────────────────────────────────────────────────────────

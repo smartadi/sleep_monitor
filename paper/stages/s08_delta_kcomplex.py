@@ -78,7 +78,7 @@ import numpy as np
 import pandas as pd
 
 from seclib import LABELS, TAB_DIR, get_session, Numbers
-from seclib.figures import save
+from seclib import style
 from seclib.loader import (_INTERVAL_RE, load_arousals, load_autonomic_arousals,
                            load_interval_events)
 
@@ -731,8 +731,9 @@ def run():
     lowchk.to_csv(TABLES / 'lowband_precursor_check.csv', index=False)
     resp.to_csv(TABLES / 'response_consistency.csv', index=False)
     n_events = sum(s['n_onsets'] for s in low_sessions)
-    save(fig7_causal_grid(tax, CA, CAn, len(subj), n_events), 'fig7_delta_onset_causal_grid',
-         STAGE)
+    # style.save inside the paper rc, so the figure checks measure the printed fonts
+    style.save(fig7_causal_grid(tax, CA, CAn, len(subj), n_events),
+                            'fig7_delta_onset_causal_grid', STAGE)
 
     print('  arousal control')
     ar, ar_counts = arousal_control(onsets20)
@@ -743,8 +744,9 @@ def run():
     lags, ev, null, eeg, kc_tab, kc_lat, rng = kcomplex_response(marks)
     kc_tab.to_csv(TABLES / 'kcomplex_cap_response.csv', index=False)
     kc_lat.to_csv(TABLES / 'kcomplex_latencies.csv', index=False)
-    save(fig12_kcomplex(lags, ev['zerophase'], null, eeg, kc_tab, KC_PEAK_WIN, rng),
-         'fig12_kcomplex_response', STAGE)
+    style.save(fig12_kcomplex(lags, ev['zerophase'], null, eeg, kc_tab,
+                                           KC_PEAK_WIN, rng),
+                            'fig12_kcomplex_response', STAGE)
 
     register(nb, summ, overlap, kc_marks, kc_crit, raw_k, prec, lowchk, resp, ar_counts,
              kc_tab, kc_lat)
