@@ -6,6 +6,7 @@ Records all code changes to library modules, scripts, and notebooks.
 
 ## 2026-11-07
 
+- **Changed** `paper/stages/s05_ridges.py`: Fig. 5 is drawn for S6N2 (`FIG5_SESSION`; V18 used S4N2, the night with the weakest LFO ridge). The three Fig. 5 numbers follow the night: tracker confidence 78.5% / 57.3% (was 65.8% / 52.7%), low band "ridge 19% of night at 0.021 Hz" (was 5%). No other number changed.
 - **Changed** `paper/stages/_s08_delta_kcomplex_figures.py`:
   - Fig. 7: panels in a row share one y-scale, with labels on the first column only, so channels compare directly.
   - `fig12_kcomplex(..., latency_panel=True)`: with `False`, the per-event latency panel is left out, each channel's grand-average peak is marked on panel (a) and given in its legend entry, and the per-recording panel becomes (b). The panel drawing moved to `_latency_panel`; the zero-phase Fig. 12 is unchanged.

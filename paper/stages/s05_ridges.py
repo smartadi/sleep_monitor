@@ -10,7 +10,7 @@ Manuscript items
     Results ¶195, Discussion ¶248
                       "reduced respiratory ridge power during N3 ... after controlling
                       for motion and unequal stage duration"
-    Fig. 5            S4N2 CRE: stage ladder; 0-3 Hz background-corrected spectrogram
+    Fig. 5            S6N2 CRE (S4N2 in V18): stage ladder; 0-3 Hz background-corrected spectrogram
                       with Viterbi traces; smoothed low band with its gated ridge
     Supp (low band)   all twelve nights, low band with gated ridge
     Tables            ridge_epoch_counts, band_ridge_stage_summary (CRE),
@@ -29,7 +29,8 @@ Ported from
     analysis/slow_wave/ridge_lowband_smooth.py  low band (-> _s05_lowband.py), figure, sheet
 
 Changes from the legacy code
-    1. Fig. 5 is drawn for S4N2 CRE from the current code. The manuscript's file is a
+    1. Fig. 5 is drawn for S6N2 CRE from the current code (Aditya's choice, 2026-11-07;
+       V18 shows S4N2, which has the weakest LFO ridge). The manuscript's file is a
        stale render of ridge_overlay_tune.py (old low band, no gated ridge).
     2. The low band is ridge_lowband_smooth.py, not ridge_overlay_tune.py's 'slow'
        band. The old "67 ridges, median 6, 2-8 per night, none in S1N1, 0.05-0.08 Hz"
@@ -84,7 +85,7 @@ STAGE = 's05_ridges'
 REQUIRES = []
 
 CHANNELS = ['CH', 'CLE', 'CRE']
-FIG5_SESSION, FIG5_CHANNEL = 'S4N2', 'CRE'
+FIG5_SESSION, FIG5_CHANNEL = 'S6N2', 'CRE'   # V18 used S4N2
 
 # ── Persistent-ridge detector, per band (band_ridge_analysis.py) ─────────────
 # Respiratory needs fine frequency resolution (single 30 s periodogram,
@@ -623,9 +624,9 @@ def _hour_axis(ax, t_end):
 
 @style.paper
 def fig5(lowband_night, s=None, channel=FIG5_CHANNEL, stage=STAGE):
-    """Fig. 5: S4N2 CRE -- stage ladder, 0-3 Hz spectrogram + Viterbi traces, low band.
+    """Fig. 5: FIG5_SESSION CRE -- stage ladder, 0-3 Hz spectrogram + Viterbi traces, low band.
     Pass another session (and stage) to draw the same layout for it (Fig. S6 panels)."""
-    # CORRECTION: regenerated for S4N2 from the current code; the manuscript's
+    # CORRECTION: regenerated from the current code (S6N2 since 2026-11-07); the manuscript's
     # Fig. 5 is a stale render with the old (filter-artifact) low band.
     s = s if s is not None else get_session(FIG5_SESSION)
     sig = rate_band_signal(s, channel)
@@ -743,9 +744,9 @@ def register(nb, epochs, ridges, summary, alldir, robust, pw_summ, dom, vit,
            f'tracked bin > {CONF_RATIO:g}x column median', paper_value='prespecified detection criterion',
            status='DIFF', source='track_single_ridge',
            note='Methods does not state the criterion (2x the in-band column median, i.e. 3 dB)')
-    nb.add('fig5_conf_resp', 'Fig. 5', 'S4N2 CRE respiratory tracker confidence',
+    nb.add('fig5_conf_resp', 'Fig. 5', f'{FIG5_SESSION} CRE respiratory tracker confidence',
            100 * fig5_conf[0], unit='%', source='track_single_ridge')
-    nb.add('fig5_conf_card', 'Fig. 5', 'S4N2 CRE cardiac tracker confidence',
+    nb.add('fig5_conf_card', 'Fig. 5', f'{FIG5_SESSION} CRE cardiac tracker confidence',
            100 * fig5_conf[1], unit='%', source='track_single_ridge')
     nb.add('vit_conf_resp_range', '§3.3', 'CRE respiratory tracker confidence, 12 nights',
            _rng(100 * vit.resp_conf, '{:.0f}'), unit='%', source='viterbi_nights')
@@ -866,8 +867,8 @@ def register(nb, epochs, ridges, summary, alldir, robust, pw_summ, dom, vit,
            'occurred episodically across different sleep stages and were not restricted to N3',
            status='MATCH' if share.get('N3', 0) < 50 else 'DIFF', source='lowband_all',
            note='qualitative claim; per-night occupancy in lowband_stage_occupancy.csv')
-    s4 = lb_rows.set_index('session').loc['S4N2']
-    nb.add('fig5_lowband', 'Fig. 5 caption', 'S4N2 CRE low band',
+    s4 = lb_rows.set_index('session').loc[FIG5_SESSION]
+    nb.add('fig5_lowband', 'Fig. 5 caption', f'{FIG5_SESSION} CRE low band (V18: S4N2)',
            f'ridge {s4.pct_night:.0f}% of night at {s4.f_median_hz:.3f} Hz',
            'persistent power concentrated between 0.05 and 0.25 Hz', status='DIFF',
            source='fig5', note=art)
