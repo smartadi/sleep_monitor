@@ -550,6 +550,67 @@ def register(nb, r1, r1_counts, r2, reg, rep, assoc, legacy, r4, r5, f8):
     nb.add('f8_n_events', 'V18 Fig. 8', 'K-complex events in the causal figure', n)
 
 
+def r8_ridges_all_channels():
+    """D5: every ridge type on every channel. Respiratory and cardiac ridges come from
+    s05's per-channel prominence and coverage (ridge_dominance.csv); the LFO ridge is
+    found by running the s05 low-band detector on CH and CLE as well as CRE, and gated
+    LFO columns are compared between channels (coincidence and frequency)."""
+    import stages.s05_ridges as S5
+    lfo, keeps = [], {}
+    for ch in ('CH', 'CLE', 'CRE'):
+        nights, rows, _, _ = S5.lowband_all(ch)
+        lfo.append(rows)
+        keeps[ch] = {r['label']: (r['keep'], r['fr']) for r in nights}
+    lfo = pd.concat(lfo, ignore_index=True)
+    co = []
+    for lab in keeps['CRE']:
+        for a, b in (('CRE', 'CLE'), ('CRE', 'CH'), ('CLE', 'CH')):
+            (ka, fa), (kb, fb) = keeps[a][lab], keeps[b][lab]
+            n = min(len(ka), len(kb))
+            ka, kb, fa, fb = ka[:n], kb[:n], fa[:n], fb[:n]
+            both = ka & kb
+            co.append(dict(session=lab, pair=f'{a}-{b}', frac_a=float(ka.mean()),
+                           frac_b=float(kb.mean()),
+                           p_b_given_a=float(both.sum() / ka.sum()) if ka.any() else np.nan,
+                           f_absdiff_med_hz=float(np.median(np.abs(fa[both] - fb[both])))
+                           if both.any() else np.nan))
+    co = pd.DataFrame(co)
+    dom = pd.read_csv(TAB_DIR / 's05_ridges' / 'ridge_dominance.csv')
+    lfo.to_csv(OUT / 'r8_lfo_by_channel.csv', index=False)
+    co.to_csv(OUT / 'r8_lfo_cross_channel.csv', index=False)
+    return lfo, co, dom
+
+
+def register_r8(nb, lfo, co, dom):
+    rng = lambda v, f='{:.2f}': f'{f.format(v.median())} ({f.format(v.min())}–{f.format(v.max())})'
+    for band, word in (('resp', 'respiratory'), ('card', 'cardiac')):
+        d = dom[dom.band == band]
+        for ch in ('CH', 'CLE', 'CRE'):
+            nb.add(f'r8_{band}_cov_{ch}', 'V18 §2.5 / §3.3 (D5)',
+                   f'{word} ridge coverage of the night on {ch}: median (range), 12 nights',
+                   rng(d[f'cov_{ch}']))
+        nb.add(f'r8_{band}_dominant', 'V18 §2.5 / §3.3 (D5)',
+               f'{word} ridge: nights where each channel is strongest, by prominence; by coverage',
+               '; '.join(f'{k} {v}' for k, v in d.dominant_by_prominence.value_counts().items())
+               + ' | ' + '; '.join(f'{k} {v}' for k, v in
+                                   d.dominant_by_coverage.value_counts().items()))
+    for ch, g in lfo.groupby('channel'):
+        nb.add(f'r8_lfo_{ch}', 'V18 §3.3 (D5)',
+               f'LFO ridge on {ch}: nights with a ridge; % of night median (range); '
+               'episodes total; median frequency range',
+               f'{int((g.n_episodes > 0).sum())} of {len(g)}; {rng(g.pct_night, "{:.1f}")}; '
+               f'{int(g.n_episodes.sum())}; {g.f_median_hz.min():.3f}–{g.f_median_hz.max():.3f} Hz')
+    for pair, g in co.groupby('pair'):
+        a, b = pair.split('-')
+        h = g.dropna(subset=['p_b_given_a'])
+        nb.add(f'r8_lfo_overlap_{a}_{b}', 'V18 §3.3 (D5)',
+               f'P({b} LFO ridge | {a} LFO ridge) vs P({b} ridge), median over nights; '
+               f'nights above chance; median |f_{a} − f_{b}| where both',
+               f'{h.p_b_given_a.median():.2f} vs {h.frac_b.median():.2f}; '
+               f'{int((h.p_b_given_a > h.frac_b).sum())} of {len(h)}; '
+               f'{g.f_absdiff_med_hz.median():.3f} Hz')
+
+
 def fig_s6(channel='CRE'):
     """R7: Fig. S6 panels (one per night) in the Fig. 5 layout, LFO from the current
     low-band detector (_s05_lowband), saved as figS6_<night>_<channel>."""
@@ -581,7 +642,10 @@ def run():
     f8 = fig8_causal()
     print('  Fig. S6, current low-band detector')
     fig_s6()
+    print('  R8 ridges on every channel (D5)')
+    r8 = r8_ridges_all_channels()
     register(nb, r1, r1_counts, r2, reg, rep, assoc, legacy, r4, r5, f8)
+    register_r8(nb, *r8)
     nb.save()
 
 

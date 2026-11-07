@@ -6,6 +6,9 @@ Records all code changes to library modules, scripts, and notebooks.
 
 ## 2026-11-06
 
+- **Added** R8 to `paper/stages/s10_review_v18.py` (decision D5: ridges on all channels). `r8_ridges_all_channels()` runs the s05 low-band LFO detector on C_H and C_LE as well as C_RE and compares the gated LFO columns between channel pairs (co-occurrence on the 30-s column grid, frequency difference); it reads respiratory and cardiac ridge dominance from `s05_ridges/ridge_dominance.csv`. Writes `r8_lfo_by_channel.csv`, `r8_lfo_cross_channel.csv`; `register_r8()` adds 15 NEW numbers (s10 now 96). No existing number changed.
+- **Changed** `writeup/edits/V18_EDIT_LIST_2026-11-06.md`: Aditya's decisions D1–D7 written into the decision table and every affected point (D1 keep "healthy adults"; D2 all associations exploratory, Spearman ρ on two-night participant means and ICC(2,1), no p-values; D3 C_LE − C_RE; D4 keep mean SEC area and LFO ridge duration, ask the professor for definitions; D5 ridges on all channels; D6 "arousal-associated" delta-burst onsets; D7 V18_aditya affiliations). New point S12a (Fig. S15 Kruskal–Wallis p-values). All Find phrases re-checked against V18 and Supp V8 text: 0 missing.
+- **Changed** `V18_NUMBERS_2026-11-06.md` (R8 section, D2 note under R3) and `V18_FIGURES_2026-11-06.md` (Figs. 10–11 need a D2 redraw; Fig. 5/S6 channel note).
 - **Added** `paper/seclib/style.py`: print-size figure style for SLEEP (OUP), adapted from Anna Li's Steinmetz Lab style package (`SteinmetzLab/steinmetzlab-style`, MIT; its paper stylesheet and axis helpers are vendored, so the pipeline has no private dependency).
   - Widths 86 / 178 mm (SLEEP gives none; OUP's usual columns). Text: Arial 7 pt labels, 6 pt ticks, 8 pt bold panel letters, minimum 5 pt.
   - `@style.paper` decorator, `figure` / `subplots` in mm, `spines_to_ticks`, `panel_label`, `reference_line`.
