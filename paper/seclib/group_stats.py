@@ -305,3 +305,30 @@ def subject_mean_ci(
                 ci_low=float(np.percentile(boot, lo)),
                 ci_high=float(np.percentile(boot, 100 - lo)),
                 n=int(n))
+
+
+# ── participant-level association and night-to-night agreement (V18 rule D2) ─
+
+def exact_spearman(x: Sequence[float], y: Sequence[float]) -> tuple[float, float]:
+    """Spearman rho and its exact two-sided permutation p over all n! orderings
+    (720 for six participants). The paper reports rho only; p is kept for the record."""
+    import itertools
+    from scipy.stats import spearmanr
+    x, y = np.asarray(x, float), np.asarray(y, float)
+    rho = spearmanr(x, y).statistic
+    null = [spearmanr(x, y[list(p)]).statistic for p in itertools.permutations(range(len(y)))]
+    return float(rho), float(np.mean(np.abs(null) >= abs(rho) - 1e-12))
+
+
+def icc_two_nights(a: Sequence[float], b: Sequence[float]) -> tuple[float, float]:
+    """(ICC(3,1) consistency, ICC(2,1) absolute agreement) for one value per participant
+    on each of two nights (Shrout & Fleiss two-way models, single measures)."""
+    Y = np.c_[a, b].astype(float)
+    n, k = Y.shape
+    gm = Y.mean()
+    msr = k * ((Y.mean(1) - gm) ** 2).sum() / (n - 1)
+    msc = n * ((Y.mean(0) - gm) ** 2).sum() / (k - 1)
+    sse = ((Y - Y.mean(1, keepdims=True) - Y.mean(0, keepdims=True) + gm) ** 2).sum()
+    mse = sse / ((n - 1) * (k - 1))
+    return ((msr - mse) / (msr + (k - 1) * mse),
+            (msr - mse) / (msr + (k - 1) * mse + k * (msc - mse) / n))

@@ -5,14 +5,16 @@ Manuscript items
     §3.7 ¶230   R² night 1 vs night 2 (n = 6 participants) for three features:
                 % of night with CLE-CRE variance > 10 fF² (text: "absolute signal
                 amplitude"), % of night > 10x the nightly median, median variance
-    Fig 10      the three night-1 vs night-2 scatters with fit line, R² and n
+    Fig 10      the three night-1 vs night-2 scatters with the identity line, Spearman
+                rho and ICC(2,1), n = 6 participants (V18 rule D2: no fit, no p)
     §3.8 ¶233   the feature list and the figure reference
     §3.8 ¶238   impulse frequency vs total / respiratory / spontaneous arousal index;
                 impulse frequency vs PSQI; oscillation duration vs mean SEC area;
                 two-night mean oscillation duration vs PSQI; % of night > 10 fF² vs
                 PSQI; median variance vs PSQI; mean SEC area vs age
     Fig 11      (a) impulse frequency vs respiratory arousal index, (b) two-night mean
-                oscillation duration vs PSQI, (c) % of night > 10 fF² vs PSQI
+                oscillation duration vs PSQI, (c) % of night > 10 fF² vs PSQI; one
+                point per participant (two-night mean) with Spearman rho (rule D2)
     ¶248, ¶259  "mean SEC area showed a moderate association with PSG-measured SWS
                 duration"
     tables      TAB_DIR/s09_reproducibility/: high_variance_epochs.parquet (shared grid),
@@ -106,7 +108,7 @@ from scipy.stats import pearsonr
 
 from seclib import CACHE_DIR, TAB_DIR, iter_sessions
 from seclib.config import CAP_UNIT, CAP_UNIT_SQ
-from seclib import style
+from seclib import group_stats, style
 from seclib.figures import save
 from seclib.filters import lowpass
 from seclib.loader import load_arousals, load_autonomic_arousals
@@ -388,8 +390,11 @@ def reproducibility(night):
         w = night.pivot(index='subject', columns='night', values=key)
         c = corr(w[1], w[2])
         slope, icpt = np.polyfit(w[1], w[2], 1)
+        rho, p_rho = group_stats.exact_spearman(w[1], w[2])
+        icc31, icc21 = group_stats.icc_two_nights(w[1], w[2])
         rows.append({'feature': key, 'label': label, **c, 'slope': slope,
-                     'intercept': icpt})
+                     'intercept': icpt, 'rho': rho, 'p_rho_exact': p_rho,
+                     'icc21': icc21, 'icc31': icc31})
     return pd.DataFrame(rows)
 
 
@@ -465,34 +470,11 @@ def _num(v, fmt='.2f'):
     return format(v, fmt).replace('-', '−')
 
 
-def _fit(ax, x, y, ls=':', xlim=None):
-    """Least-squares line over the data range (+6 %), kept inside the axis limits."""
-    x, y = np.asarray(x, float), np.asarray(y, float)
-    k, c = np.polyfit(x, y, 1)
-    pad = 0.06 * (x.max() - x.min())
-    lo, hi = x.min() - pad, x.max() + pad
-    if xlim is not None:
-        lo, hi = max(lo, xlim[0]), min(hi, xlim[1])
-    xx = np.array([lo, hi])
-    ax.plot(xx, k * xx + c, ls=ls, lw=1.0, color='0.2', zorder=2)
-
-
-def _points(ax, df, x, y, by_night=True):
-    for _, r in df.iterrows():
-        ax.scatter(r[x], r[y], s=16, color=SUBJ_COLORS[r.subject],
-                   marker=NIGHT_MARKER[int(r.night)] if by_night else 'o',
-                   edgecolor='white', lw=0.4, zorder=4, clip_on=False)
-
-
 def _stat(ax, text, loc='upper left'):
     vert, horiz = loc.split()
     x, ha = (0.03, 'left') if horiz == 'left' else (0.97, 'right')
     y, va = (0.97, 'top') if vert == 'upper' else (0.03, 'bottom')
     ax.text(x, y, text, transform=ax.transAxes, ha=ha, va=va, fontsize=6)
-
-
-def _p(p):
-    return f'p = {p:.3f}' if p >= 0.001 else 'p < 0.001'
 
 
 def _subject_legend(fig, nights=False):
@@ -535,11 +517,9 @@ def fig10(night, rep):
             ax.scatter(r[1], r[2], s=18, color=SUBJ_COLORS[subj], edgecolor='white',
                        lw=0.4, zorder=4, clip_on=False)
         lo = 0.0 if key != 'night_median_fF2' else w.min().min()
-        lims = _square(ax, lo, w.max().max())
-        _fit(ax, w[1], w[2], xlim=(lims[0], lims[-1]))
+        _square(ax, lo, w.max().max())          # dotted line = same value both nights
         rr = rep.set_index('feature').loc[key]
-        _stat(ax, f'r = {_num(rr.r)}, {_p(rr.p)}\nn = {int(rr.n)} participants',
-              'lower right')
+        _stat(ax, f'ρ = {_num(rr.rho)}\nICC = {_num(rr.icc21)}', 'lower right')
         ax.set_title(FIG10_TITLE[key])
         ax.set_xlabel(f'Night 1 ({FIG10_UNIT[key]})')
         ax.set_ylabel(f'Night 2 ({FIG10_UNIT[key]})')
@@ -549,48 +529,52 @@ def fig10(night, rep):
     return style.save(fig, 'fig10_reproducibility', STAGE)
 
 
-@style.paper
-def fig11(night, subj, assoc):
-    a = assoc.set_index('id')
-    fig, axes = style.subplots(1, 3, style.COL2_MM, 62, layout='constrained')
-
-    ax = axes[0]
-    _points(ax, night, 'idx_respiratory', 'impulses_per_hour')
-    _set_axis(ax, 'x', 0, night.idx_respiratory.max())
-    _set_axis(ax, 'y', 0, night.impulses_per_hour.max())
-    _fit(ax, night.idx_respiratory, night.impulses_per_hour, xlim=ax.get_xlim())
-    r = a.loc['imp_resp']
-    _stat(ax, f'r = {_num(r.r)}, {_p(r.p)}\nn = {int(r.n)} nights', 'upper left')
-    ax.set_xlabel('Respiratory arousal index (per h of sleep)')
-    ax.set_ylabel('Impulse frequency (per h)')
-    ax.set_title('Respiratory arousals')
-
-    ax = axes[1]
-    for _, rw in subj.iterrows():
-        ax.scatter(rw.psqi, rw.osc_pct, s=18, color=SUBJ_COLORS[rw.subject], marker=MEAN_MARKER,
+def _participants(ax, night, x, y):
+    """One participant = the two nights (small, faint, joined) and their mean (diamond)."""
+    for subj, g in night.groupby('subject'):
+        g = g.sort_values('night')
+        col = SUBJ_COLORS[subj]
+        ax.plot(g[x], g[y], color=col, lw=0.6, alpha=0.45, zorder=2,
+                solid_capstyle='round', clip_on=False)
+        for _, r in g.iterrows():
+            ax.scatter(r[x], r[y], s=7, color=col, alpha=0.45, lw=0,
+                       marker=NIGHT_MARKER[int(r.night)], zorder=3, clip_on=False)
+        ax.scatter(g[x].mean(), g[y].mean(), s=20, color=col, marker=MEAN_MARKER,
                    edgecolor='white', lw=0.4, zorder=4, clip_on=False)
-    _set_axis(ax, 'y', 0, subj.osc_pct.max())
-    _fit(ax, subj.psqi, subj.osc_pct, xlim=(4, 10))
-    r = a.loc['osc2_psqi']
-    _stat(ax, f'r = {_num(r.r)}, {_p(r.p)}\nn = {int(r.n)} participants', 'lower left')
-    ax.set_xlabel('PSQI')
-    ax.set_ylabel('Oscillation duration, 2-night mean\n(% of recording, hand-measured)')
-    ax.set_title('Oscillation duration')
 
-    ax = axes[2]
-    _points(ax, night, 'psqi', 'dur_above_pct')
-    _set_axis(ax, 'y', 0, night.dur_above_pct.max())
-    _fit(ax, night.psqi, night.dur_above_pct, xlim=(4, 10))
-    r = a.loc['d10_psqi']
-    _stat(ax, f'r = {_num(r.r)}, {_p(r.p)}\nn = {int(r.n)} nights', 'upper right')
-    ax.set_xlabel('PSQI')
-    ax.set_ylabel(f'Time above {HEADLINE:g} {CAP_UNIT_SQ} (% of night)')
-    ax.set_title(f'Time above {HEADLINE:g} {CAP_UNIT_SQ}')
 
-    for ax, letter in zip(axes, 'abc'):
-        if ax is not axes[0]:
+def _rho(night, x, y):
+    """Spearman rho across participants on their two-night means (rule D2)."""
+    m = night.groupby('subject')[[x, y]].mean().dropna()
+    return group_stats.exact_spearman(m[x], m[y])[0], len(m)
+
+
+FIG11 = [  # x, y, title, x label, y label, stat corner
+    ('idx_respiratory', 'impulses_per_hour', 'Respiratory arousals',
+     'Respiratory arousal index (per h of sleep)', 'Impulse frequency (per h)', 'upper left'),
+    ('psqi', 'osc_pct', 'LFO ridge duration', 'PSQI',
+     'LFO ridge duration (% of night)', 'lower left'),
+    ('psqi', 'dur_above_pct', f'Time above {HEADLINE:g} {CAP_UNIT_SQ}', 'PSQI',
+     f'Time above {HEADLINE:g} {CAP_UNIT_SQ} (% of night)', 'upper right'),
+]
+
+
+@style.paper
+def fig11(night):
+    fig, axes = style.subplots(1, 3, style.COL2_MM, 62, layout='constrained')
+    for ax, letter, (x, y, title, xl, yl, corner) in zip(axes, 'abc', FIG11):
+        _participants(ax, night, x, y)
+        if x == 'psqi':
             ax.set_xticks([4, 6, 8, 10])
             ax.set_xlim(4, 10)
+        else:
+            _set_axis(ax, 'x', 0, night[x].max())
+        _set_axis(ax, 'y', 0, night[y].max())
+        rho, n = _rho(night, x, y)
+        _stat(ax, f'ρ = {_num(rho)}', corner)
+        ax.set_title(title)
+        ax.set_xlabel(xl)
+        ax.set_ylabel(yl)
         ax.spines[['left', 'bottom']].set_position(('outward', 3))
         style.spines_to_ticks(ax)
         style.panel_label(ax, letter)
@@ -651,7 +635,7 @@ def run():
     results['_legacy_grid'][3].to_csv(out_t / 'associations_legacy_grid.csv', index=False)
 
     fig10(night, rep)
-    fig11(night, subj, assoc)
+    fig11(night)
     register_numbers(results, var, var_leg)
 
 

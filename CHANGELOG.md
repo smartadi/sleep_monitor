@@ -4,6 +4,15 @@ Records all code changes to library modules, scripts, and notebooks.
 
 ---
 
+## 2026-11-07
+
+- **Changed** `paper/stages/s09_reproducibility.py`: Figs. 10 and 11 redrawn under V18 rule D2 (no Pearson, no p-values, no fitted lines).
+  - Fig. 10: each panel prints Spearman ρ and ICC(2,1) across the six participants; the dashed identity line stays and the regression line is gone.
+  - Fig. 11: each participant is a diamond (two-night mean, which carries ρ) with its two nights as small faint markers joined to it. Panel b is titled "LFO ridge duration" as in V18.
+  - `reproducibility.csv` gains `rho`, `p_rho_exact`, `icc21`, `icc31`. Removed the unused `_fit`, `_points`, `_p` helpers.
+  - Lab checks: 0 required, 0 preference issues on both. The s09 numbers file and `PAPER_NUMBERS.md` are byte-identical.
+- **Moved** `exact_spearman` and the two-night ICC from `s10_review_v18` to `paper/seclib/group_stats.py` (`exact_spearman`, `icc_two_nights`), so s09 and s10 share them. The R3 tables are byte-identical.
+
 ## 2026-11-06
 
 - **Added** R8 to `paper/stages/s10_review_v18.py` (decision D5: ridges on all channels). `r8_ridges_all_channels()` runs the s05 low-band LFO detector on C_H and C_LE as well as C_RE and compares the gated LFO columns between channel pairs (co-occurrence on the 30-s column grid, frequency difference); it reads respiratory and cardiac ridge dominance from `s05_ridges/ridge_dominance.csv`. Writes `r8_lfo_by_channel.csv`, `r8_lfo_cross_channel.csv`; `register_r8()` adds 15 NEW numbers (s10 now 96). No existing number changed.

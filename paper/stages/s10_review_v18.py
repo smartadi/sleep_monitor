@@ -22,7 +22,6 @@ Writes  outputs/tables/s10_review_v18/*.csv, outputs/figures/s10_review_v18/*.pn
 
 from __future__ import annotations
 
-import itertools
 
 import numpy as np
 import pandas as pd
@@ -30,7 +29,7 @@ from scipy.signal import welch
 from scipy.stats import pearsonr, spearmanr
 
 from seclib import CACHE_DIR, FS, TAB_DIR, Numbers, iter_sessions
-from seclib import style
+from seclib import group_stats, style
 from seclib.filters import bandpass
 from seclib.preprocessing import remove_acc_artifact
 
@@ -251,24 +250,8 @@ def fig_r2(e):
 # ═════════════════════════════════════════════════════════════════════════════
 # R3  Participant-level statistics
 # ═════════════════════════════════════════════════════════════════════════════
-def exact_spearman(x, y):
-    x, y = np.asarray(x, float), np.asarray(y, float)
-    rho = spearmanr(x, y).statistic
-    null = [spearmanr(x, y[list(p)]).statistic for p in itertools.permutations(range(len(y)))]
-    return float(rho), float(np.mean(np.abs(null) >= abs(rho) - 1e-12))
-
-
-def icc(a, b):
-    """ICC(3,1) consistency and ICC(2,1) absolute agreement for two nights."""
-    Y = np.c_[a, b].astype(float)
-    n, k = Y.shape
-    gm = Y.mean()
-    msr = k * ((Y.mean(1) - gm) ** 2).sum() / (n - 1)
-    msc = n * ((Y.mean(0) - gm) ** 2).sum() / (k - 1)
-    sse = ((Y - Y.mean(1, keepdims=True) - Y.mean(0, keepdims=True) + gm) ** 2).sum()
-    mse = sse / ((n - 1) * (k - 1))
-    return ((msr - mse) / (msr + (k - 1) * mse),
-            (msr - mse) / (msr + (k - 1) * mse + k * (msc - mse) / n))
+exact_spearman = group_stats.exact_spearman
+icc = group_stats.icc_two_nights
 
 
 FIG10 = [('dur_above_pct', 'Fig. 10a', '% of night with variance > 10 fF²'),
