@@ -600,12 +600,13 @@ def draw_stage_ladder(ax, sp, fontsize=12):
     ax.grid(True, axis='y', alpha=0.15)
 
 
-def fig5(lowband_night):
-    """Fig. 5: S4N2 CRE -- stage ladder, 0-3 Hz spectrogram + Viterbi traces, low band."""
+def fig5(lowband_night, s=None, channel=FIG5_CHANNEL, stage=STAGE):
+    """Fig. 5: S4N2 CRE -- stage ladder, 0-3 Hz spectrogram + Viterbi traces, low band.
+    Pass another session (and stage) to draw the same layout for it (Fig. S6 panels)."""
     # CORRECTION: regenerated for S4N2 from the current code; the manuscript's
     # Fig. 5 is a stale render with the old (filter-artifact) low band.
-    s = get_session(FIG5_SESSION)
-    sig = rate_band_signal(s, FIG5_CHANNEL)
+    s = s if s is not None else get_session(FIG5_SESSION)
+    sig = rate_band_signal(s, channel)
     t_resp, resp_tr, resp_p = track_single_ridge(sig, s.fs, **TRACK['resp'])
     t_card, card_tr, card_p = track_single_ridge(sig, s.fs, **TRACK['card'])
     r = lowband_night
@@ -616,7 +617,7 @@ def fig5(lowband_night):
     draw_stage_ladder(ax0, s.sleep_profile)
     ax0.set_ylabel('Stage')
     ax0.tick_params(labelbottom=False)
-    ax0.set_title(f'{FIG5_SESSION} {FIG5_CHANNEL}: Viterbi tracker confidence respiratory '
+    ax0.set_title(f'{s.label} {channel}: Viterbi tracker confidence respiratory '
                   f'{resp_p:.0%}, cardiac {card_p:.0%}; low-band ridge on '
                   f'{100 * r["keep"].mean():.0f}% of the night', fontsize=13)
 
@@ -644,7 +645,7 @@ def fig5(lowband_night):
     ax2.set_xlabel('Time (h)')
     ax2.legend(loc='upper right', fontsize=9)
     ax0.set_xlim(0, max(t1[-1] / 3600, r['t'][-1]))
-    return save(fig, 'fig5_S4N2_CRE', STAGE)
+    return save(fig, f'fig5_{s.label}_{channel}', stage)
 
 
 def lowband_sheet(nights, channel='CRE'):

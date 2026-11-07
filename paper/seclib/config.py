@@ -27,6 +27,11 @@ BASE_DIR = (DATA_ROOT / 'overnight_6subject_pelthupdate_030526'
             / 'overnight_6subject_pelthupdate_030526')
 PSG_BASE_DIR = (DATA_ROOT / 'overnight_6subject_complete_032626'
                 / 'overnight_6subject_complete_032626')
+# SLEEPMASK_PSG_DIR points the staging/events folder elsewhere, e.g. at the
+# 02/02/26 export (overnight_6subject_020226/overnight_6subject_020226), which has
+# the same <subject> - <initials>/<date>/PSG_analysis_*/ layout.
+if os.environ.get('SLEEPMASK_PSG_DIR'):
+    PSG_BASE_DIR = Path(os.environ['SLEEPMASK_PSG_DIR'])
 BASELINE_FILE = Path(os.environ.get('SLEEPMASK_BASELINE',
                                     REPO_DIR / 'baseline noise' / 'SM2_33.txt'))
 

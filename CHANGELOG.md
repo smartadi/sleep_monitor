@@ -6,6 +6,18 @@ Records all code changes to library modules, scripts, and notebooks.
 
 ## 2026-11-06
 
+- **Added** `paper/stages/s10_review_v18.py`: the V18 review analyses R1–R5 and R7 as a pipeline stage (needs s05, s08, s09). Writes `paper/outputs/tables/s10_review_v18/`, `figures/s10_review_v18/`, 82 NEW numbers.
+  - R1: arousal-free delta-burst effect sizes, from s08's arousal-control tables.
+  - R2: eye-movement control for the §3.8 variance tails. Anti-phase EOG power per legacy 30-s epoch; the tails use whole-night deciles as in `analysis/mean_value/variance_low_high.py`, and the baseline reproduces V18 exactly. Also a stage regression with and without EOG power.
+  - R3: Fig. 10 and §3.9 statistics at participant level (n = 6): Pearson, exact Spearman, ICC; night-level (n = 12) alongside.
+  - R4: N3 ridge power relative to in-band Welch power (count-matched, motion-free).
+  - R5: K-complex and delta-burst latencies without S4/S5 (single sync anchor).
+  - Fig. 8 redrawn with causal filtering; Fig. S6 redrawn for all 12 nights with the current low-band detector.
+- **Added** `paper/stages/s11_psg_origin.py` (R6): runs the s05 low-band detector on PSG Pleth and the s06 comb score on Thorax, Abdomen and Flow, against SEC LFO ridges and the 45 comb events. Also tests whether comb bands sit at breathing-rate multiples and counts episodes with f0 at the search floor. 18 NEW numbers.
+- **Changed** `paper/stages/s05_ridges.py`: `fig5()` takes an optional session, channel and output stage, so s10 can draw the Fig. S6 panels; output for S4N2 is unchanged.
+- **Changed** `paper/seclib/config.py`: `SLEEPMASK_PSG_DIR` overrides the PSG staging/events folder. With the 02/02/26 export it reproduces all 409 committed numbers (0 changed).
+- **Updated** `paper/outputs/PAPER_NUMBERS.md` (rerun on this PC; 100 NEW rows from s10/s11).
+- **Added** `writeup/edits/V18_NUMBERS_2026-11-06.md`: final numbers and ready-to-type text for every [run] point; `V18_EDIT_LIST_2026-11-06.md` updated with the results (R table, D6, points 2c/d, 22, 51c, 53, 61, 64b, 70, 71, 72a, 74–76, 78b, 79a, 81d, 84a, S7, S16).
 - **Added** `writeup/edits/V18_EDIT_LIST_2026-11-06.md`: the V18 review turned into a list of edits in document order, for Aditya's tracked-changes pass.
   - Contents: 107 main-text points, 16 supplement points, 7 upfront decisions (D1–D7), 7 optional analyses (R1–R7) and a 12-row Find/Replace pass at the end.
   - Every point has an exact Word Find phrase. A script confirmed all 230 phrases against `data/text/V18.txt` and `SuppV8.txt`, and that the points run in document order.
