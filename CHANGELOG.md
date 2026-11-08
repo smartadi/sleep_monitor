@@ -13,6 +13,12 @@ Records all code changes to library modules, scripts, and notebooks.
   - Fig. 8 (`fig12_kcomplex`, `latency_panel=False`): 92 mm tall, and the y-label and (b)'s x-label wrap onto two lines.
   - Figs. 10–11 (`s09`): 72 mm and 82 mm tall, and the long titles and axis labels wrap. The ρ/ICC note follows the legend size instead of a fixed 6 pt.
   - The latency panel's fixed 6 pt notes follow the legend size.
+- **Changed**: the layouts of the supplement figures the pipeline draws, so the bigger text fits. Data and panels are unchanged.
+  - Fig. S6 panels and Fig. 5 (`s05_ridges.fig5`): 118 mm tall with a taller stage strip. The y-label reads "Stage", and the spectrogram key reads "Respiratory (67%)" / "Cardiac (52%)", because the long "tracker confidence" wording ran into the panel title.
+  - Fig. S9 (`s06_harmonic_comb.fig8`, three channels): the colour-bar label wraps onto two lines. The one-channel Fig. 9 is unchanged.
+  - Fig. S4 (`s03_signal.fig_snr`): now full width (178 × 70 mm), because twelve recording labels overran one column.
+  - Fig. S6 summary (`fig_lfo_channels`): the channel lane labels are 6 pt instead of 5 pt.
+- **Added** `writeup/edits/SUPP_V8_EDITS_2026-11-08.md`: every proposed edit to Supplement V8, word for word, plus five open decisions. The edit list's item S4 was wrong: the Fig. S3 pages are 12 different nights with copied captions, not duplicates.
 - **Changed** `writeup/edits/v18_tracked/edits_text.py`: the Acknowledgement paragraph (P254) is back to V18, with no Funding, Conflicts of interest or Ethics statement sections, at Aditya's request. The tracked copy was rebuilt with the redrawn Figs. 6–11.
 
 ## 2026-11-07

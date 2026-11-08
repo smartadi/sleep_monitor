@@ -678,7 +678,7 @@ def fig_lfo_channels(nights_by_ch):
             ax.pcolormesh(np.r_[tt - dt / 2, tt[-1] + dt / 2], [y, y + lane_h], v,
                           cmap=cmap, norm=norm, shading='flat', zorder=2, rasterized=True)
             if i == 0:
-                ax.text(tt[-1] + 3 * dt, y + lane_h / 2, ch, fontsize=5, va='center',
+                ax.text(tt[-1] + 3 * dt, y + lane_h / 2, ch, fontsize=6, va='center',
                         ha='left', color='0.3')
             tmax = max(tmax, tt[-1] + dt / 2)
     ax.set_yticks(yticks, labels)

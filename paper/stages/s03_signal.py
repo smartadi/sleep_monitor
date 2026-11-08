@@ -205,7 +205,9 @@ def _nice_ticks(lo, hi, nbins=5):
 @style.paper
 def fig_snr(pooled):
     """Fig S3: grouped bars, one group per recording, three raw channels."""
-    fig, ax = style.subplots(1, 1, style.COL1_MM, 56, layout='constrained')
+    # full width since 2026-11-08: at the bigger text size twelve recording labels overrun
+    # a one-column axis (the supplement places it full width anyway)
+    fig, ax = style.subplots(1, 1, style.COL2_MM, 70, layout='constrained')
     x = np.arange(len(LABELS))
     ax.xaxis.update_units(np.asarray(LABELS))   # a categorical axis, one tick per recording
     w = 0.26

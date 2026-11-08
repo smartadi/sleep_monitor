@@ -635,14 +635,16 @@ def fig5(lowband_night, s=None, channel=FIG5_CHANNEL, stage=STAGE):
     r = lowband_night
     lfo_pct = 100 * r['keep'].mean()
 
-    fig = style.figure(style.COL2_MM, 112, layout='constrained')
-    gs = fig.add_gridspec(3, 1, height_ratios=[0.32, 1.0, 0.72])
+    # 2026-11-08: taller stage strip and a short "Stage" label, so the bigger bold text
+    # (style.PAPER_RC) keeps the label clear of panel letter (a)
+    fig = style.figure(style.COL2_MM, 118, layout='constrained')
+    gs = fig.add_gridspec(3, 1, height_ratios=[0.42, 1.0, 0.72])
     ax0 = fig.add_subplot(gs[0])
-    draw_stage_ladder(ax0, s.sleep_profile, fontsize=6)
+    draw_stage_ladder(ax0, s.sleep_profile, fontsize=plt.rcParams['ytick.labelsize'] - 2)
     ax0.grid(False)
     for ln in ax0.lines:
         ln.set_linewidth(0.6)
-    ax0.set_ylabel('Sleep stage')
+    ax0.set_ylabel('Stage')
     ax0.tick_params(labelbottom=False)
     ax0.set_title(f'{s.label}, sleep stages')
 
@@ -650,10 +652,11 @@ def fig5(lowband_night, s=None, channel=FIG5_CHANNEL, stage=STAGE):
     f1, t1, db1 = enhance_spec(sig, s.fs)
     ax1.pcolormesh(t1 / 3600, f1, db1, shading='gouraud', cmap='magma',
                    vmin=0, vmax=np.percentile(db1, 99.5), rasterized=True)
+    # tracker confidence in brackets; the long "tracker confidence" wording ran into the title
     ax1.plot(t_resp, resp_tr, color=TRACE_COLOR['resp'], lw=0.9,
-             label=f'Respiratory, tracker confidence {resp_p:.0%}')
+             label=f'Respiratory ({resp_p:.0%})')
     ax1.plot(t_card, card_tr, color=TRACE_COLOR['card'], lw=0.9,
-             label=f'Cardiac, {card_p:.0%}')
+             label=f'Cardiac ({card_p:.0%})')
     ax1.set_ylim(0, 3.0)
     ax1.set_yticks(np.arange(0, 3.0 + 0.5, 1.0))
     ax1.set_ylabel('Frequency (Hz)')

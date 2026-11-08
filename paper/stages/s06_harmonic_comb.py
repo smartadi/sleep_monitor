@@ -669,7 +669,9 @@ def fig8(fig8_data, channels, name):
         ax.set_yticks(np.arange(0, FMAX + 1e-9, 1.0))
         ax.set_ylabel('Frequency (Hz)')
         ax.set_title(ch)
-        _colorbar(fig, mesh, ax, 'Power above local floor (dB)')
+        # stacked panels are too short for the one-line label at the 2026-11-08 text size
+        _colorbar(fig, mesh, ax, 'Power above local floor (dB)' if n == 1
+                  else 'Power above\nlocal floor (dB)')
 
     # Time axis: drawn once, under the bottom spectrogram. The spectrogram is an image,
     # so its axis line runs the image's full extent (0 to the end of the recording)
