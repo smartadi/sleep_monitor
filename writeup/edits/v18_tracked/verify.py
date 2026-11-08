@@ -1,12 +1,14 @@
 """Check the tracked copy: accepted view == intended markup, rejected view == original.
 
-Usage: python verify.py <orig_unpacked> <out_unpacked>
+Usage: python verify.py <orig_unpacked> <out_unpacked> [edits_module]
 """
-import sys
+import importlib, sys
 from pathlib import Path
 from lxml import etree
 sys.path.insert(0, str(Path(__file__).parent))
-from edits_text import EDITS, NEW_PARAS
+MOD = importlib.import_module(sys.argv[3] if len(sys.argv) > 3 else 'edits_text')
+EDITS, NEW_PARAS, FIGURES = MOD.EDITS, MOD.NEW_PARAS, MOD.FIGURES
+DELETE_PARAS = getattr(MOD, 'DELETE_PARAS', [])
 
 W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
 q = lambda t: f'{{{W}}}{t}'
@@ -38,6 +40,8 @@ def view(p, mode):
                 seq.append(('\t', f))
             elif n == 'drawing':
                 seq.append(('[IMG]', ('', False, False)))
+            elif n == 'br':
+                seq.append(('[BR]', ('', False, False)))
     s, cur = [], ('', False, False)
     for c, f in seq:
         if f != cur:
@@ -75,20 +79,22 @@ for i, (po, pn) in enumerate(zip(OP, kept)):
         else:
             want = view(po, 'new')
             for a, b in spec[2]: want = want.replace(a, b)
-        if i == 236 or i in (198, 205, 213, 219, 229):
-            new = new.replace('[IMG]', '', 2) if new.count('[IMG]') else new
-            want = want.replace('[IMG]', '')
-        if new.replace('[IMG]', '') != want.replace('[IMG]', ''):
+        strip = lambda x: x.replace('[IMG]', '').replace('[BR]', '')
+        new, want = strip(new), strip(want)
+        if new != want:
             bad += 1
             import difflib
             sm = difflib.SequenceMatcher(None, want, new)
             print(f'ACCEPTED VIEW DIFFERS P{i}')
             for t, a1, a2, b1, b2 in sm.get_opcodes():
                 if t != 'equal': print('   ', t, repr(want[max(0,a1-20):a2+20]), '->', repr(new[max(0,b1-20):b2+20]))
-    elif i not in EDITS and view(po, 'new') != view(pn, 'new'):
+    elif i in DELETE_PARAS:
+        if view(pn, 'new') != '' or 'del' not in para_marks(pn):
+            bad += 1; print(f'DELETED PARAGRAPH NOT EMPTY P{i}: {view(pn, "new")[:80]!r}')
+    elif view(po, 'new') != view(pn, 'new'):
         bad += 1; print(f'UNEDITED PARAGRAPH CHANGED P{i}')
 # figures: accepted view has one image, rejected has one image
-for i in (198, 205, 213, 219, 229, 236):
+for i in FIGURES:
     pn = kept[i]
     assert view(pn, 'new').count('[IMG]') == 1 and view(pn, 'old').count('[IMG]') == 1, i
 ins_paras = [p for p in NP if 'ins' in para_marks(p)]

@@ -2,6 +2,8 @@
 
 *2026-11-08. Source: `data/CAP_sleep_mask_manuscript supplementary V8.docx` (34 pages, no tracked changes). The tracked copy will be a separate file, with every change tracked under "Aditya Deole". The source stays untouched. **Now** is the V8 text; **New** is what the copy will say. C<sub>LE</sub> etc. are real subscripts in Word. [Pn] is the paragraph number, for cross-checking only.*
 
+**Decided 2026-11-08 (Aditya): all five recommendations (Q1a, Q2a, Q3a, Q4a, Q5a).** Built as `OneDrive\CAP_sleep_mask_manuscript supplementary V8_aditya_tracked.docx` from `v18_tracked/supp_edits.py` (178 revisions by "Aditya Deole"); the manuscript copy was rebuilt with the B20 renumbering.
+
 ---
 
 ## Part A · Five decisions (my recommendation first)
@@ -141,7 +143,7 @@ Unchanged apart from its number (→ **Fig. S14**). Its sentence already says th
 - Number → **Fig. S16**.
 
 ### B19 · Statistical analysis [P174]
-Replaced with the Q3 text.
+Replaced with the Q3 text, with its figure numbers renumbered for Q2a: "Fig. S14" → "Fig. S13" (associations) and "Fig. S15" → "Fig. S14" (ridge features).
 
 ### B20 · Manuscript copy, renumbering only (Q2a)
 | Paragraph | Now | New |

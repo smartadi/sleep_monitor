@@ -1,15 +1,21 @@
-"""Build a tracked-changes copy of the V18 manuscript from edits_text.py.
+"""Build a tracked-changes copy of a docx from an edits module.
 
-Usage: python build.py <unpacked_dir_in> <unpacked_dir_out> <repo_root>
+Usage: python build.py <unpacked_dir_in> <unpacked_dir_out> <repo_root> [edits_module]
+edits_module defaults to edits_text (the V18 manuscript); supp_edits is the supplement.
 The input directory is the user's docx unzipped, untouched. Only the listed paragraphs
 are rebuilt; every other byte of document.xml stays as it was.
 """
-import copy, difflib, re, shutil, struct, sys
+import copy, difflib, importlib, re, shutil, struct, sys
 from pathlib import Path
 from lxml import etree
 
 sys.path.insert(0, str(Path(__file__).parent))
-from edits_text import EDITS, DELETE_MARK, NEW_PARAS, FIGURES
+MOD = importlib.import_module(sys.argv[4] if len(sys.argv) > 4 else 'edits_text')
+EDITS, NEW_PARAS, FIGURES = MOD.EDITS, MOD.NEW_PARAS, MOD.FIGURES
+DELETE_MARK = getattr(MOD, 'DELETE_MARK', [])
+DELETE_PARAS = getattr(MOD, 'DELETE_PARAS', [])   # whole paragraphs removed: every run and the mark
+NO_ABSORB = set(getattr(MOD, 'NO_ABSORB', ()))     # paragraphs tracked token by token (e.g. author lines)
+ABSORB = [True]
 
 W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
 R = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
@@ -33,7 +39,7 @@ body = root.find(q('body'))
 PS = list(body.iter(q('p')))
 
 _ids = [int(x) for x in re.findall(r'w:id="(-?\d+)"', docpath.read_text(encoding='utf8'))]
-_next = [max(_ids) + 1000]
+_next = [max(_ids, default=0) + 1000]
 def nid():
     _next[0] += 1
     return str(_next[0])
@@ -110,7 +116,7 @@ def atoms_of(p):
                         for ch in (x.text or ''): out.append(Atom('c', ch, None, rp, cont))
                     elif m == 'tab':
                         out.append(Atom('c', '\t', None, rp, cont))
-                    elif m in ('fldChar', 'instrText', 'drawing'):
+                    elif m in ('fldChar', 'instrText', 'drawing', 'br'):
                         out.append(Atom('o', None, x, rp, cont))
                     else:
                         raise ValueError(f'unhandled run child {m}')
@@ -188,7 +194,7 @@ def opcodes(a_keys, b_keys, protected=frozenset()):
             o = ops[k]
             if o[0] == 'equal' and ops[k-1][0] != 'equal' and ops[k+1][0] != 'equal':
                 words = [t for t in a_keys[o[1]:o[2]] if t[0].strip()]
-                if len(words) <= 3 and not any(t in protected for t in range(o[1], o[2])):
+                if ABSORB[0] and len(words) <= 3 and not any(t in protected for t in range(o[1], o[2])):
                     o[0] = 'replace'; changed = True
         merged = []
         for o in ops:
@@ -417,7 +423,7 @@ def rewrite(p, new_markup, guard):
 def apply_subs(p, subs, guard):
     chars = [a for a in atoms_of(p) if a.kind == 'c']
     m = markup_of(chars)
-    assert m.startswith(guard), (guard, m[:40])
+    assert m.startswith(guard) or ''.join(a.ch for a in chars).startswith(guard), (guard, m[:40])
     for a, b in subs:
         assert m.count(a) == 1, (a, m)
         m = m.replace(a, b)
@@ -434,6 +440,18 @@ def mark_para(p, kind):
         if tail: tail[0].addprevious(rpr)
         else: ppr.append(rpr)
     rpr.insert(0, track(kind))
+
+def delete_para(p):
+    """Track-delete a whole paragraph: wrap every run in w:del and delete the paragraph mark."""
+    for r in list(p.iter(q('r'))):
+        if any(LN(a) in ('ins', 'del') for a in r.iterancestors()): raise ValueError('already tracked')
+        for e in r.findall(q('lastRenderedPageBreak')): r.remove(e)
+        for e in r:
+            if LN(e) == 't': e.tag = q('delText')
+            elif LN(e) == 'instrText': e.tag = q('delInstrText')
+        parent = r.getparent(); k = parent.index(r)
+        w = track('del'); parent.remove(r); w.append(r); parent.insert(k, w)
+    mark_para(p, 'del')
 
 def new_para(template_p, markup):
     np_ = etree.Element(q('p'))
@@ -533,10 +551,15 @@ for i, spec in sorted(EDITS.items()):
         new_m = apply_subs(p, spec[2], guard)
     else:
         new_m = spec[1]
+    ABSORB[0] = i not in NO_ABSORB
     old_m = rewrite(p, new_m, guard)
+    ABSORB[0] = True
     log.append((i, old_m == new_m))
 for i in DELETE_MARK:
     mark_para(PS[i], 'del')
+for i in DELETE_PARAS:
+    assert i not in EDITS and i not in DELETE_MARK
+    delete_para(PS[i])
 # new paragraphs, grouped by anchor so order is preserved
 by_anchor = {}
 for after, tmpl, m in NEW_PARAS:
@@ -553,4 +576,5 @@ tree.write(str(docpath), xml_declaration=True, encoding='UTF-8', standalone=True
 rels.write(str(rels_path), xml_declaration=True, encoding='UTF-8', standalone=True)
 for i, same in log:
     if same: print('WARNING: no change in paragraph', i)
-print('edited paragraphs:', len(log), '| new paragraphs:', len(NEW_PARAS), '| figures:', len(FIGURES))
+print('edited paragraphs:', len(log), '| new paragraphs:', len(NEW_PARAS), '| deleted paragraphs:',
+      len(DELETE_PARAS), '| figures:', len(FIGURES))
