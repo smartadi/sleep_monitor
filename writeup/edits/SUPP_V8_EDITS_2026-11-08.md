@@ -2,7 +2,7 @@
 
 *2026-11-08. Source: `data/CAP_sleep_mask_manuscript supplementary V8.docx` (34 pages, no tracked changes). The tracked copy will be a separate file, with every change tracked under "Aditya Deole". The source stays untouched. **Now** is the V8 text; **New** is what the copy will say. C<sub>LE</sub> etc. are real subscripts in Word. [Pn] is the paragraph number, for cross-checking only.*
 
-**Decided 2026-11-08 (Aditya): all five recommendations (Q1a, Q2a, Q3a, Q4a, Q5a).** Built as `OneDrive\CAP_sleep_mask_manuscript supplementary V8_aditya_tracked.docx` from `v18_tracked/supp_edits.py` (178 revisions by "Aditya Deole"); the manuscript copy was rebuilt with the B20 renumbering.
+**Decided 2026-11-08 (Aditya): all five recommendations (Q1a, Q2a, Q3a, Q4a, Q5a).** Built as `OneDrive\CAP_sleep_mask_manuscript supplementary V8_aditya_tracked.docx` from `v18_tracked/supp_edits.py` (182 revisions by "Aditya Deole"); the manuscript copy was rebuilt with the B20 renumbering.
 
 ---
 
