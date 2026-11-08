@@ -79,7 +79,7 @@ def fig7_causal_grid(tax, curves, nulls, n_subj, n_events):
 
     curves, nulls: {(ch, band): (n_subj, T)} per-subject means.
     """
-    fig, axes = style.subplots(len(BANDS), len(CHANNELS), style.COL2_MM, 104,
+    fig, axes = style.subplots(len(BANDS), len(CHANNELS), style.COL2_MM, 132,
                                layout='constrained', sharex=True)
     for i, bn in enumerate(BANDS):
         lo, hi = 0.0, 0.0                  # one y-scale per row: channels compare directly
@@ -100,7 +100,7 @@ def fig7_causal_grid(tax, curves, nulls, n_subj, n_events):
             if i == 0:
                 ax.set_title(ch, loc='center')
             if j == 0:
-                ax.set_ylabel(f'{bn.replace("-", "–")} Hz power (z)')
+                ax.set_ylabel(f'{bn.replace("-", "–")} Hz\npower (z)')
         yt = _ticks(lo, hi, nbins=6)
         for j in range(len(CHANNELS)):
             _set_ticks(axes[i, j], 'y', yt, sparse=True)
@@ -128,7 +128,8 @@ def fig12_kcomplex(lags, ev, null, eeg, table, peak_win, rng, latency_panel=True
     out and each channel's grand-average peak is marked on (a) and given in its legend
     entry (V18 edit 8: the latency claim rests on the grand average only)."""
     ch_color = {c: CAP_COLORS[c] for c in CHANNELS}
-    fig = style.figure(style.COL2_MM, 66, layout='constrained')
+    # taller without the latency panel (manuscript Fig. 8), so the key clears the traces
+    fig = style.figure(style.COL2_MM, 66 if latency_panel else 92, layout='constrained')
     gs = (fig.add_gridspec(1, 3, width_ratios=[1.35, 1.0, 1.05]) if latency_panel else
           fig.add_gridspec(1, 2, width_ratios=[1.45, 1.0]))
     w = (lags >= peak_win[0]) & (lags <= peak_win[1])
@@ -180,7 +181,7 @@ def fig12_kcomplex(lags, ev, null, eeg, table, peak_win, rng, latency_panel=True
         yl = _ticks(lo, hi, nbins=4)
     _set_ticks(ax, 'y', yl)
     ax.set_xlabel('Time from scored K-complex (s)')
-    ax.set_ylabel('Low-frequency SEC power (z, baselined)')
+    ax.set_ylabel('Low-frequency SEC\npower (z, baselined)')
     ax.legend(handles=handles, loc='upper left', handlelength=1.4)
     ax.spines[['left', 'bottom']].set_position(('outward', 3))       # corner labels apart
     style.spines_to_ticks(ax)
@@ -206,7 +207,7 @@ def fig12_kcomplex(lags, ev, null, eeg, table, peak_win, rng, latency_panel=True
     ax.set_xticks(x, names, rotation=90)
     ax.tick_params(axis='x', direction='out')    # category ticks stay out of the bars
     ax.set_xlim(-0.7, len(t) - 0.3)              # first bars clear the y ticks
-    ax.set_xlabel('Recording (number of K-complexes)')
+    ax.set_xlabel('Recording\n(number of K-complexes)')
     ax.set_ylabel('Peak response (z)')
     style.spines_to_ticks(ax, sides=('left',))
     style.panel_label(ax, 'c' if latency_panel else 'b')
@@ -232,9 +233,9 @@ def _latency_panel(ax, lags, ev, w, peak_win, ch_color, rng):
         ax.plot([med, med], [i - 0.32, i + 0.32], color=ch_color[ch], lw=1.5,
                 solid_capstyle='butt', zorder=4)
         ax.text(med, i + 0.36, f'Median {med:.1f} s', ha='center', va='bottom',
-                fontsize=6, color=ch_color[ch])
+                fontsize=plt.rcParams['legend.fontsize'], color=ch_color[ch])
     ax.axvline(0, **EVENT_STYLE)
-    ax.text(0.2, -0.62, 'Electrical pickup would sit here', fontsize=6,
+    ax.text(0.2, -0.62, 'Electrical pickup would sit here', fontsize=plt.rcParams['legend.fontsize'],
             color=EVENT_STYLE['color'], ha='left', va='center')
     ax.set_yticks(range(len(CHANNELS)), CHANNELS)
     for lab, ch in zip(ax.get_yticklabels(), CHANNELS):

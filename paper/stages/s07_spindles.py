@@ -579,8 +579,9 @@ def _tint(color, a):
 def make_figure(per_session, pooled, arrays):
     import matplotlib.pyplot as plt
     from matplotlib.legend_handler import HandlerTuple
-    fig = style.figure(style.COL2_MM, 66, layout='constrained')
-    gs = fig.add_gridspec(1, 3, width_ratios=[1.1, 1.0, 1.35])
+    # Two rows (a, b over c) so the bold 10 pt text and the keys fit beside the data.
+    fig = style.figure(style.COL2_MM, 128, layout='constrained')
+    gs = fig.add_gridspec(2, 2, height_ratios=[1.0, 0.8])
     low_txt = f'{LOW[0]:g}–{LOW[1]:g} Hz'
     sig_txt = f'σ {SIGMA[0]:g}–{SIGMA[1]:g} Hz'
     t_show = 6.0                                   # s either side of the centre, shown
@@ -610,9 +611,10 @@ def make_figure(per_session, pooled, arrays):
     style.reference_line(ax, x=0)
     style.reference_line(ax, y=0)
     ax.set_xlabel('Time from spindle centre (s)')
-    ax.set_ylabel(f'{low_txt} power (dB re own baseline)')
+    ax.set_ylabel(f'{low_txt} power\n(dB re own baseline)')
     ax.set_title('Spindle-centred average')
-    ax.legend(loc='lower right', borderaxespad=0, borderpad=0, handlelength=1.2)
+    ax.legend(loc='lower right', ncol=2, columnspacing=1.0, borderaxespad=0, borderpad=0,
+              handlelength=1.2)
 
     # B: per-spindle change, low band vs sigma, CH, all spindles pooled
     ax = fig.add_subplot(gs[0, 1])
@@ -646,13 +648,13 @@ def make_figure(per_session, pooled, arrays):
                     'Mean, median (dB)'],
               handler_map={tuple: HandlerTuple(ndivide=None, pad=0.3)},
               loc='upper left', borderaxespad=0, borderpad=0, handlelength=1.6)
-    ax.text(1, y_line, f'{100 * np.mean(db_low > 0):.1f}% above\nown baseline\n'
-            f'(chance {100 * SIGN_CHANCE:.0f}%)', transform=ax.get_yaxis_transform(),
+    ax.text(1, 1, f'{100 * np.mean(db_low > 0):.1f}% above\nown baseline\n'
+            f'(chance {100 * SIGN_CHANCE:.0f}%)', transform=ax.transAxes,
             ha='right', va='top', fontsize=plt.rcParams['legend.fontsize'],
             color=COLORS['CH'])
 
     # C: per-recording mean change per channel, medians as ticks
-    ax = fig.add_subplot(gs[0, 2])
+    ax = fig.add_subplot(gs[1, :])
     labels = per_session['session'].tolist()
     x = np.arange(len(labels))
     ax.xaxis.update_units(labels)                  # a categorical axis: the recordings
@@ -680,7 +682,7 @@ def make_figure(per_session, pooled, arrays):
         ax.set_xticks(x, labels, rotation=90)
     ax.set_xlim(-0.6, len(labels) - 0.4)
     _set_axis(ax, 'y', lo, hi, nbins=8, every=2)
-    ax.set_ylabel(f'{low_txt} power change (dB)')
+    ax.set_ylabel(f'{low_txt} power\nchange (dB)')
     ax.set_title('Per-recording change')
     ax.legend([tuple(bars), plt.Line2D([], [], ls='', marker='_', ms=3, mew=0.8, color='k')],
               ['Mean', 'Median'], handler_map={tuple: HandlerTuple(ndivide=None, pad=0)},

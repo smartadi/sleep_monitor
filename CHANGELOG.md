@@ -4,6 +4,17 @@ Records all code changes to library modules, scripts, and notebooks.
 
 ---
 
+## 2026-11-08
+
+- **Changed** `paper/seclib/style.py`: figure text is bigger and bold, closer to the professor's V18 figures. Labels and titles went from 7 to 10 pt, ticks and legends from 6 to 9 pt, and panel letters from 8 to 12 pt and in brackets, "(a)". All text is bold, mathtext included. This applies to every figure drawn with `@style.paper`; only Figs. 6–11 were re-laid out and checked.
+- **Changed**: layouts so the bigger text fits. Data, panels and wording are unchanged; only line breaks were added.
+  - Fig. 6 (`s07_spindles.make_figure`): two rows, with (a) and (b) on top and (c) full width below. (a)'s key is in two columns, and (b)'s "% above own baseline" note sits at the top right.
+  - Fig. 7 (`fig7_causal_grid`): 132 mm tall, and the row labels wrap onto two lines.
+  - Fig. 8 (`fig12_kcomplex`, `latency_panel=False`): 92 mm tall, and the y-label and (b)'s x-label wrap onto two lines.
+  - Figs. 10–11 (`s09`): 72 mm and 82 mm tall, and the long titles and axis labels wrap. The ρ/ICC note follows the legend size instead of a fixed 6 pt.
+  - The latency panel's fixed 6 pt notes follow the legend size.
+- **Changed** `writeup/edits/v18_tracked/edits_text.py`: the Acknowledgement paragraph (P254) is back to V18, with no Funding, Conflicts of interest or Ethics statement sections, at Aditya's request. The tracked copy was rebuilt with the redrawn Figs. 6–11.
+
 ## 2026-11-07
 
 - **Added** `writeup/edits/v18_tracked/` (`edits_text.py`, `build.py`, `verify.py`): builds a tracked-changes copy of the user's V18 manuscript from §3.4 to the end. The user's own revisions are kept, and every new edit is a word-level `w:ins`/`w:del` by "Aditya Deole". EndNote citation fields and hyperlinks are kept, Figs. 6–11 are swapped as tracked image changes (uncropped), and the Muse reference is inserted as no. 32 with 32–34 renumbered. `verify.py` checks that rejecting all changes gives back the source text and that accepting them gives the intended text; the docx skill validator passes. Output: `OneDrive\CAP_sleep_mask_manuscript_V18_aditya_tracked.docx` (436 revisions; the source file is untouched).

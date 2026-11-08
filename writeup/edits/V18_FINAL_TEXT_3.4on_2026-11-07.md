@@ -4,6 +4,8 @@
 
 *Built 2026-11-07 as `OneDrive\CAP_sleep_mask_manuscript_V18_aditya_tracked.docx`. Everything from §3.4 on is a tracked change by "Aditya Deole". Your own revisions are kept unchanged, and the file has no comments or tags. The source `CAP_sleep_mask_manuscript_V18_aditya.docx` was not modified. The scripts are in `writeup/edits/v18_tracked/`. The paragraph-by-paragraph text below is what went in.*
 
+*Rebuilt 2026-11-08: the Acknowledgement paragraph is back to V18 (no Funding, Conflicts of interest or Ethics statement sections), and Figs. 6–11 were redrawn with bold text at about 1.5× the earlier size and "(a)" panel labels, to match the professor's figures.*
+
 *In this sheet C_LE, C_RE and C_H stand for the subscripted channel names, as Word shows them. The difference channel is written C_LE − C_RE, with a true minus and no parentheses (D3).*
 
 ---
@@ -36,7 +38,7 @@
 - **Limitations (added while building):** "reported without p-values" was dropped, because the two rms sentences kept in §3.9 (Q3) still give p.
 - **Discussion ¶1:** the "(C)rms vs PSG-measured SWA" sentence is still deleted (point 79). The code shows that this "SWA duration" is the hand-measured LFO duration, not PSG staging. Reject that one deletion in Word if the professor wants it back.
 
-**Not covered here:** anything before §3.4, and the Supplement (Supp V8). Two things in your sections connect to this part. The IRB sentence is in both 2.2 and the new Ethics statement (87c). "Quiet, motion-free baseline" in 2.6 should become "quiet in EEG delta" (point 62).
+**Not covered here:** anything before §3.4, and the Supplement (Supp V8). Two things in your sections connect to this part. The IRB sentence is in both 2.2 and the Acknowledgement paragraph. "Quiet, motion-free baseline" in 2.6 should become "quiet in EEG delta" (point 62).
 
 ---
 
@@ -185,14 +187,7 @@ The [check] resolves: the redrawn image shows exactly two events.
 
 ### Acknowledgement and declarations
 
-**P249 (87) →** four short sections in place of one paragraph (no Data and code availability statement, Q9):
-> **Acknowledgement.** The opinions and assertions expressed herein are those of the author(s) and do not reflect the official policy or position of the Uniformed Services University of the Health Sciences or the Department of Defense.
->
-> **Funding.** SK, KC, and JC acknowledge partial support from the TriService Nursing Research Program (TSNRP) and the Center for the Study of Traumatic Stress (CSTS).
->
-> **Conflicts of interest.** No authors or authors' family members have a financial interest in any commercial product, service, or organization providing financial support for this research.
->
-> **Ethics statement.** This research protocol was reviewed and approved by the Institutional Review Board (IRB) at the University of Washington (STUDY00018275: CPC-sleep study).
+**P249 (87) →** unchanged from V18 (one Acknowledgement paragraph). The split into Acknowledgement, Funding, Conflicts of interest and Ethics statement was reverted on 2026-11-08 at your request. No Data and code availability statement (Q9).
 
 
 ### References

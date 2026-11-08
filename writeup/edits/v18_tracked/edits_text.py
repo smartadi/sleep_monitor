@@ -107,8 +107,8 @@ EDITS = {
 251: ("We evaluated a wearable SEC",
 "We evaluated a wearable SEC sleep mask in 12 overnight home recordings from six adults, using simultaneous PSG as a reference. SEC signals captured respiratory and cardiac rhythms above the electronic noise floor, recurrent LFO, and slower baseline changes. Head position contributed to abrupt baseline shifts. NREM sleep showed higher relative low-frequency spectral power and a less negative aperiodic slope than wakefulness, and SEC band power was lower in N3. Event-aligned analyses showed, on average, increased low-frequency SEC power at the centers of 14,265 N2 spindles. SEC power also rose after 344 EEG delta-burst onsets, most of them arousal-associated, and after 50 automatically marked K-complexes, peaking about 4–8 s and about 4 s later, respectively. Because the responses lagged the EEG events, they are more consistent with a mechanical or hemodynamic origin than with direct detection of cortical electrical activity. Intermittent multi-band events occurred mainly in N2, and SEC variance showed stage-dependent differences and moderate night-to-night consistency. Together, the findings support the feasibility of overnight SEC monitoring and provide a foundation for larger studies with direct physiological reference measurements."),
 
-254: ("SK, KC, and JC acknowledge",
-"The opinions and assertions expressed herein are those of the author(s) and do not reflect the official policy or position of the Uniformed Services University of the Health Sciences or the Department of Defense."),
+# P254 (Acknowledgement) stays as V18 has it: the Funding / Conflicts of interest /
+# Ethics statement split was reverted on 2026-11-08 at Aditya's request.
 
 # References (V18 numbering)
 258: ("3.\tAlhola", None, [("*{Neuropsychiatric disease and treatment}", "*{Neuropsychiatric Disease and Treatment}")]),
@@ -140,12 +140,6 @@ DELETE_MARK = [286]
 
 # New paragraphs: (insert_after_index, template_index, markup)
 NEW_PARAS = [
-    (254, 253, "**{Funding}"),
-    (254, 254, "SK, KC, and JC acknowledge partial support from the TriService Nursing Research Program (TSNRP) and the Center for the Study of Traumatic Stress (CSTS)."),
-    (254, 253, "**{Conflicts of interest}"),
-    (254, 254, "No authors or authors’ family members have a financial interest in any commercial product, service, or organization providing financial support for this research."),
-    (254, 253, "**{Ethics statement}"),
-    (254, 254, "This research protocol was reviewed and approved by the Institutional Review Board (IRB) at the University of Washington (STUDY00018275: CPC-sleep study)."),
     (288, 289, "32.\tInteraxon Inc. Muse S headband. Toronto, Canada: Interaxon Inc. Data recorded with Mind Monitor (mobile application), https://mind-monitor.com."),
 ]
 

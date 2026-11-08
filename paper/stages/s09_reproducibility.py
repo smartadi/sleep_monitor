@@ -474,7 +474,7 @@ def _stat(ax, text, loc='upper left'):
     vert, horiz = loc.split()
     x, ha = (0.03, 'left') if horiz == 'left' else (0.97, 'right')
     y, va = (0.97, 'top') if vert == 'upper' else (0.03, 'bottom')
-    ax.text(x, y, text, transform=ax.transAxes, ha=ha, va=va, fontsize=6)
+    ax.text(x, y, text, transform=ax.transAxes, ha=ha, va=va, fontsize=plt.rcParams['legend.fontsize'])
 
 
 def _subject_legend(fig, nights=False):
@@ -502,7 +502,7 @@ def _square(ax, lo, hi):
 
 
 FIG10_TITLE = {'dur_above_pct': f'Time above {HEADLINE:g} {CAP_UNIT_SQ}',
-               'pct_above_10x_median': 'Time above 10× night median',
+               'pct_above_10x_median': 'Time above 10×\nnight median',
                'night_median_fF2': 'Median variance'}
 FIG10_UNIT = {'dur_above_pct': '% of night', 'pct_above_10x_median': '% of night',
               'night_median_fF2': CAP_UNIT_SQ}
@@ -510,7 +510,7 @@ FIG10_UNIT = {'dur_above_pct': '% of night', 'pct_above_10x_median': '% of night
 
 @style.paper
 def fig10(night, rep):
-    fig, axes = style.subplots(1, 3, style.COL2_MM, 66, layout='constrained')
+    fig, axes = style.subplots(1, 3, style.COL2_MM, 72, layout='constrained')
     for ax, letter, (key, _) in zip(axes, 'abc', FIG10):
         w = night.pivot(index='subject', columns='night', values=key)
         for subj, r in w.iterrows():
@@ -551,17 +551,17 @@ def _rho(night, x, y):
 
 FIG11 = [  # x, y, title, x label, y label, stat corner
     ('idx_respiratory', 'impulses_per_hour', 'Respiratory arousals',
-     'Respiratory arousal index (per h of sleep)', 'Impulse frequency (per h)', 'upper left'),
+     'Respiratory arousal index\n(per h of sleep)', 'Impulse frequency (per h)', 'upper left'),
     ('psqi', 'osc_pct', 'LFO ridge duration', 'PSQI',
-     'LFO ridge duration (% of night)', 'lower left'),
+     'LFO ridge duration\n(% of night)', 'lower left'),
     ('psqi', 'dur_above_pct', f'Time above {HEADLINE:g} {CAP_UNIT_SQ}', 'PSQI',
-     f'Time above {HEADLINE:g} {CAP_UNIT_SQ} (% of night)', 'upper right'),
+     f'Time above {HEADLINE:g} {CAP_UNIT_SQ}\n(% of night)', 'upper right'),
 ]
 
 
 @style.paper
 def fig11(night):
-    fig, axes = style.subplots(1, 3, style.COL2_MM, 62, layout='constrained')
+    fig, axes = style.subplots(1, 3, style.COL2_MM, 82, layout='constrained')
     for ax, letter, (x, y, title, xl, yl, corner) in zip(axes, 'abc', FIG11):
         _participants(ax, night, x, y)
         if x == 'psqi':

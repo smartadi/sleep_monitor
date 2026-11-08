@@ -7,8 +7,12 @@ pipeline does not depend on a private repository. The lab's figure checks
 
 Sizes. SLEEP asks for figures at their final size and >= 300 dpi, with legible type and
 no excess white space; its instructions give no column width, so we use OUP's usual
-86 mm (one column) and 178 mm (two columns). Text: 7 pt labels, 6 pt tick labels,
-8 pt bold lower-case panel letters, never below 5 pt.
+86 mm (one column) and 178 mm (two columns).
+
+Text (2026-11-08, closer to the professor's V18 figures): all text bold, 10 pt labels
+and titles, 9 pt tick labels and legends, 12 pt panel letters in brackets, "(a)". A 178 mm
+figure sits about 6 in wide in the manuscript, so these print at roughly 8.5, 7.7 and
+10 pt. The earlier journal sizes were 7 / 6 / 8 pt, regular weight.
 
 Use
     from seclib import style
@@ -51,15 +55,16 @@ PAPER_RC = {
     'figure.constrained_layout.h_pad': 0.02, 'figure.constrained_layout.w_pad': 0.02,
     'font.family': 'sans-serif',
     'font.sans-serif': ['Arial', 'Helvetica', 'Liberation Sans', 'DejaVu Sans'],
-    'font.size': 7, 'axes.titlesize': 7, 'axes.labelsize': 7, 'legend.fontsize': 6,
-    'xtick.labelsize': 6, 'ytick.labelsize': 6,
-    'mathtext.fontset': 'custom', 'mathtext.rm': 'Arial', 'mathtext.it': 'Arial:italic',
-    'mathtext.bf': 'Arial:bold',
+    'font.size': 10, 'axes.titlesize': 10, 'axes.labelsize': 10, 'legend.fontsize': 9,
+    'xtick.labelsize': 9, 'ytick.labelsize': 9,
+    'font.weight': 'bold', 'axes.labelweight': 'bold', 'figure.titleweight': 'bold',
+    'mathtext.fontset': 'custom', 'mathtext.rm': 'Arial:bold',
+    'mathtext.it': 'Arial:italic:bold', 'mathtext.bf': 'Arial:bold',
     'pdf.fonttype': 42, 'ps.fonttype': 42, 'svg.fonttype': 'none',
     'lines.linewidth': 1.0, 'lines.markersize': 3,
     'axes.linewidth': 1.0, 'axes.titlepad': 4, 'axes.labelpad': 2,
     'axes.spines.top': False, 'axes.spines.right': False,
-    'axes.formatter.useoffset': False, 'axes.titleweight': 'normal',
+    'axes.formatter.useoffset': False, 'axes.titleweight': 'bold',
     'axes.titlelocation': 'left',
     'xtick.direction': 'in', 'ytick.direction': 'in',
     'xtick.major.size': 3, 'ytick.major.size': 3,
@@ -120,9 +125,10 @@ def label_end_ticks(ax, axis='y'):
     return ax
 
 
-def panel_label(ax, letter, dx_pt=-12, dy_pt=4, fontsize=8):
-    """Bold lower-case panel letter at the top left of `ax`, offset in points."""
-    return ax.annotate(letter, gid=PANEL_LABEL_GID, xy=(0, 1), xycoords='axes fraction',
+def panel_label(ax, letter, dx_pt=-12, dy_pt=4, fontsize=12):
+    """Bold lower-case panel letter in brackets, "(a)", at the top left of `ax`,
+    offset in points."""
+    return ax.annotate(f'({letter})', gid=PANEL_LABEL_GID, xy=(0, 1), xycoords='axes fraction',
                        xytext=(dx_pt, dy_pt), textcoords='offset points', ha='right',
                        va='bottom', fontsize=fontsize, fontweight='bold',
                        annotation_clip=False)
